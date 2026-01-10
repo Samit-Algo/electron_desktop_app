@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vision AI Dashboard - Phoenix</title>
+    
+    <!-- Layout Loader - Must be loaded early -->
+    <script src="../custom_js/layout-loader.js"></script>
+</head>
+<body>
+    <!-- Page Content Container - This will be replaced by layout loader -->
+    <div id="page-content" style="display:none;">
+        <div class="content">
+            <!-- Page Header -->
+            <div class="row gy-3 mb-4 justify-content-between">
+                <div class="col-12">
+                    <h2 class="mb-2 text-body-emphasis">Vision AI Dashboard</h2>
+                    <h5 class="text-body-tertiary fw-semibold mb-4">Real-time monitoring and intelligent surveillance system</h5>
+                </div>
+            </div>
+
+            <!-- Top Statistics Cards - Phase 1 -->
+            <div class="row g-3 mb-4">
+                <!-- Card 1: Total Cameras -->
+                <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-3">
+                    <div class="card">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="d-flex align-items-start">
+                                    <div class="d-flex align-items-center icon-wrapper-sm shadow-primary-100 me-2" style="transform: rotate(-7.45deg);">
+                                        <span class="fa-solid fa-video text-primary fs-7 z-1 ms-2"></span>
+                                    </div>
+                                    <div>
+                                        <p class="text-body-tertiary fs-9 mb-1">Total Cameras</p>
+                                        <p class="text-primary mb-0 fs-5 fw-bold">
+                                            12 <span class="fs-8 text-body fw-normal">Active</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column align-items-end">
+                                    <span class="badge badge-phoenix badge-phoenix-success fs-10 mb-1">10 Online</span>
+                                    <span class="text-body-tertiary fs-9">2 Offline</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Active AI Agents -->
+                <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-3">
+                    <div class="card">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="d-flex align-items-start">
+                                    <div class="d-flex align-items-center icon-wrapper-sm shadow-info-100 me-2" style="transform: rotate(-7.45deg);">
+                                        <span class="fa-solid fa-robot text-info fs-7 z-1 ms-2"></span>
+                                    </div>
+                                    <div>
+                                        <p class="text-body-tertiary fs-9 mb-1">Active AI Agents</p>
+                                        <p class="text-info mb-0 fs-5 fw-bold">
+                                            8 <span class="fs-8 text-body fw-normal">Monitoring</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column align-items-end">
+                                    <span class="badge badge-phoenix badge-phoenix-info fs-10 mb-1">+2 Today</span>
+                                    <span class="text-body-tertiary fs-9">6 Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Incidents Today -->
+                <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-3">
+                    <div class="card">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="d-flex align-items-start">
+                                    <div class="d-flex align-items-center icon-wrapper-sm shadow-danger-100 me-2" style="transform: rotate(-7.45deg);">
+                                        <span class="fa-solid fa-triangle-exclamation text-danger fs-7 z-1 ms-2"></span>
+                                    </div>
+                                    <div>
+                                        <p class="text-body-tertiary fs-9 mb-1">Incidents Today</p>
+                                        <p class="text-danger mb-0 fs-5 fw-bold">
+                                            15 <span class="fs-8 text-body fw-normal">Total</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column align-items-end">
+                                    <span class="badge badge-phoenix badge-phoenix-danger fs-10 mb-1">3 Critical</span>
+                                    <span class="text-body-tertiary fs-9">12 Violations</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Objects Detected -->
+                <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-3">
+                    <div class="card">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="d-flex align-items-start">
+                                    <div class="d-flex align-items-center icon-wrapper-sm shadow-success-100 me-2" style="transform: rotate(-7.45deg);">
+                                        <span class="fa-solid fa-eye text-success fs-7 z-1 ms-2"></span>
+                                    </div>
+                                    <div>
+                                        <p class="text-body-tertiary fs-9 mb-1">Objects Detected</p>
+                                        <p class="text-success mb-0 fs-5 fw-bold">
+                                            1,247 <span class="fs-8 text-body fw-normal">Today</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column align-items-end">
+                                    <span class="badge badge-phoenix badge-phoenix-success fs-10 mb-1">+18.2%</span>
+                                    <span class="text-body-tertiary fs-9">Than</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Latest Events (Cards) -->
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h3 class="mb-1 text-body-emphasis">
+                                <span class="fa-solid fa-bell text-danger me-2"></span>Latest Events
+                            </h3>
+                            <p class="text-body-tertiary mb-0 fs-9">Most recent alerts across all cameras</p>
+                        </div>
+                        <a class="btn btn-phoenix-secondary btn-sm" href="events-board.html">
+                            <span class="fa-solid fa-up-right-from-square me-1"></span>View more
+                        </a>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="d-flex gap-3 overflow-x-auto pb-2" style="scrollbar-width: thin;" id="vision-latest-events">
+                        <!-- Realtime events injected by notifications-realtime.js -->
+                    </div>
+                </div>
+            </div>
+
+           <!-- Phase 2: Live Camera Grid (GridStack) -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h3 class="mb-1 text-body-emphasis">Live Camera Feeds</h3>
+          <p class="text-body-tertiary mb-0 fs-9">Drag / resize cameras like a CCTV wall. Layout auto-saves.</p>
+        </div>
+  
+        <div class="d-flex gap-2">
+          <button class="btn btn-phoenix-secondary btn-sm" type="button" id="reset-camera-layout">
+            <span class="fa-solid fa-rotate-left me-1"></span>Reset Layout
+          </button>
+          <button class="btn btn-phoenix-secondary btn-sm" type="button">
+            <span class="fa-solid fa-grid-2 me-1"></span>Grid View
+          </button>
+          <button class="btn btn-phoenix-secondary btn-sm" type="button">
+            <span class="fa-solid fa-list me-1"></span>List View
+          </button>
+        </div>
+      </div>
+    </div>
+  
+    <div class="col-12">
+      <!-- GridStack container -->
+      <div class="grid-stack" id="live-camera-grid">
+        <!-- Camera tiles will be dynamically loaded here -->
+        <div class="d-flex justify-content-center align-items-center p-5" id="camera-loading">
+          <div class="text-center">
+            <div class="spinner-border text-primary mb-3" role="status">
+              <span class="visually-hidden">Loading cameras...</span>
+            </div>
+            <p class="text-body-tertiary mb-0">Loading cameras...</p>
+          </div>
+        </div>
+      </div><!-- /#live-camera-grid -->
+    </div>
+  </div>
+  
+  <!-- Minimal GridStack-related styling (no layout math) -->
+  <style>
+    /* Make GridStack tiles behave like full-height cards */
+    #live-camera-grid .grid-stack-item-content { height: 100%; }
+    .camera-tile { height: 100%; display: flex; flex-direction: column; }
+    .camera-body { flex: 1 1 auto; min-height: 0; background: #000; overflow: hidden; cursor: pointer; }
+  
+    /* Video shows full frame (no cropping). Black bars are acceptable. */
+    .camera-video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
+  
+    /* Drag UX: allow grabbing anywhere on header */
+    .camera-drag-surface { cursor: move; user-select: none; }
+    .camera-drag-handle { cursor: move; }
+
+    /* Resize handles: ensure they show reliably on hover and stay above the video/card */
+    #live-camera-grid .grid-stack-item-content { overflow: visible !important; }
+    #live-camera-grid .grid-stack-item.ui-resizable-autohide:hover > .ui-resizable-handle { display: block !important; }
+    #live-camera-grid .grid-stack-item > .ui-resizable-handle { z-index: 50; }
+  </style>
+  
+  <!-- Note: this must NOT run during initial page parse (layout-loader replaces body).
+       layout-loader will execute it after injecting the page content. -->
+  <script type="text/visionai-page-script">
+    (function () {
+      'use strict';
+  
+      const GRID_KEY = 'visionai.dashboard.liveCameraGrid.v1';
+  
+      // Store live WS (fMP4) players and camera data
+      const livePlayers = new Map();
+      let cameraData = [];
+  
+      function loadCssOnce(href) {
+        if ([...document.styleSheets].some(s => s.href === href)) return;
+        if (document.querySelector('link[data-gridstack="true"][href="' + href + '"]')) return;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.setAttribute('data-gridstack', 'true');
+        document.head.appendChild(link);
+      }
+  
+      function loadScriptOnce(src) {
+        return new Promise((resolve, reject) => {
+          if (document.querySelector('script[data-gridstack="true"][src="' + src + '"]')) return resolve();
+          const s = document.createElement('script');
+          s.src = src;
+          s.defer = true;
+          s.onload = resolve;
+          s.onerror = reject;
+          s.setAttribute('data-gridstack', 'true');
+          document.head.appendChild(s);
+        });
+      }
+  
+      async function ensureGridStack() {
+        if (window.GridStack) return;
+  
+        // GridStack v10+ (plain JS, draggable + resizable included)
+        // Use local vendored assets for reliability (desktop/offline) and consistent resize-handle CSS.
+        const css = '../vendors/gridstack/gridstack.min.css';
+        const js = '../vendors/gridstack/gridstack-all.js';
+  
+        loadCssOnce(css);
+        await loadScriptOnce(js);
+      }
+
+      async function ensureWsFmp4Player() {
+        if (window.createWsFmp4Player) return;
+        const js = '../custom_js/ws-fmp4-player.js';
+        await loadScriptOnce(js);
+      }
+  
+      function safeJsonParse(v) {
+        try { return JSON.parse(v); } catch { return null; }
+      }
+  
+      // NOTE: Load-test UI removed. Each camera tile is a real camera only.
+
+      function createCameraTile(camera, index) {
+        const tile = document.createElement('div');
+        tile.className = 'grid-stack-item';
+        
+        // Always use the real camera id
+        const tileId = camera.id;
+        tile.setAttribute('gs-id', tileId);
+        
+        // Default layout: 4 cameras per row (GridStack is 12 columns => 3 columns per tile)
+        const cols = 4;
+        const rows = Math.ceil(cameraData.length / cols);
+        const x = (index % cols) * 3;
+        const y = Math.floor(index / cols) * 4;
+        
+        tile.setAttribute('gs-x', x);
+        tile.setAttribute('gs-y', y);
+        tile.setAttribute('gs-w', '3');
+        tile.setAttribute('gs-h', '4');
+        
+        const displayName = camera.name || 'Camera';
+        
+        tile.innerHTML = `
+          <div class="grid-stack-item-content">
+            <div class="card h-100 camera-tile" data-camera-id="${camera.id}" data-tile-id="${tileId}">
+              <div class="card-header bg-body-emphasis p-2 d-flex justify-content-between align-items-center camera-drag-surface">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="fa-solid fa-grip-vertical text-body-tertiary camera-drag-handle" title="Drag"></span>
+                  <span class="fa-solid fa-video text-primary fs-9"></span>
+                  <span class="fw-semibold fs-9 camera-name">${displayName}</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge badge-phoenix badge-phoenix-secondary fs-10 camera-status" id="status-${tileId}">Loading...</span>
+                </div>
+              </div>
+              <div class="card-body p-0 position-relative camera-body">
+                <video class="camera-video" id="video-${tileId}" autoplay muted playsinline></video>
+                <div class="position-absolute top-50 start-50 translate-middle" id="loading-${tileId}">
+                  <div class="spinner-border text-light" role="status">
+                    <span class="visually-hidden">Loading stream...</span>
+                  </div>
+                </div>
+                <div class="position-absolute bottom-0 start-0 m-2">
+                  <span class="badge bg-dark bg-opacity-75 text-white fs-9 camera-overlay" id="overlay-${tileId}" style="display: none;">
+                    <span class="fa-solid fa-eye me-1"></span><span class="overlay-text">Live</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        return tile;
+      }
+
+      async function initLivePlayer(camera, videoEl, tileId = null) {
+        const streamId = tileId || camera.id;
+
+        if (!window.createWsFmp4Player) {
+          console.error('WS fMP4 player not loaded');
+          updateCameraStatus(streamId, 'error', 'Player missing');
+          return null;
+        }
+        if (!window.visionAPI || !window.visionAPI.isAuthenticated()) {
+          console.error('Not authenticated');
+          updateCameraStatus(streamId, 'error', 'Not logged in');
+          return null;
+        }
+
+        // Destroy existing player for this tile if any
+        const existing = livePlayers.get(streamId);
+        if (existing && typeof existing.destroy === 'function') {
+          existing.destroy();
+        }
+
+        updateCameraStatus(streamId, 'loading', 'Connecting...');
+
+        let wsUrl = null;
+        try {
+          wsUrl = window.visionAPI.getLiveWsURL(camera.id);
+        } catch (e) {
+          updateCameraStatus(streamId, 'error', 'Auth Error');
+          hideLoading(streamId);
+          return null;
+        }
+
+        const mimeCodec = window.visionAPI.getLiveMimeCodec();
+
+        const player = window.createWsFmp4Player({
+          videoEl,
+          wsUrl,
+          mimeCodec,
+          bufferSeconds: 15,
+          onState: (ev) => {
+            if (!ev || !ev.state) return;
+
+            if (ev.state === 'connecting') {
+              updateCameraStatus(streamId, 'loading', 'Connecting...');
+              return;
+            }
+
+            if (ev.state === 'ws-open') {
+              updateCameraStatus(streamId, 'loading', 'Starting...');
+              showOverlay(streamId, 'Live');
+              return;
+            }
+
+            if (ev.state === 'first-append') {
+              hideLoading(streamId);
+              updateCameraStatus(streamId, 'live', 'Live');
+              // Autoplay best-effort
+              try {
+                if (videoEl && videoEl.paused) {
+                  videoEl.play().catch(() => {});
+                }
+              } catch {}
+              return;
+            }
+
+            if (ev.state === 'stalled') {
+              updateCameraStatus(streamId, 'loading', 'Stalled...');
+              return;
+            }
+
+            if (ev.state === 'append-error' || ev.state === 'error') {
+              updateCameraStatus(streamId, 'error', 'Stream Error');
+              hideLoading(streamId);
+              return;
+            }
+          }
+        });
+
+        livePlayers.set(streamId, player);
+        return player;
+      }
+
+      function updateCameraStatus(tileId, status, text) {
+        const statusEl = document.getElementById(`status-${tileId}`);
+        if (!statusEl) return;
+        
+        statusEl.className = 'badge badge-phoenix fs-10';
+        if (status === 'live') {
+          statusEl.classList.add('badge-phoenix-success');
+        } else if (status === 'error' || status === 'offline') {
+          statusEl.classList.add('badge-phoenix-warning');
+        } else {
+          statusEl.classList.add('badge-phoenix-secondary');
+        }
+        statusEl.textContent = text;
+      }
+
+      function hideLoading(tileId) {
+        const loadingEl = document.getElementById(`loading-${tileId}`);
+        if (loadingEl) loadingEl.style.display = 'none';
+      }
+
+      function showOverlay(tileId, text) {
+        const overlayEl = document.getElementById(`overlay-${tileId}`);
+        if (overlayEl) {
+          const textEl = overlayEl.querySelector('.overlay-text');
+          if (textEl) textEl.textContent = text;
+          overlayEl.style.display = 'block';
+        }
+      }
+
+      // NOTE: Load test removed.
+
+      async function loadCameras() {
+        if (!window.visionAPI || !window.visionAPI.isAuthenticated()) {
+          console.error('Not authenticated');
+          return;
+        }
+
+        try {
+          const cameras = await window.visionAPI.listCameras();
+          cameraData = cameras;
+          
+          console.log(`Loaded ${cameras.length} cameras:`, cameras.map(c => ({ id: c.id, name: c.name })));
+          
+          const gridEl = document.getElementById('live-camera-grid');
+          const loadingEl = document.getElementById('camera-loading');
+          
+          if (loadingEl) loadingEl.remove();
+          
+          if (!cameras || cameras.length === 0) {
+            gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">No cameras found</p></div>';
+            return;
+          }
+
+          // Clear existing tiles and reset GridStack initialization flag
+          gridEl.innerHTML = '';
+          gridEl.dataset.gridstackInited = 'false'; // Reset flag to allow re-initialization
+          
+          // Destroy existing GridStack instance if it exists
+          if (window.GridStack && gridEl.gridstack) {
+            gridEl.gridstack.destroy(false); // false = don't remove DOM elements (we already cleared them)
+          }
+          
+          // Create tiles for each camera
+          cameras.forEach((camera, index) => {
+            console.log(`Creating tile for camera ${camera.id} (${camera.name}) at index ${index}`);
+            const tile = createCameraTile(camera, index);
+            gridEl.appendChild(tile);
+            console.log(`Tile created and appended for camera ${camera.id}`);
+          });
+          
+          console.log(`Total tiles in grid: ${gridEl.children.length}`);
+
+          // Initialize GridStack after tiles are created
+          initCameraGrid();
+          
+          // After GridStack is initialized, ensure all cameras are positioned
+          const grid = gridEl.gridstack;
+          if (grid) {
+            // Get saved layout
+            const saved = safeJsonParse(localStorage.getItem(GRID_KEY));
+            const savedCameraIds = saved && Array.isArray(saved) ? new Set(saved.map(item => item.id)) : new Set();
+            
+            // Find cameras not in saved layout (new cameras)
+            const newCameras = cameras.filter(cam => !savedCameraIds.has(cam.id));
+            
+            if (newCameras.length > 0) {
+              console.log(`Found ${newCameras.length} new cameras not in saved layout, adding them...`);
+              
+              // Calculate positions for new cameras
+              const cols = 4;
+              let maxY = 0;
+              
+              // Get max Y position from existing layout
+              if (saved && Array.isArray(saved) && saved.length > 0) {
+                maxY = Math.max(...saved.map(item => (item.y || 0) + (item.h || 4)));
+              }
+              
+              // Also check current grid items
+              const currentNodes = grid.engine.nodes || [];
+              if (currentNodes.length > 0) {
+                const currentMaxY = Math.max(...currentNodes.map(n => (n.y || 0) + (n.h || 4)));
+                maxY = Math.max(maxY, currentMaxY);
+              }
+              
+              // Add new cameras to grid with calculated positions
+              newCameras.forEach((camera, idx) => {
+                const tile = gridEl.querySelector(`[gs-id="${camera.id}"]`);
+                if (tile) {
+                  const x = (idx % cols) * 3;
+                  const y = maxY + Math.floor(idx / cols) * 4;
+                  
+                  // Check if tile is already in grid
+                  const existingNode = grid.engine.nodes.find(n => n.id === camera.id);
+                  if (!existingNode) {
+                    // Add to grid with position
+                    grid.addWidget(tile, { x, y, w: 3, h: 4 });
+                    console.log(`Added new camera ${camera.id} (${camera.name}) to grid at position (${x}, ${y})`);
+                  }
+                }
+              });
+            }
+          }
+          
+          // Initialize HLS players for each camera
+          // Use for...of loop to handle async operations properly
+          for (const camera of cameras) {
+            const videoEl = document.getElementById(`video-${camera.id}`);
+            if (videoEl) {
+              const player = await initLivePlayer(camera, videoEl);
+              if (player) {
+                livePlayers.set(camera.id, player);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error loading cameras:', error);
+          const gridEl = document.getElementById('live-camera-grid');
+          const loadingEl = document.getElementById('camera-loading');
+          if (loadingEl) loadingEl.remove();
+          gridEl.innerHTML = `<div class="d-flex justify-content-center align-items-center p-5"><p class="text-danger">Error loading cameras: ${error.message}</p></div>`;
+        }
+      }
+
+      function initCameraGrid() {
+        const gridEl = document.getElementById('live-camera-grid');
+        if (!gridEl || !window.GridStack) return false;
+  
+        // Avoid double-init (important with SPA-style navigation)
+        if (gridEl.dataset.gridstackInited === 'true') return true;
+        gridEl.dataset.gridstackInited = 'true';
+  
+        const grid = GridStack.init({
+          column: 12,
+          cellHeight: 80,
+          margin: 8,
+          animate: true,
+          draggable: { handle: '.camera-drag-surface' },
+          resizable: { handles: 'all' }
+        }, gridEl);
+
+        // Clicking the video area opens the camera details page
+        let isGridInteracting = false;
+        grid.on('dragstart resizestart', () => { isGridInteracting = true; });
+        grid.on('dragstop resizestop', () => { setTimeout(() => { isGridInteracting = false; }, 0); });
+
+        gridEl.addEventListener('click', (e) => {
+          // Don't handle clicks on buttons
+          if (e.target.closest('button')) return;
+          
+          const body = e.target.closest?.('.camera-body');
+          if (!body) return;
+          if (isGridInteracting) return;
+
+          // Always use the real camera ID (gs-id can be layout-specific)
+          const card = body.closest?.('.camera-tile');
+          const camId = card?.getAttribute('data-camera-id');
+          if (!camId) return;
+
+          const href = `camera-detail.html?camera=${encodeURIComponent(camId)}`;
+          if (window.visionaiSpa && typeof window.visionaiSpa.navigate === 'function') {
+            window.visionaiSpa.navigate(href).catch?.(() => { window.location.href = href; });
+          } else {
+            window.location.href = href;
+          }
+        });
+
+        // NOTE: Load test UI removed.
+  
+        function saveLayout() {
+          const layout = grid.engine.nodes.map(n => ({
+            id: n.id,
+            x: n.x, y: n.y, w: n.w, h: n.h
+          }));
+          localStorage.setItem(GRID_KEY, JSON.stringify(layout));
+        }
+  
+        const saved = safeJsonParse(localStorage.getItem(GRID_KEY));
+        if (Array.isArray(saved) && saved.length && cameraData.length > 0) {
+          // Filter saved layout to only include cameras that exist
+          const existingCameraIds = new Set(cameraData.map(cam => cam.id));
+          const validSavedLayout = saved.filter(item => existingCameraIds.has(item.id));
+          
+          if (validSavedLayout.length > 0) {
+            // Load valid saved layout
+            grid.load(validSavedLayout);
+            console.log(`Loaded saved layout for ${validSavedLayout.length} cameras`);
+            
+            // If we have cameras not in saved layout, they'll be added after initCameraGrid returns
+          } else {
+            // No valid saved layout, use default layout for all cameras
+            const defaultLayout = cameraData.map((cam, idx) => {
+              const cols = 4;
+              const x = (idx % cols) * 3;
+              const y = Math.floor(idx / cols) * 4;
+              return { id: cam.id, x, y, w: 3, h: 4 };
+            });
+            grid.load(defaultLayout);
+            console.log(`Using default layout for ${cameraData.length} cameras (no valid saved layout)`);
+          }
+        } else if (cameraData.length > 0) {
+          // No saved layout, use default layout for all cameras
+          const defaultLayout = cameraData.map((cam, idx) => {
+            const cols = 4;
+            const x = (idx % cols) * 3;
+            const y = Math.floor(idx / cols) * 4;
+            return { id: cam.id, x, y, w: 3, h: 4 };
+          });
+          grid.load(defaultLayout);
+          console.log(`Using default layout for ${cameraData.length} cameras (no saved layout)`);
+        }
+  
+        grid.on('change', saveLayout);
+  
+        const resetBtn = document.getElementById('reset-camera-layout');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', function () {
+            localStorage.removeItem(GRID_KEY);
+            // Reset to default layout based on current cameras
+            const defaultLayout = cameraData.map((cam, idx) => {
+              const cols = 4;
+              const x = (idx % cols) * 3;
+              const y = Math.floor(idx / cols) * 4;
+              return { id: cam.id, x, y, w: 3, h: 4 };
+            });
+            grid.load(defaultLayout);
+          });
+        }
+  
+        return true;
+      }
+
+      // Cleanup live players on page unload
+      function cleanupPlayers() {
+        livePlayers.forEach((player) => {
+          if (player && typeof player.destroy === 'function') player.destroy();
+        });
+        livePlayers.clear();
+      }
+
+      // Listen for page unload
+      window.addEventListener('beforeunload', cleanupPlayers);
+
+      // Register SPA cleanup hook so navigating dashboard -> camera-detail closes WS players
+      window.__visionaiPageCleanup = cleanupPlayers;
+  
+      async function boot() {
+        await ensureGridStack();
+        await ensureWsFmp4Player();
+  
+        // Wait for API service and authentication
+        let tries = 0;
+        const maxTries = 50;
+        
+        (function checkAuth() {
+          if (window.visionAPI && window.visionAPI.isAuthenticated()) {
+            loadCameras();
+          } else if (++tries < maxTries) {
+            setTimeout(checkAuth, 100);
+          } else {
+            const gridEl = document.getElementById('live-camera-grid');
+            const loadingEl = document.getElementById('camera-loading');
+            if (loadingEl) loadingEl.remove();
+            gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">Please login to view cameras</p></div>';
+          }
+        })();
+
+        // Also listen for auth state changes
+        window.addEventListener('authStateChanged', (event) => {
+          if (event.detail.loggedIn) {
+            loadCameras();
+          } else {
+            cleanupPlayers();
+            const gridEl = document.getElementById('live-camera-grid');
+            gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">Please login to view cameras</p></div>';
+          }
+        });
+
+        // NOTE: Top navbar reload button is handled globally in layout-loader.js (SPA-safe).
+      }
+  
+      boot().catch(console.error);
+    })();
+  </script>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Camera Details - Vision AI</title>
+
+    <!-- Layout Loader - Must be loaded early -->
+    <script src="../custom_js/layout-loader.js"></script>
+</head>
+<body>
+    <!-- Page Content Container - This will be replaced by layout loader -->
+    <div id="page-content" style="display:none;">
+        <div class="content">
+            <nav class="mb-3" aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="dashboard.html">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Camera Details</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <h2 class="mb-1 text-body-emphasis" id="camera-title">Camera</h2>
+                    <p class="text-body-tertiary mb-0 fs-9">Live view + agent monitoring</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-phoenix-secondary btn-sm" href="dashboard.html">
+                        <span class="fa-solid fa-arrow-left me-1"></span>Back
+                    </a>
+                </div>
+            </div>
+
+            <!-- Reuse Chat page layout: left list + right "conversation" (replaced with video player) -->
+            <div class="chat d-flex phoenix-offcanvas-container pt-1 mt-n1 mb-9" id="camera-detail-shell">
+                <!-- Left sidebar -->
+                <div class="card p-3 p-xl-1 mt-xl-n1 chat-sidebar me-3 phoenix-offcanvas phoenix-offcanvas-start" id="agent-sidebar" style="min-width: 320px;">
+                    <!-- Search (same idea as chat) -->
+                    <div class="form-icon-container mb-4 d-sm-none d-xl-block">
+                        <input class="form-control form-icon-input" id="agent-search" type="text" placeholder="Search agents" />
+                        <span class="fas fa-user text-body fs-9 form-icon"></span>
+                    </div>
+
+                    <!-- Tabs: All->Active, Read->Scheduled, Unread->Completed -->
+                    <ul class="nav nav-phoenix-pills mb-4 d-sm-none d-xl-flex" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link cursor-pointer active" data-agent-filter="active" role="tab" aria-selected="true">Active Agents</a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link cursor-pointer" data-agent-filter="scheduled" role="tab" aria-selected="false">Scheduled Agents</a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link cursor-pointer" data-agent-filter="completed" role="tab" aria-selected="false">Completed Agents</a>
+                        </li>
+                    </ul>
+
+                    <div class="scrollbar" style="max-height: 70vh;">
+                        <ul class="nav chat-thread-tab flex-column list" id="agent-list">
+                            <li class="nav-item" id="agent-list-loading">
+                                <div class="text-body-tertiary fs-9 p-3">Loading agents...</div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Right content: video player replaces chat thread -->
+                <div class="card flex-1 phoenix-offcanvas-container">
+                    <div class="d-flex flex-column">
+                        <div class="card-header p-3 p-md-4 d-flex flex-between-center">
+                            <div class="d-flex align-items-center">
+                                <span class="fa-solid fa-video text-primary me-2" id="stream-type-icon"></span>
+                                <div class="d-flex flex-column flex-md-row align-items-md-center">
+                                    <div class="fw-semibold text-body-emphasis me-3" id="camera-header-name">Live Camera</div>
+                                    <p class="fs-9 mb-0 me-2">
+                                        <span class="fa-solid fa-circle text-success fs-11 me-2" id="camera-status-dot"></span>
+                                        <span id="camera-status-text">Live</span>
+                                    </p>
+                                    <button class="btn btn-phoenix-secondary btn-sm ms-2 d-none" type="button" id="switch-to-camera-btn" title="Switch back to camera stream">
+                                        <span class="fa-solid fa-video me-1"></span>Camera View
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-icon btn-phoenix-primary" type="button" id="toggle-agent-sidebar" title="Collapse/Expand Agents">
+                                    <span class="fa-solid fa-angles-left"></span>
+                                </button>
+                                <button class="btn btn-icon btn-phoenix-primary" type="button" id="camera-reload" title="Reload">
+                                    <span class="fa-solid fa-rotate"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card-body p-0 visionai-right-body">
+                            <div class="position-relative bg-black visionai-video-stage">
+                                <video id="camera-video" class="w-100 h-100 visionai-video" controls autoplay muted playsinline></video>
+
+                                <div class="position-absolute bottom-0 start-0 m-3">
+                                    <span class="badge bg-dark bg-opacity-75 text-white fs-9" id="camera-overlay-badge">
+                                        <span class="fa-solid fa-eye me-1"></span>Live preview
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Timeline (shows only when agent sidebar is collapsed) -->
+                            <div class="visionai-timeline border-top border-translucent" id="visionai-timeline">
+                                <div class="d-flex align-items-center justify-content-between p-2 p-sm-3 gap-2">
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <!-- removed timeline label + time indicator -->
+                                    </div>
+                                    <!-- zoom controls removed (use mouse wheel zoom on timeline instead) -->
+                                </div>
+
+                                <div class="visionai-timeline-scroll">
+                                    <div class="visionai-timeline-inner" id="timeline-inner">
+                                        <!-- Ruler + tracks are built by JS -->
+                                    </div>
+                                </div>
+
+                                <div class="visionai-tooltip" id="timeline-tooltip" role="tooltip" aria-hidden="true"></div>
+                            </div>
+                        </div>
+
+                        <div class="card-footer p-3">
+                            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                                <div class="d-flex gap-2 align-items-center">
+                                    <span class="badge badge-phoenix badge-phoenix-info fs-10" id="camera-id-badge">cam</span>
+                                    <span class="text-body-tertiary fs-9">Click a tab to filter agents; search to narrow.</span>
+                                </div>
+                                <a class="btn btn-phoenix-secondary btn-sm" href="events-board.html">
+                                    <span class="fa-solid fa-bell me-1"></span>Open Events Board
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                /* Make the chat-derived layout feel right for video */
+                #agent-sidebar .nav-link { user-select: none; }
+                #agent-list .nav-link { border-radius: .5rem; }
+                #agent-list .agent-item.active {
+                    background-color: rgba(var(--phoenix-primary-rgb), 0.1);
+                }
+                #agent-list .agent-item.active .nav-link {
+                    background-color: rgba(var(--phoenix-primary-rgb), 0.05);
+                }
+
+                /* Sidebar collapse: hide left panel, let video take full width */
+                #camera-detail-shell.visionai-sidebar-collapsed #agent-sidebar { display: none !important; }
+
+                /* Timeline: always visible under the camera (right pane).
+                   When the sidebar collapses, the right pane becomes full width, so the timeline does too. */
+                #visionai-timeline { display: block; background: var(--phoenix-body-bg); }
+
+                /* No internal scrolling: timeline should push the page naturally */
+                .visionai-right-body {
+                    overflow: visible;
+                    min-height: auto;
+                    flex: 0 0 auto;
+                }
+
+                /* Make right pane height flexible (avoid any vertical clipping from chat layout styles) */
+                #camera-detail-shell,
+                #camera-detail-shell > .card,
+                #camera-detail-shell .phoenix-offcanvas-container,
+                #camera-detail-shell .card {
+                    height: auto !important;
+                    max-height: none !important;
+                    overflow: visible !important;
+                }
+
+                /* Video sizing:
+                   - Responsive height (no hard fixed px that can cause clipping on small screens)
+                   - No crop: always show full frame */
+                .visionai-video-stage {
+                    height: clamp(320px, 55vh, 620px);
+                    background: #000;
+                }
+                .visionai-video {
+                    object-fit: contain !important;
+                    object-position: center center !important;
+                    background: #000;
+                    display: block;
+                }
+
+                .visionai-timeline-scroll {
+                    overflow-x: auto;
+                    overflow-y: hidden;
+                    border-top: 1px solid var(--phoenix-border-color, #e9ecef);
+                }
+                .visionai-timeline-inner {
+                    position: relative;
+                    min-height: 210px;
+                    padding: 10px 12px 12px 12px;
+                    background:
+                        linear-gradient(to bottom, rgba(var(--phoenix-body-color-rgb), 0.04), rgba(var(--phoenix-body-color-rgb), 0)) 0 0/100% 40px no-repeat;
+                }
+                .timeline-ruler {
+                    position: sticky;
+                    top: 0;
+                    background: var(--phoenix-body-bg);
+                    z-index: 2;
+                    padding-bottom: 8px;
+                }
+                .timeline-ruler-track {
+                    position: relative;
+                    height: 30px;
+                }
+                .timeline-tick {
+                    position: absolute;
+                    top: 0;
+                    width: 1px;
+                    background: rgba(var(--phoenix-body-color-rgb), 0.18);
+                }
+                .timeline-tick.small { height: 8px; opacity: 0.45; }
+                .timeline-tick.medium { height: 14px; opacity: 0.6; }
+                .timeline-tick.big { height: 22px; opacity: 0.85; }
+                .timeline-hour-label {
+                    position: absolute;
+                    top: 18px;
+                    transform: translateX(-50%);
+                    font-size: 10px;
+                    color: rgba(var(--phoenix-body-color-rgb), 0.6);
+                    white-space: nowrap;
+                }
+
+                .timeline-rows { display: grid; gap: 10px; }
+                .timeline-row {
+                    display: grid;
+                    grid-template-columns: 160px 1fr;
+                    gap: 10px;
+                    align-items: center;
+                }
+                .timeline-agent {
+                    font-size: 12px;
+                    color: var(--phoenix-body-color);
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .timeline-track {
+                    position: relative;
+                    height: 34px;
+                    border-radius: 10px;
+                    background: rgba(var(--phoenix-body-color-rgb), 0.04);
+                    border: 1px solid rgba(var(--phoenix-body-color-rgb), 0.06);
+                    overflow: hidden;
+                }
+                .timeline-gridline {
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    width: 1px;
+                    background: rgba(var(--phoenix-body-color-rgb), 0.08);
+                }
+                .timeline-event {
+                    position: absolute;
+                    top: 6px;
+                    bottom: 6px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
+                }
+                .timeline-event.critical { background: rgba(220,53,69,0.9); }
+                .timeline-event.warning { background: rgba(255,193,7,0.95); }
+                .timeline-event.info { background: rgba(13,202,240,0.85); }
+                .timeline-event.success { background: rgba(25,135,84,0.85); }
+
+                .timeline-playhead {
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    width: 2px;
+                    background: #ff3b30;
+                    z-index: 3;
+                    pointer-events: none;
+                }
+                .timeline-playhead::before {
+                    content: '';
+                    position: absolute;
+                    top: -6px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    background: #ff3b30;
+                    box-shadow: 0 0 0 3px rgba(255,59,48,0.2);
+                }
+
+                .visionai-tooltip {
+                    position: fixed;
+                    z-index: 9999;
+                    max-width: 320px;
+                    padding: 8px 10px;
+                    border-radius: 10px;
+                    background: rgba(0,0,0,0.85);
+                    color: #fff;
+                    font-size: 12px;
+                    line-height: 1.25;
+                    pointer-events: none;
+                    opacity: 0;
+                    transform: translateY(6px);
+                    transition: opacity .12s ease, transform .12s ease;
+                }
+                .visionai-tooltip[data-show="true"] {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            </style>
+
+            <!-- Page script: executed by layout-loader after injection -->
+            <script type="text/visionai-page-script">
+                (function () {
+                    'use strict';
+
+                    // Get camera ID from URL - handle both SPA navigation and direct navigation
+                    async function getCameraId() {
+                        // Try current location first
+                        let params = new URLSearchParams(window.location.search);
+                        let camId = params.get('camera');
+                        
+                        // If not found, wait a bit for SPA navigation to update the URL
+                        if (!camId) {
+                            // Wait for URL to be updated by pushState (happens after script execution)
+                            for (let i = 0; i < 10; i++) {
+                                await new Promise(resolve => setTimeout(resolve, 50));
+                                params = new URLSearchParams(window.location.search);
+                                camId = params.get('camera');
+                                if (camId) break;
+                                
+                                // Also check history state
+                                if (window.history.state && window.history.state.url) {
+                                    try {
+                                        const url = new URL(window.history.state.url, window.location.origin);
+                                        camId = url.searchParams.get('camera');
+                                        if (camId) break;
+                                    } catch (e) {
+                                        // ignore
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // If still not found, try parsing the current pathname (fallback)
+                        if (!camId) {
+                            const match = window.location.pathname.match(/camera-detail\.html\?camera=([^&]+)/);
+                            if (match) {
+                                camId = decodeURIComponent(match[1]);
+                            }
+                        }
+                        
+                        // Last resort: check if URL was stored by layout-loader
+                        if (!camId && window.__visionaiCurrentUrl) {
+                            try {
+                                const url = new URL(window.__visionaiCurrentUrl, window.location.origin);
+                                camId = url.searchParams.get('camera');
+                            } catch (e) {
+                                // ignore
+                            }
+                        }
+                        
+                        return camId;
+                    }
+
+                    // Initialize camera with async camera ID retrieval
+                    async function init() {
+                        const camId = await getCameraId();
+
+                        if (!camId) {
+                            console.error('No camera ID provided. URL:', window.location.href);
+                            console.error('Search params:', window.location.search);
+                            console.error('History state:', window.history.state);
+                            statusText.textContent = 'No camera ID';
+                            return;
+                        }
+                        
+                        console.log('Camera ID from URL:', camId);
+                        
+                        // Store camId for use by initCamera
+                        currentCameraId = camId;
+                        
+                        // Now initialize camera
+                        await initCamera();
+                    }
+
+                    const titleEl = document.getElementById('camera-title');
+                    const headerEl = document.getElementById('camera-header-name');
+                    const idBadge = document.getElementById('camera-id-badge');
+                    const videoEl = document.getElementById('camera-video');
+                    const containerEl = videoEl?.closest('.position-relative');
+                    const shellEl = document.getElementById('camera-detail-shell');
+                    const statusDot = document.getElementById('camera-status-dot');
+                    const statusText = document.getElementById('camera-status-text');
+                    const overlayBadge = document.getElementById('camera-overlay-badge');
+                    const streamTypeIcon = document.getElementById('stream-type-icon');
+                    const switchToCameraBtn = document.getElementById('switch-to-camera-btn');
+
+                    let livePlayer = null;
+                    let cameraData = null;
+                    let isUserSeeking = false;
+                    let currentCameraId = null;
+                    let currentStreamType = 'camera'; // 'camera' or 'agent'
+                    let currentAgentId = null;
+
+                    // Register SPA cleanup hook so navigating away closes WS + MSE resources.
+                    window.__visionaiPageCleanup = () => {
+                        try {
+                            if (livePlayer && typeof livePlayer.destroy === 'function') {
+                                livePlayer.destroy();
+                            }
+                        } catch {
+                            // ignore
+                        }
+                        livePlayer = null;
+                    };
+
+                    function loadScriptOnce(src) {
+                        return new Promise((resolve, reject) => {
+                            if (document.querySelector('script[data-visionai="true"][src="' + src + '"]')) return resolve();
+                            const s = document.createElement('script');
+                            s.src = src;
+                            s.defer = true;
+                            s.onload = resolve;
+                            s.onerror = reject;
+                            s.setAttribute('data-visionai', 'true');
+                            document.head.appendChild(s);
+                        });
+                    }
+
+                    // Wait for dependencies to be ready
+                    async function waitForDependencies() {
+                        let attempts = 0;
+                        const maxAttempts = 50;
+                        
+                        while (attempts < maxAttempts) {
+                            if (window.visionAPI && window.visionAPI.isAuthenticated && window.visionAPI.isAuthenticated() && window.createWsFmp4Player) {
+                                return true;
+                            }
+                            // Ensure WS fMP4 player helper is loaded
+                            if (!window.createWsFmp4Player) {
+                                try {
+                                    await loadScriptOnce('../custom_js/ws-fmp4-player.js');
+                                } catch (e) {
+                                    // keep retrying
+                                }
+                            }
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            attempts++;
+                        }
+                        
+                        return false;
+                    }
+
+                    // Load camera data and initialize live player
+                    async function initCamera() {
+                        // Use the stored camera ID
+                        const camId = currentCameraId;
+                        if (!camId) {
+                            console.error('Camera ID not available');
+                            statusText.textContent = 'No camera ID';
+                            return;
+                        }
+                        try {
+                            // Wait for dependencies
+                            const depsReady = await waitForDependencies();
+                            if (!depsReady) {
+                                console.error('Dependencies not ready');
+                                statusText.textContent = 'Loading dependencies...';
+                                return;
+                            }
+
+                            // Get camera details from API
+                            try {
+                                cameraData = await window.visionAPI.getCamera(camId);
+                                titleEl.textContent = cameraData.name || camId;
+                                headerEl.textContent = cameraData.name || camId;
+                    idBadge.textContent = camId;
+                            } catch (error) {
+                                console.warn('Error fetching camera data:', error);
+                                // Fallback if API not available
+                                titleEl.textContent = camId;
+                                headerEl.textContent = camId;
+                                idBadge.textContent = camId;
+                            }
+
+                            // Initialize live player (WS fMP4 -> MSE)
+                            await initLivePlayer();
+
+                            // Load agents list for this camera
+                            await loadAgentsForCamera();
+                        } catch (error) {
+                            console.error('Error initializing camera:', error);
+                            statusDot?.classList.remove('text-success');
+                            statusDot?.classList.add('text-warning');
+                            statusText.textContent = 'Error: ' + (error.message || 'Failed to load');
+                        }
+                    }
+
+                    async function initLivePlayer(streamType = 'camera', agentId = null) {
+                        // Use the stored camera ID
+                        const camId = currentCameraId;
+                        if (!camId) {
+                            console.error('Camera ID not available for live player');
+                            return;
+                        }
+                        
+                        if (!window.visionAPI || !window.visionAPI.isAuthenticated || !window.visionAPI.isAuthenticated()) {
+                            console.error('Not authenticated');
+                            statusText.textContent = 'Please login';
+                            statusDot?.classList.add('text-warning');
+                            return;
+                        }
+
+                        if (!window.createWsFmp4Player) {
+                            console.error('WS fMP4 player not loaded');
+                            statusText.textContent = 'Player missing';
+                            statusDot?.classList.add('text-warning');
+                            return;
+                        }
+                        
+                        // Ensure video element is ready
+                        if (!videoEl) {
+                            console.error('Video element not found');
+                            statusText.textContent = 'Video element not found';
+                            return;
+                        }
+
+                        // Destroy existing player if any
+                        if (livePlayer && typeof livePlayer.destroy === 'function') {
+                            livePlayer.destroy();
+                            livePlayer = null;
+                        }
+
+                        let wsUrl = null;
+                        try {
+                            if (streamType === 'agent' && agentId) {
+                                // Agent stream from jetson backend
+                                wsUrl = window.visionAPI.getAgentStreamWsURL(agentId);
+                                currentStreamType = 'agent';
+                                currentAgentId = agentId;
+                                console.log('Switching to agent stream:', agentId);
+                            } else {
+                                // Camera stream from vision backend
+                                wsUrl = window.visionAPI.getLiveWsURL(camId);
+                                currentStreamType = 'camera';
+                                currentAgentId = null;
+                                console.log('Switching to camera stream');
+                            }
+                        } catch (e) {
+                            statusText.textContent = 'Auth error';
+                            statusDot?.classList.add('text-warning');
+                            return;
+                        }
+
+                        const mimeCodec = window.visionAPI.getLiveMimeCodec();
+
+                        statusText.textContent = 'Connecting...';
+                        statusDot?.classList.remove('text-success');
+                        statusDot?.classList.add('text-warning');
+
+                        // Update header to show which stream is active
+                        if (streamType === 'agent' && agentId) {
+                            // Find agent name
+                            const agentItem = document.querySelector(`[data-agent-id="${agentId}"]`);
+                            const agentName = agentItem?.querySelector('.name')?.textContent || 'Agent';
+                            headerEl.textContent = `${agentName} (Annotated)`;
+                            if (streamTypeIcon) {
+                                streamTypeIcon.className = 'fa-solid fa-robot text-info me-2';
+                            }
+                            if (overlayBadge) {
+                                overlayBadge.innerHTML = '<span class="fa-solid fa-robot me-1"></span>Agent Stream';
+                            }
+                            // Show switch to camera button
+                            if (switchToCameraBtn) {
+                                switchToCameraBtn.classList.remove('d-none');
+                            }
+                        } else {
+                            headerEl.textContent = cameraData?.name || camId || 'Live Camera';
+                            if (streamTypeIcon) {
+                                streamTypeIcon.className = 'fa-solid fa-video text-primary me-2';
+                            }
+                            if (overlayBadge) {
+                                overlayBadge.innerHTML = '<span class="fa-solid fa-eye me-1"></span>Live';
+                            }
+                            // Hide switch to camera button
+                            if (switchToCameraBtn) {
+                                switchToCameraBtn.classList.add('d-none');
+                            }
+                        }
+
+                        livePlayer = window.createWsFmp4Player({
+                            videoEl,
+                            wsUrl,
+                            mimeCodec,
+                            bufferSeconds: 60,
+                            onState: (ev) => {
+                                if (!ev || !ev.state) return;
+
+                                if (ev.state === 'connecting') {
+                                    statusText.textContent = 'Connecting...';
+                                    return;
+                                }
+                                if (ev.state === 'ws-open') {
+                                    statusText.textContent = 'Starting...';
+                                    return;
+                                }
+                                if (ev.state === 'first-append') {
+                                    statusDot?.classList.remove('text-warning');
+                                    statusDot?.classList.add('text-success');
+                                    statusText.textContent = streamType === 'agent' ? 'Agent Live' : 'Live';
+                                    try {
+                                        videoEl.play().catch(() => {});
+                                    } catch {}
+                                    return;
+                                }
+                                if (ev.state === 'stalled') {
+                                    statusText.textContent = 'Stalled...';
+                                    return;
+                                }
+                                if (ev.state === 'append-error' || ev.state === 'error') {
+                                    statusDot?.classList.remove('text-success');
+                                    statusDot?.classList.add('text-warning');
+                                    statusText.textContent = 'Stream error';
+                                    return;
+                                }
+                            }
+                        });
+
+                        // Sync video position with timeline
+                        videoEl.addEventListener('timeupdate', () => {
+                            if (!isUserSeeking && videoEl.buffered.length > 0) {
+                                updateTimelineFromVideo();
+                            }
+                        });
+
+                        // Handle user seeking in video controls
+                        videoEl.addEventListener('seeked', () => {
+                            isUserSeeking = false;
+                            updateTimelineFromVideo();
+                        });
+                    }
+
+                    // Function to switch to agent stream
+                    async function switchToAgentStream(agentId, agentName) {
+                        if (!agentId) {
+                            console.error('No agent ID provided');
+                            return;
+                        }
+
+                        console.log('Switching to agent stream:', agentId);
+                        
+                        // Update active agent highlight in list
+                        document.querySelectorAll('.agent-item').forEach(item => {
+                            item.classList.remove('active');
+                        });
+                        const agentItem = document.querySelector(`[data-agent-id="${agentId}"]`);
+                        if (agentItem) {
+                            agentItem.classList.add('active');
+                        }
+
+                        // Switch to agent stream
+                        await initLivePlayer('agent', agentId);
+                    }
+
+                    // Function to switch back to camera stream
+                    async function switchToCameraStream() {
+                        console.log('Switching back to camera stream');
+                        
+                        // Remove active highlight from all agents
+                        document.querySelectorAll('.agent-item').forEach(item => {
+                            item.classList.remove('active');
+                        });
+
+                        // Switch to camera stream
+                        await initLivePlayer('camera', null);
+                    }
+
+                    // Add click handler for switch to camera button
+                    switchToCameraBtn?.addEventListener('click', () => {
+                        switchToCameraStream();
+                    });
+
+                    // Reload button - reloads current stream (camera or agent)
+                    document.getElementById('camera-reload')?.addEventListener('click', () => {
+                        if (livePlayer && typeof livePlayer.destroy === 'function') {
+                            livePlayer.destroy();
+                            livePlayer = null;
+                        }
+                        // Reload current stream type
+                        if (currentStreamType === 'agent' && currentAgentId) {
+                            initLivePlayer('agent', currentAgentId);
+                        } else {
+                            initLivePlayer('camera', null);
+                        }
+                        loadAgentsForCamera().catch(() => {});
+                    });
+
+                    // Collapse/expand agent sidebar (persists)
+                    const SIDEBAR_KEY = 'visionai.cameraDetail.sidebarCollapsed.v1';
+                    const btnSidebar = document.getElementById('toggle-agent-sidebar');
+                    function setSidebarBtnIcon() {
+                        const icon = btnSidebar?.querySelector('span');
+                        if (!icon || !shellEl) return;
+                        const collapsed = shellEl.classList.contains('visionai-sidebar-collapsed');
+                        icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+                    }
+                    function setSidebarCollapsed(nextCollapsed) {
+                        if (!shellEl) return;
+                        shellEl.classList.toggle('visionai-sidebar-collapsed', !!nextCollapsed);
+                        localStorage.setItem(SIDEBAR_KEY, nextCollapsed ? 'true' : 'false');
+                        setSidebarBtnIcon();
+
+                        // Timeline is always visible under the camera; no extra toggling needed.
+                    }
+                    // restore state (use the same path as user click so timeline + scroll behave consistently)
+                    if (shellEl) {
+                        const saved = localStorage.getItem(SIDEBAR_KEY) === 'true';
+                        setSidebarCollapsed(saved);
+                    }
+                    btnSidebar?.addEventListener('click', () => {
+                        const collapsed = shellEl?.classList.contains('visionai-sidebar-collapsed');
+                        setSidebarCollapsed(!collapsed);
+                    });
+
+                    // Agent filtering (tabs + search)
+                    const listEl = document.getElementById('agent-list');
+                    const searchEl = document.getElementById('agent-search');
+                    let activeFilter = 'active';
+
+                    function escapeHtml(s) {
+                        return String(s ?? '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#39;');
+                    }
+
+                    function mapAgentStatus(status) {
+                        const s = String(status || '').toUpperCase();
+                        if (s === 'SCHEDULED') return 'scheduled';
+                        if (s === 'COMPLETED') return 'completed';
+                        return 'active'; // ACTIVE + unknown -> active
+                    }
+
+                    function formatTimeLabel(agent) {
+                        const uiStatus = mapAgentStatus(agent?.status);
+                        if (uiStatus === 'completed') return 'Done';
+                        if (uiStatus === 'active') return 'Now';
+
+                        // scheduled: show start time if available
+                        const start = agent?.start_time;
+                        if (!start) return 'Scheduled';
+                        try {
+                            const d = new Date(start);
+                            if (!isNaN(d.getTime())) {
+                                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            }
+                        } catch {
+                            // ignore
+                        }
+                        return 'Scheduled';
+                    }
+
+                    function buildAgentMessage(agent) {
+                        const model = agent?.model ? String(agent.model) : '';
+                        const fps = agent?.fps ? `FPS ${agent.fps}` : '';
+                        const runMode = agent?.run_mode ? String(agent.run_mode) : '';
+                        const rulesCount = Array.isArray(agent?.rules) ? `${agent.rules.length} rule(s)` : '';
+
+                        // Pick the first non-empty bits
+                        const parts = [model, runMode, rulesCount, fps].filter(Boolean);
+                        return parts.length ? parts.join(' • ') : '—';
+                    }
+
+                    function renderAgentList(agents) {
+                        if (!listEl) return;
+
+                        // Clear existing
+                        listEl.innerHTML = '';
+
+                        if (!agents || !Array.isArray(agents) || agents.length === 0) {
+                            const li = document.createElement('li');
+                            li.className = 'nav-item';
+                            li.innerHTML = '<div class="text-body-tertiary fs-9 p-3">No agents assigned to this camera.</div>';
+                            listEl.appendChild(li);
+                            return;
+                        }
+
+                        const avatarPool = [
+                            '../assets/img/team/20.webp',
+                            '../assets/img/team/25.webp',
+                            '../assets/img/team/29.webp',
+                            '../assets/img/team/30.webp'
+                        ];
+
+                        agents.forEach((agent, idx) => {
+                            const uiStatus = mapAgentStatus(agent?.status);
+                            const name = escapeHtml(agent?.name || 'Agent');
+                            const timeLabel = escapeHtml(formatTimeLabel(agent));
+                            const message = escapeHtml(buildAgentMessage(agent));
+                            const agentId = agent?.id || '';
+
+                            const avatar = avatarPool[idx % avatarPool.length];
+                            const onlineClass = uiStatus === 'active' ? 'status-online' : '';
+
+                            const li = document.createElement('li');
+                            li.className = `nav-item agent-item ${uiStatus}`;
+                            li.setAttribute('data-agent-status', uiStatus);
+                            li.setAttribute('data-agent-id', agentId);
+
+                            li.innerHTML = `
+                                <a class="nav-link d-flex align-items-center justify-content-center p-2 agent-link" href="#!" role="button" data-agent-id="${agentId}">
+                                    <div class="avatar avatar-xl ${onlineClass} position-relative me-2 me-sm-0 me-xl-2">
+                                        <img class="rounded-circle border border-2 border-light-subtle" src="${avatar}" alt="Agent" />
+                                    </div>
+                                    <div class="flex-1 d-sm-none d-xl-block">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h5 class="text-body fw-normal name text-nowrap mb-0">${name}</h5>
+                                            <p class="fs-10 text-body-tertiary text-opacity-85 mb-0 text-nowrap">${timeLabel}</p>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <p class="fs-9 mb-0 line-clamp-1 text-body-tertiary text-opacity-85 message">${message}</p>
+                                        </div>
+                                    </div>
+                                </a>
+                            `;
+
+                            // Add click handler to switch to agent stream
+                            const linkEl = li.querySelector('.agent-link');
+                            linkEl.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                switchToAgentStream(agentId, name);
+                            });
+
+                            listEl.appendChild(li);
+                        });
+                    }
+
+                    async function loadAgentsForCamera() {
+                        const camId = currentCameraId;
+                        if (!camId || !listEl) return;
+
+                        listEl.innerHTML = '<li class="nav-item"><div class="text-body-tertiary fs-9 p-3">Loading agents...</div></li>';
+
+                        if (!window.visionAPI || !window.visionAPI.isAuthenticated || !window.visionAPI.isAuthenticated()) {
+                            listEl.innerHTML = '<li class="nav-item"><div class="text-body-tertiary fs-9 p-3">Login required.</div></li>';
+                            return;
+                        }
+
+                        try {
+                            const agents = await window.visionAPI.listAgentsByCamera(camId);
+                            renderAgentList(agents);
+                            applyFilter();
+                        } catch (e) {
+                            console.error('Failed to load agents:', e);
+                            listEl.innerHTML = '<li class="nav-item"><div class="text-danger fs-9 p-3">Failed to load agents.</div></li>';
+                        }
+                    }
+
+                    function applyFilter() {
+                        const q = (searchEl?.value || '').trim().toLowerCase();
+                        listEl?.querySelectorAll('.agent-item').forEach((li) => {
+                            const status = li.getAttribute('data-agent-status');
+                            const name = li.querySelector('.name')?.textContent?.toLowerCase() || '';
+                            const msg = li.querySelector('.message')?.textContent?.toLowerCase() || '';
+
+                            const matchesStatus = status === activeFilter;
+                            const matchesText = !q || name.includes(q) || msg.includes(q);
+
+                            li.style.display = (matchesStatus && matchesText) ? '' : 'none';
+                        });
+                    }
+
+                    document.querySelectorAll('[data-agent-filter]').forEach((tab) => {
+                        tab.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            document.querySelectorAll('[data-agent-filter]').forEach(t => t.classList.remove('active'));
+                            tab.classList.add('active');
+                            activeFilter = tab.getAttribute('data-agent-filter') || 'active';
+                            applyFilter();
+                        });
+                    });
+
+                    searchEl?.addEventListener('input', applyFilter);
+                    applyFilter();
+
+                    // Agents are loaded from initCamera() once camera id is known.
+
+                    // ---------------------------------------------------------------------
+                    // Timeline (live buffer)
+                    // ---------------------------------------------------------------------
+                    const timelineEl = document.getElementById('visionai-timeline');
+                    const innerEl = document.getElementById('timeline-inner');
+                    const tooltipEl = document.getElementById('timeline-tooltip');
+
+                    const ZOOM_KEY = 'visionai.cameraDetail.timelineZoom.v1';
+                    // Live buffer is short (we keep ~60 seconds). This UI is informational only.
+                    const DVR_MINUTES = 0;
+                    const TRACK_LABEL_WIDTH = 160;
+                    let pxPerMinute = 2;
+                    let playheadMinutes = 0;
+
+                    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+                    function pad2(n) { return String(n).padStart(2, '0'); }
+
+                    // Convert video time to timeline minutes (relative to current time)
+                    function videoTimeToTimelineMinutes(videoTime) {
+                        if (!videoEl.buffered.length) return 0;
+                        const buffered = videoEl.buffered;
+                        const liveEdge = buffered.end(buffered.length - 1);
+                        const secondsBehind = liveEdge - videoTime;
+                        const minutesBehind = secondsBehind / 60;
+                        return Math.max(0, Math.min(DVR_MINUTES, minutesBehind));
+                    }
+
+                    // Convert timeline minutes to video time
+                    function timelineMinutesToVideoTime(timelineMinutes) {
+                        if (!videoEl.buffered.length) return null;
+                        const buffered = videoEl.buffered;
+                        const liveEdge = buffered.end(buffered.length - 1);
+                        const secondsBehind = timelineMinutes * 60;
+                        return Math.max(buffered.start(0), liveEdge - secondsBehind);
+                    }
+
+                    function updateTimelineFromVideo() {
+                        if (!videoEl.buffered.length) return;
+                        const timelineMins = videoTimeToTimelineMinutes(videoEl.currentTime);
+                        setPlayheadMinutes(timelineMins, { syncVideo: false });
+                    }
+
+                    function buildRuler(totalWidth) {
+                        const ruler = document.createElement('div');
+                        ruler.className = 'timeline-ruler';
+                        const track = document.createElement('div');
+                        track.className = 'timeline-ruler-track';
+                        track.style.width = `${TRACK_LABEL_WIDTH + totalWidth}px`;
+
+                        // Live-only (no DVR)
+                        for (let m = 0; m <= DVR_MINUTES; m += 5) {
+                            const x = TRACK_LABEL_WIDTH + (m * pxPerMinute);
+                            const tick = document.createElement('div');
+                            tick.className = 'timeline-tick small';
+                            if (m % 15 === 0) tick.className = 'timeline-tick medium';
+                            if (m % 30 === 0) tick.className = 'timeline-tick big';
+                            tick.style.left = `${x}px`;
+                            track.appendChild(tick);
+
+                            if (m % 15 === 0) {
+                                const label = document.createElement('div');
+                                label.className = 'timeline-hour-label';
+                                label.style.left = `${x}px`;
+                                const minutesAgo = DVR_MINUTES - m;
+                                label.textContent = `${minutesAgo}m ago`;
+                                track.appendChild(label);
+                            }
+                        }
+                        ruler.appendChild(track);
+                        return ruler;
+                    }
+
+                    function buildRows(totalWidth) {
+                        const rowsWrap = document.createElement('div');
+                        rowsWrap.className = 'timeline-rows';
+                            const empty = document.createElement('div');
+                            empty.className = 'text-body-tertiary fs-9';
+                        empty.textContent = 'Live mode (no DVR seeking)';
+                            rowsWrap.appendChild(empty);
+                        return rowsWrap;
+                    }
+
+                    function ensurePlayhead(totalWidth) {
+                        let ph = innerEl.querySelector('.timeline-playhead');
+                        if (!ph) {
+                            ph = document.createElement('div');
+                            ph.className = 'timeline-playhead';
+                            innerEl.appendChild(ph);
+                        }
+                        ph.style.left = `${TRACK_LABEL_WIDTH + playheadMinutes * pxPerMinute}px`;
+                        return ph;
+                    }
+
+                    function rebuildTimeline() {
+                        if (!timelineEl || !innerEl) return;
+                        innerEl.innerHTML = '';
+
+                        const totalWidth = Math.round(DVR_MINUTES * pxPerMinute);
+                        innerEl.appendChild(buildRuler(totalWidth));
+                        innerEl.appendChild(buildRows(totalWidth));
+                        ensurePlayhead(totalWidth);
+                    }
+
+                    function setZoom(next) {
+                        pxPerMinute = clamp(Number(next) || 2, 0.5, 8);
+                        localStorage.setItem(ZOOM_KEY, String(pxPerMinute));
+                        rebuildTimeline();
+                    }
+
+                    function setPlayheadMinutes(nextMinutes, { syncVideo = true } = {}) {
+                        playheadMinutes = clamp(Math.round(nextMinutes), 0, DVR_MINUTES);
+                        ensurePlayhead(Math.round(DVR_MINUTES * pxPerMinute));
+
+                        // Sync video position when user seeks on timeline
+                        if (syncVideo && videoEl && videoEl.buffered.length > 0) {
+                            const seekTime = timelineMinutesToVideoTime(playheadMinutes);
+                            if (seekTime !== null && Math.abs(videoEl.currentTime - seekTime) > 0.5) {
+                                isUserSeeking = true;
+                                videoEl.currentTime = seekTime;
+                            }
+                        }
+                    }
+
+                    function timelineMinutesFromClientX(clientX) {
+                        const scrollEl = timelineEl?.querySelector('.visionai-timeline-scroll');
+                        const trackLeft = innerEl.getBoundingClientRect().left + TRACK_LABEL_WIDTH;
+                        const scrollX = scrollEl ? scrollEl.scrollLeft : 0;
+                        const x = (clientX - trackLeft) + scrollX;
+                        return x / pxPerMinute;
+                    }
+
+                    function initTimeline() {
+                        if (!timelineEl || !innerEl) return;
+
+                        const scrollEl = timelineEl.querySelector('.visionai-timeline-scroll');
+
+                        const savedZoom = Number(localStorage.getItem(ZOOM_KEY));
+                        if (savedZoom) pxPerMinute = clamp(savedZoom, 0.5, 8);
+
+                        setPlayheadMinutes(0, { syncVideo: false }); // Start at live (0 minutes ago)
+
+                        rebuildTimeline();
+
+                        // mouse wheel zoom (zoom in on scroll up, zoom out on scroll down),
+                        // anchored at the cursor position so the hovered time stays put.
+                        scrollEl?.addEventListener('wheel', (e) => {
+                            // Only zoom when the user is actually aiming at the timeline area
+                            e.preventDefault();
+
+                            const direction = e.deltaY < 0 ? 1 : -1; // up = zoom in
+                            const step = 0.25;
+                            const nextPx = clamp(pxPerMinute + direction * step, 0.5, 8);
+                            if (nextPx === pxPerMinute) return;
+
+                            const beforeRect = innerEl.getBoundingClientRect();
+                            const beforeTrackLeft = beforeRect.left + TRACK_LABEL_WIDTH;
+                            const cursorOffset = e.clientX - beforeTrackLeft;
+                            const beforeScrollLeft = scrollEl.scrollLeft;
+                            const minuteAtCursor = (cursorOffset + beforeScrollLeft) / pxPerMinute;
+
+                            setZoom(nextPx);
+
+                            // After rebuild, re-anchor the same minute under the cursor.
+                            requestAnimationFrame(() => {
+                                const afterRect = innerEl.getBoundingClientRect();
+                                const afterTrackLeft = afterRect.left + TRACK_LABEL_WIDTH;
+                                const afterCursorOffset = e.clientX - afterTrackLeft;
+                                const desiredScrollLeft = (minuteAtCursor * pxPerMinute) - afterCursorOffset;
+                                scrollEl.scrollLeft = Math.max(0, desiredScrollLeft);
+                            });
+                        }, { passive: false });
+
+                        // Click-to-seek + drag playhead
+                        let dragging = false;
+                        innerEl.addEventListener('mousedown', (e) => {
+                            dragging = true;
+                            const m = timelineMinutesFromClientX(e.clientX);
+                            setPlayheadMinutes(m, { syncVideo: true }); // Seek video
+                        });
+                        window.addEventListener('mousemove', (e) => {
+                            if (!dragging) return;
+                            const m = timelineMinutesFromClientX(e.clientX);
+                            setPlayheadMinutes(m, { syncVideo: true }); // Seek video
+                        });
+                        window.addEventListener('mouseup', () => { 
+                            dragging = false;
+                            isUserSeeking = false;
+                        });
+
+                        innerEl.addEventListener('mouseleave', () => {
+                            dragging = false;
+                            isUserSeeking = false;
+                        });
+                    }
+
+                    // Initialize after a short delay to ensure all dependencies are loaded
+                    setTimeout(() => {
+                        init().then(() => {
+                            initTimeline();
+                        });
+                    }, 500);
+                })();
+            </script>
+        </div>
+    </div>
+</body>
+</html>
+
+

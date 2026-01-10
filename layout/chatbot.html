@@ -1,0 +1,2003 @@
+<!-- Chatbot Styles -->
+<style>
+  /* Chatbot Grid Layout States */
+  body.chatbot-open {
+    grid-template-columns: 
+      var(--phoenix-navbar-vertical-width, 280px)
+      1fr
+      var(--chatbot-width, 400px);
+  }
+  
+  body.chatbot-expanded {
+    grid-template-columns: 
+      var(--phoenix-navbar-vertical-width, 280px)
+      1fr
+      var(--chatbot-width, 400px);
+  }
+  
+  /* When chatbot is expanded (>400px), keep content width as if chatbot were 400px.
+     The viewport (middle column) is narrower, so horizontal scroll reveals the
+     "extra hidden" area without creating empty margin space. */
+  .viewport-scrolls.chatbot-expanded .content {
+    min-width: calc(100% + var(--chatbot-excess, 0px));
+  }
+  
+  /* Chatbot panel - Column 3 */
+  #chatbot-offcanvas {
+    grid-column: 3;
+    grid-row: 2;
+    position: relative !important;
+    transform: none !important;
+    visibility: visible !important;
+    background-color: var(--phoenix-body-bg, #fff);
+    border-left: 1px solid var(--phoenix-border-color, #e9ecef);
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 1045;
+    min-width: 300px;
+    max-width: 1200px;
+    transition: width 0.2s ease;
+    display: none;
+    height: 100%;
+    min-height: 0;
+    /* IMPORTANT: prevent the entire panel from scrolling.
+       Only the messages area should scroll so the input stays pinned. */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  #chatbot-offcanvas.show {
+    display: block !important;
+  }
+
+  /* Make header/body/footer a proper fixed layout inside the offcanvas */
+  #chatbot-offcanvas .offcanvas-header {
+    flex: 0 0 auto;
+  }
+  #chatbot-offcanvas .offcanvas-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important;
+  }
+  #chatbot-offcanvas .chat {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #chatbot-offcanvas .chat-messages {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #chatbot-offcanvas .card-footer {
+    flex: 0 0 auto;
+    /* Let the flex layout pin the footer; avoids sticky reflow issues when textarea height changes */
+    position: relative;
+    background: var(--phoenix-body-bg, #fff);
+    z-index: 2;
+  }
+  
+  [dir="rtl"] #chatbot-offcanvas {
+    border-left: none;
+    border-right: 1px solid var(--phoenix-border-color, #e9ecef);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Hide Bootstrap offcanvas backdrop */
+  .offcanvas-backdrop {
+    display: none !important;
+  }
+  
+  /* Chatbot input (textarea) */
+  #chatbot-input {
+    resize: none;
+    overflow-y: auto; /* scroll after max lines */
+    line-height: 1.4;
+    max-height: 96px; /* ~4 lines (JS autosize also enforces) */
+  }
+  
+  /* Viewport horizontal scroll when chatbot expanded */
+  .viewport-scrolls.chatbot-expanded {
+    overflow-x: auto;
+  }
+  
+  /* Chatbot Resize Handle */
+  .chatbot-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    z-index: 1051;
+    background: transparent;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  
+  [dir="rtl"] .chatbot-resize-handle {
+    left: auto;
+    right: 0;
+  }
+  
+  body.chatbot-resizing {
+    cursor: col-resize !important;
+    user-select: none !important;
+  }
+  
+  body.chatbot-resizing * {
+    cursor: col-resize !important;
+  }
+
+  /* Disable layout transitions while resizing to prevent "shaking" */
+  body.chatbot-resizing {
+    transition: none !important; /* stops grid-template-columns animation on body */
+  }
+
+  body.chatbot-resizing #chatbot-offcanvas,
+  body.chatbot-resizing .viewport-scrolls,
+  body.chatbot-resizing .content {
+    transition: none !important; /* stops width/min-width animations while dragging */
+  }
+  
+  .chatbot-resize-handle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+  
+  .chatbot-resize-handle:active {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  .resize-handle-line {
+    width: 2px;
+    height: 40px;
+    background-color: var(--phoenix-border-color, #e9ecef);
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+  }
+  
+  .chatbot-resize-handle:hover .resize-handle-line {
+    background-color: var(--phoenix-primary, #2A7BE4);
+  }
+  
+  /* Ensure body doesn't get overflow hidden from Bootstrap */
+  body.modal-open:has(#chatbot-offcanvas.show) {
+    overflow: hidden !important;
+    padding-right: 0 !important;
+  }
+
+  /* -----------------------------
+     Chat header tabs (Phoenix/Bootstrap)
+     ----------------------------- */
+  #chatbot-offcanvas .chatbot-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: thin;
+  }
+  #chatbot-offcanvas .chatbot-tabs .nav-link {
+    display: inline-flex;
+    align-items: center;
+  }
+  #chatbot-offcanvas .chatbot-tab-name {
+    max-width: 180px;
+  }
+  #chatbot-offcanvas .chatbot-tab-close {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #chatbot-offcanvas .nav-item:hover .chatbot-tab-close {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Remove inline styles by mapping to classes */
+  #chatbot-offcanvas .card-body.chat {
+    min-height: 0;
+  }
+  .setting-toggle {
+    margin-top: -120px;
+  }
+  .chatbot-toggle-icon {
+    height: 34px;
+    width: 28px;
+  }
+
+  /* Bottom composer: rectangular single container */
+  #chatbot-offcanvas .chatbot-composer {
+    border-radius: var(--phoenix-border-radius, 0.375rem);
+  }
+  #chatbot-offcanvas .chatbot-composer textarea.form-control {
+    background: transparent;
+  }
+  /* When composer is flex-column-reverse, textarea grows upward and controls stay pinned */
+  #chatbot-offcanvas .chatbot-composer {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+
+  /* -----------------------------
+     Markdown rendering inside assistant bubbles
+     ----------------------------- */
+  #chatbot-offcanvas .chat-messages .markdown-content {
+    /* allow markdown HTML to wrap nicely */
+    word-break: break-word;
+  }
+  #chatbot-offcanvas .chat-messages .markdown-content p {
+    margin: 0.5rem 0;
+    line-height: 1.5;
+  }
+  #chatbot-offcanvas .chat-messages .markdown-content p:first-child { margin-top: 0; }
+  #chatbot-offcanvas .chat-messages .markdown-content p:last-child { margin-bottom: 0; }
+
+  #chatbot-offcanvas .chat-messages .markdown-content code {
+    background-color: rgba(0, 0, 0, 0.08);
+    padding: 0.15em 0.35em;
+    border-radius: 4px;
+    font-size: 0.92em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+  #chatbot-offcanvas .chat-messages .markdown-content pre {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 0.6rem 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9em;
+  }
+  #chatbot-offcanvas .chat-messages .markdown-content pre code {
+    background: transparent;
+    padding: 0;
+  }
+
+  #chatbot-offcanvas .chat-messages .markdown-content ul,
+  #chatbot-offcanvas .chat-messages .markdown-content ol {
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+  }
+  #chatbot-offcanvas .chat-messages .markdown-content li {
+    margin: 0.2rem 0;
+    line-height: 1.5;
+  }
+
+  #chatbot-offcanvas .chat-messages .markdown-content blockquote {
+    border-left: 3px solid rgba(0, 0, 0, 0.2);
+    padding-left: 0.75rem;
+    margin: 0.5rem 0;
+    color: rgba(0, 0, 0, 0.75);
+    font-style: italic;
+  }
+
+  #chatbot-offcanvas .chat-messages .markdown-content a {
+    color: var(--phoenix-primary, #2A7BE4);
+    text-decoration: underline;
+  }
+  #chatbot-offcanvas .chat-messages .markdown-content a:hover {
+    text-decoration: none;
+  }
+
+  #chatbot-offcanvas .chat-messages .markdown-content hr {
+    border: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+    margin: 0.75rem 0;
+  }
+
+  #chatbot-offcanvas .chat-messages .markdown-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.5rem 0;
+    font-size: 0.92em;
+  }
+  #chatbot-offcanvas .chat-messages .markdown-content th,
+  #chatbot-offcanvas .chat-messages .markdown-content td {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  #chatbot-offcanvas .chat-messages .markdown-content th {
+    background: rgba(0, 0, 0, 0.04);
+    font-weight: 600;
+  }
+  
+  /* Prevent flow diagram containers from being clipped during CSS transitions */
+  .flow-diagram-placeholder {
+    overflow: visible !important;
+  }
+</style>
+
+<!-- Chatbot Offcanvas - Pushes main content instead of overlaying -->
+<div class="offcanvas offcanvas-end chatbot-panel border-0" id="chatbot-offcanvas" tabindex="-1" aria-labelledby="chatbot-offcanvas" data-bs-backdrop="false" data-bs-scroll="true">
+  <!-- Resize Handle -->
+  <div class="chatbot-resize-handle" id="chatbot-resize-handle" title="Drag to resize">
+    <div class="resize-handle-line"></div>
+  </div>
+  <div class="offcanvas-header border-bottom border-translucent px-3 py-2 d-flex align-items-center justify-content-between gap-2">
+    <!-- Left: Chat tabs -->
+    <ul class="nav nav-underline fs-9 flex-nowrap overflow-x-auto chatbot-tabs me-2" id="chatbot-tabs" role="tablist" aria-label="Chat tabs">
+      <!-- Tabs injected by JS -->
+    </ul>
+
+    <!-- Right: Actions -->
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+      <button class="btn btn-link p-0 d-flex align-items-center" type="button" id="chatbot-new-tab" aria-label="New chat tab" title="New chat">
+        <span class="fas fa-plus text-body"></span>
+      </button>
+
+      <div class="dropdown">
+        <button class="btn btn-link p-0 dropdown-toggle dropdown-caret-none transition-none d-flex align-items-center" type="button" id="chatbot-history-dropdown" data-bs-toggle="dropdown" data-boundary="window" aria-haspopup="true" aria-expanded="false" aria-label="Chat history" title="Chat history">
+          <span class="far fa-clock text-body"></span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="chatbot-history-dropdown">
+          <h6 class="dropdown-header">Chat history (dummy)</h6>
+          <a class="dropdown-item" href="#!">New chat 1 — Camera status</a>
+          <a class="dropdown-item" href="#!">New chat 2 — Events today</a>
+          <a class="dropdown-item" href="#!">New chat 3 — Agent settings</a>
+          <div class="dropdown-divider"></div>
+          <a class="dropdown-item text-body-tertiary" href="#!">Later we’ll connect realtime history</a>
+        </div>
+      </div>
+
+      <div class="btn-reveal-trigger">
+        <button class="btn btn-link p-0 dropdown-toggle dropdown-caret-none transition-none d-flex align-items-center" type="button" id="chatbot-dropdown" data-bs-toggle="dropdown" data-boundary="window" aria-haspopup="true" aria-expanded="false" data-bs-reference="parent" aria-label="More options" title="More options">
+          <span class="fas fa-ellipsis-h text-body"></span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="chatbot-dropdown">
+          <a class="dropdown-item" href="#!" data-chatbot-action="clear">Clear chat</a>
+          <a class="dropdown-item" href="#!">Search in chat</a>
+          <a class="dropdown-item" href="#!">Show history</a>
+          <a class="dropdown-item" href="#!">Settings</a>
+        </div>
+      </div>
+
+      <button class="btn p-1 fw-bolder" type="button" data-bs-dismiss="offcanvas" aria-label="Close">
+        <span class="fas fa-times fs-8"></span>
+      </button>
+    </div>
+  </div>
+  <div class="offcanvas-body p-0 d-flex flex-column">
+    <div class="card-body chat p-0 flex-1 d-flex flex-column">
+      <div class="chat-messages d-flex flex-column scrollbar h-100 p-3">
+        <!-- Intentionally blank: we don't show any welcome/suggestion content -->
+      </div>
+    </div>
+    <div class="card-footer border-top border-translucent px-3 py-3">
+      <div class="border border-translucent px-2 py-2 chatbot-composer">
+        <!-- Controls row (visually bottom; stays pinned when textarea grows) -->
+        <div class="d-flex align-items-center justify-content-between gap-2">
+          <div class="dropdown">
+            <button class="btn btn-link p-0 dropdown-toggle dropdown-caret-none transition-none d-flex align-items-center text-body-tertiary fs-9" type="button" id="chatbot-mode-dropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              <span id="chatbot-mode-label">General</span>
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="chatbot-mode-dropdown">
+              <li><a class="dropdown-item" href="#!" data-chatbot-mode="general">General</a></li>
+              <li><a class="dropdown-item" href="#!" data-chatbot-mode="agent">Agent</a></li>
+            </ul>
+          </div>
+
+          <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-link p-0 text-body-tertiary d-flex align-items-center" type="button" id="chatbot-voice-btn" aria-label="Voice assistant" title="Voice assistant">
+              <span class="fa-solid fa-microphone fs-8"></span>
+            </button>
+            <button class="btn btn-link p-0 text-body-tertiary d-flex align-items-center send-btn" type="button" aria-label="Send" title="Send">
+              <span class="fa-solid fa-paper-plane fs-8"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Textarea (visually top; grows upward only because of column-reverse) -->
+        <textarea class="form-control border-0 shadow-none w-100 fs-9" placeholder="Write message" id="chatbot-input" rows="1"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toggle Button for Chatbot -->
+<a class="card setting-toggle" href="#chatbot-offcanvas" data-bs-toggle="offcanvas" aria-controls="chatbot-offcanvas">
+  <div class="card-body d-flex align-items-center px-3 py-2">
+    <div class="position-relative rounded-start chatbot-toggle-icon">
+      <div class="settings-popover"><span class="ripple"><span class="fa-spin position-absolute all-0 d-flex flex-center"><span class="icon-spin position-absolute all-0 d-flex flex-center">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="#ffffff" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 2C5.58 2 2 5.58 2 10c0 1.54.36 2.98 1 4.28L1 19l4.72-1c1.3.64 2.74 1 4.28 1 4.42 0 8-3.58 8-8s-3.58-8-8-8zm0 14.5c-1.19 0-2.38-.31-3.34-.84l-.24-.12-2.5.65.65-2.5-.12-.24C4.31 12.38 4 11.19 4 10c0-3.31 2.69-6 6-6s6 2.69 6 6-2.69 6-6 6z" fill="#2A7BE4"></path>
+        </svg></span></span></span></div>
+    </div><small class="text-uppercase text-body-tertiary fw-bold py-2 pe-2 ps-1 rounded-end">chat</small>
+  </div>
+</a>
+
+<!-- Custom JavaScript for Chatbot Push Behavior -->
+<script>
+  (function() {
+    'use strict';
+
+    // -----------------------------
+    // Markdown deps loader (local vendor files)
+    // -----------------------------
+    function vendorPath(relFromVendors) {
+      // Robust across:
+      // - http(s)://.../pages/*.html  → ../vendors/...
+      // - file:///C:/.../pages/*.html → ../vendors/...
+      // - http(s)://.../*.html (root) → vendors/...
+      // This avoids broken "../" repeats on Windows file:// paths.
+      const path = String(window.location.pathname || '').replace(/\\/g, '/');
+      const vendorsRel = path.includes('/pages/') ? '../vendors/' : 'vendors/';
+      return new URL(vendorsRel + relFromVendors, window.location.href).toString();
+    }
+
+    function loadScriptOnce(src) {
+      return new Promise((resolve, reject) => {
+        try {
+          const existing = document.querySelector(`script[src="${src}"]`);
+          if (existing) return resolve();
+          const s = document.createElement('script');
+          s.src = src;
+          s.defer = true;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+          document.head.appendChild(s);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }
+
+    // Best-effort: loads deps in background; renderer will fall back to plain text until available.
+    function ensureMarkdownDeps() {
+      if (window.marked && window.DOMPurify) return Promise.resolve();
+      const markedSrc = vendorPath('marked/marked.min.js');
+      const purifySrc = vendorPath('dompurify/purify.min.js');
+      return loadScriptOnce(markedSrc)
+        .then(() => loadScriptOnce(purifySrc))
+        .catch((e) => {
+          console.warn('Markdown deps load failed:', e);
+        });
+    }
+
+    // Load ECharts for Sankey diagrams
+    function ensureECharts() {
+      if (window.echarts) return Promise.resolve();
+      const echartsSrc = vendorPath('echarts/echarts.min.js');
+      return loadScriptOnce(echartsSrc)
+        .catch((e) => {
+          console.warn('ECharts load failed:', e);
+        });
+    }
+    
+    // Global flag to block chart resizing during layout transitions (critical for ECharts stability)
+    // Must be in outer scope so both initChatbotPush() and renderFlowDiagram() can access it
+    let layoutSettling = false;
+    
+    function initChatbotPush() {
+      const chatbotOffcanvas = document.getElementById('chatbot-offcanvas');
+      const viewportElement = document.querySelector('.viewport-scrolls');
+      const contentElement = document.querySelector('.content');
+      const bodyElement = document.body;
+      
+      if (!chatbotOffcanvas) return;
+
+      // Hoist the top navbar into its own grid row (so it doesn't shrink/scroll with content)
+      // This avoids rewriting the large navbar HTML; we just move the existing DOM node once.
+      (function hoistTopNavbar() {
+        const existing = document.querySelector('.viewport-scrolls > .navbar-top');
+        const main = document.querySelector('main.main');
+        if (!existing || !main) return;
+        if (existing.dataset.hoisted === 'true') return;
+        existing.dataset.hoisted = 'true';
+        // Move navbar to be the first element before main content shell
+        document.body.insertBefore(existing, main);
+      })();
+      
+      const DEFAULT_CHATBOT_WIDTH = 400;
+      const MIN_CHATBOT_WIDTH = 300;
+      const MAX_CHATBOT_WIDTH = 1200;
+
+      // Prevent flip-flopping around the default width while dragging.
+      // Expand/collapse thresholds create hysteresis (stable UX).
+      const EXPAND_AT = 420;
+      const COLLAPSE_AT = 380;
+      let expandedState = false;
+      
+      // Get saved width or use default
+      function getChatbotWidth() {
+        const saved = localStorage.getItem('chatbotWidth');
+        return saved ? parseInt(saved, 10) : DEFAULT_CHATBOT_WIDTH;
+      }
+      
+      // Save width to localStorage
+      function saveChatbotWidth(width) {
+        localStorage.setItem('chatbotWidth', width.toString());
+      }
+      
+      // Update chatbot width and grid column
+      function setChatbotWidth(width) {
+        width = Math.max(MIN_CHATBOT_WIDTH, Math.min(MAX_CHATBOT_WIDTH, width));
+        chatbotOffcanvas.style.width = width + 'px';
+        bodyElement.style.setProperty('--chatbot-width', width + 'px');
+        // Amount beyond the default 400px. Used to keep content width stable in expanded mode.
+        const excess = Math.max(0, width - DEFAULT_CHATBOT_WIDTH);
+        bodyElement.style.setProperty('--chatbot-excess', excess + 'px');
+        saveChatbotWidth(width);
+        updateLayoutBehavior(width);
+      }
+      
+      // Update layout behavior based on chatbot width
+      function updateLayoutBehavior(chatbotWidth) {
+        if (!contentElement) return;
+
+        // Update stable expanded state with hysteresis thresholds
+        if (!expandedState && chatbotWidth >= EXPAND_AT) {
+          expandedState = true;
+        } else if (expandedState && chatbotWidth <= COLLAPSE_AT) {
+          expandedState = false;
+        }
+
+        if (expandedState) {
+          // EXPANDED: viewport gets horizontal scroll; content width stays as-if chatbot=400px
+          bodyElement.classList.add('chatbot-open', 'chatbot-expanded');
+          if (viewportElement) {
+            viewportElement.classList.add('chatbot-expanded');
+          }
+          contentElement.classList.add('chatbot-expanded');
+        } else {
+          // DEFAULT (≤400px): Grid handles sizing, NO margin needed
+          bodyElement.classList.add('chatbot-open');
+          bodyElement.classList.remove('chatbot-expanded');
+          if (viewportElement) {
+            viewportElement.classList.remove('chatbot-expanded');
+          }
+          // Clear any inline styles (grid handles sizing automatically)
+          contentElement.style.minWidth = '';
+          contentElement.classList.remove('chatbot-expanded');
+        }
+      }
+      
+      function updateLayoutState(isOpen) {
+        if (isOpen) {
+          const currentWidth = getChatbotWidth();
+          // Initialize stable expanded state based on stored width
+          expandedState = currentWidth > DEFAULT_CHATBOT_WIDTH;
+          setChatbotWidth(currentWidth); // This will also update layout
+        } else {
+          expandedState = false;
+          bodyElement.classList.remove('chatbot-open', 'chatbot-expanded');
+          bodyElement.style.setProperty('--chatbot-width', '0px');
+          bodyElement.style.setProperty('--chatbot-excess', '0px');
+          if (viewportElement) {
+            viewportElement.classList.remove('chatbot-expanded');
+          }
+          if (contentElement) {
+            contentElement.classList.remove('chatbot-expanded');
+            contentElement.style.minWidth = '';
+          }
+        }
+      }
+      
+      // Initialize resize functionality
+      function initChatbotResize() {
+        const resizeHandle = document.getElementById('chatbot-resize-handle');
+        if (!resizeHandle || !chatbotOffcanvas) return;
+        
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+        
+        function getIsRTL() {
+          return document.documentElement.getAttribute('dir') === 'rtl';
+        }
+        
+        resizeHandle.addEventListener('mousedown', function(e) {
+          if (!chatbotOffcanvas.classList.contains('show')) return;
+          
+          isResizing = true;
+          startX = e.clientX;
+          startWidth = parseInt(window.getComputedStyle(chatbotOffcanvas).width, 10);
+          
+          document.body.classList.add('chatbot-resizing');
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+          
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+          if (!isResizing) return;
+          
+          const isRTL = getIsRTL();
+          // For right-side offcanvas (offcanvas-end):
+          // - Dragging LEFT (negative deltaX) should INCREASE width (handle moves left, chatbot expands)
+          // - Dragging RIGHT (positive deltaX) should DECREASE width (handle moves right, chatbot shrinks)
+          // So we need to INVERT the deltaX
+          let deltaX = isRTL ? (e.clientX - startX) : (startX - e.clientX);
+          const newWidth = startWidth + deltaX;
+          
+          setChatbotWidth(newWidth);
+          
+          e.preventDefault();
+        });
+        
+        document.addEventListener('mouseup', function() {
+          if (isResizing) {
+            isResizing = false;
+            document.body.classList.remove('chatbot-resizing');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            
+            // 🔒 Block chart resize temporarily during CSS transition
+            // ECharts will permanently break if resize() is called with invalid dimensions (0×0 or 1-5px)
+            layoutSettling = true;
+            
+            // Wait for CSS grid + transitions to fully settle (3 RAF frames = ~50ms at 60fps)
+            // This ensures container has stable, valid dimensions before any ResizeObserver fires
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  layoutSettling = false;
+                  
+                  // 🔥 NOW it is safe to resize charts - dispatch custom event for chart instances
+                  document.dispatchEvent(new Event('chatbot:layout-settled'));
+                });
+              });
+            });
+          }
+        });
+        
+        // Prevent text selection while resizing
+        resizeHandle.addEventListener('selectstart', function(e) {
+          e.preventDefault();
+          return false;
+        });
+        
+        resizeHandle.addEventListener('dragstart', function(e) {
+          e.preventDefault();
+          return false;
+        });
+      }
+      
+      // Initialize width immediately (before any show events)
+      // This ensures the correct width is set even on first open
+      const initialWidth = getChatbotWidth();
+      chatbotOffcanvas.style.width = initialWidth + 'px';
+      bodyElement.style.setProperty('--chatbot-width', initialWidth + 'px');
+      const excess = Math.max(0, initialWidth - DEFAULT_CHATBOT_WIDTH);
+      bodyElement.style.setProperty('--chatbot-excess', excess + 'px');
+      
+      // Handle chatbot show/hide with grid layout
+      chatbotOffcanvas.addEventListener('show.bs.offcanvas', function(e) {
+        // Set width BEFORE animation starts so it opens with correct width
+        const savedWidth = getChatbotWidth();
+        setChatbotWidth(savedWidth);
+        updateLayoutState(true);
+        localStorage.setItem('chatbotOpen', 'true');
+      });
+      
+      chatbotOffcanvas.addEventListener('shown.bs.offcanvas', function() {
+        // Ensure width is still correct after animation
+        const savedWidth = getChatbotWidth();
+        setChatbotWidth(savedWidth);
+        localStorage.setItem('chatbotOpen', 'true');
+      });
+      
+      // Handle offcanvas hide event
+      chatbotOffcanvas.addEventListener('hide.bs.offcanvas', function() {
+        updateLayoutState(false);
+        localStorage.setItem('chatbotOpen', 'false');
+      });
+      
+      // Handle offcanvas hidden event (after animation completes)
+      chatbotOffcanvas.addEventListener('hidden.bs.offcanvas', function() {
+        updateLayoutState(false);
+        localStorage.setItem('chatbotOpen', 'false');
+      });
+      
+      // Also handle when offcanvas is already shown on page load
+      if (chatbotOffcanvas.classList.contains('show')) {
+        const savedWidth = getChatbotWidth();
+        chatbotOffcanvas.style.width = savedWidth + 'px';
+        updateLayoutBehavior(savedWidth);
+        updateLayoutState(true);
+      }
+      
+      // Initialize resize functionality
+      initChatbotResize();
+    }
+
+    function initChatbotComposer() {
+      const textarea = document.getElementById('chatbot-input');
+      const sendBtn = document.querySelector('#chatbot-offcanvas .send-btn');
+      if (!textarea) return;
+
+      function autosize() {
+        // Reset then grow to fit content (up to max-height via CSS)
+        textarea.style.height = 'auto';
+        const cs = window.getComputedStyle(textarea);
+        const lh = parseFloat(cs.lineHeight);
+        const lineHeight = Number.isFinite(lh) ? lh : 16;
+        const pt = parseFloat(cs.paddingTop) || 0;
+        const pb = parseFloat(cs.paddingBottom) || 0;
+        const max = (lineHeight * 4) + pt + pb; // 4 lines max
+        const next = Math.min(textarea.scrollHeight, max);
+        textarea.style.height = next + 'px';
+      }
+
+      textarea.addEventListener('input', autosize);
+      autosize();
+
+      // Enter = send, Shift+Enter = newline
+      textarea.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+        if (e.shiftKey) return; // allow newline
+
+        e.preventDefault();
+        if (sendBtn) sendBtn.click();
+      });
+    }
+
+    function initChatbotTabs() {
+      const chatbotOffcanvas = document.getElementById('chatbot-offcanvas');
+      const tabsEl = document.getElementById('chatbot-tabs');
+      const newTabBtn = document.getElementById('chatbot-new-tab');
+      const messagesEl = chatbotOffcanvas?.querySelector?.('.chat-messages');
+      const textarea = document.getElementById('chatbot-input');
+      const sendBtn = chatbotOffcanvas?.querySelector?.('.send-btn');
+      const modeLabel = document.getElementById('chatbot-mode-label');
+      const voiceBtn = document.getElementById('chatbot-voice-btn');
+
+      if (!chatbotOffcanvas || !tabsEl || !messagesEl) return;
+
+      // Kick off markdown deps load early (non-blocking)
+      ensureMarkdownDeps();
+      // Also load ECharts for Sankey diagrams
+      ensureECharts();
+
+      // Treat current markup as the "blank chat" template for new tabs
+      const initialTemplate = messagesEl.innerHTML;
+
+      const MODES = /** @type {const} */ (['general', 'agent']);
+
+      let tabCounter = 0;
+      /** @type {{sessionId: string|null, html: string, started: boolean} } */
+      const emptyModeState = () => ({ sessionId: null, html: initialTemplate, started: false });
+
+      /** @type {{id: string, title: string, mode: Record<string, {sessionId: string|null, html: string}>}[]} */
+      const tabs = [];
+      let activeId = null;
+
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#039;');
+      }
+
+      function getActive() {
+        return tabs.find(t => t.id === activeId) || null;
+      }
+
+      function getMode() {
+        const m = chatbotOffcanvas.dataset.chatbotMode;
+        return m === 'agent' ? 'agent' : 'general';
+      }
+
+      function setMode(nextMode) {
+        const mode = nextMode === 'agent' ? 'agent' : 'general';
+        const prev = getMode();
+        const active = getActive();
+        if (!active) {
+          chatbotOffcanvas.dataset.chatbotMode = mode;
+          if (modeLabel) modeLabel.textContent = mode === 'agent' ? 'Agent' : 'General';
+          return;
+        }
+
+        // Save current mode view before switching
+        active.mode[prev].html = messagesEl.innerHTML;
+
+        chatbotOffcanvas.dataset.chatbotMode = mode;
+        if (modeLabel) modeLabel.textContent = mode === 'agent' ? 'Agent' : 'General';
+
+        // Load new mode view for this tab
+        messagesEl.innerHTML = active.mode[mode].html || initialTemplate;
+      }
+
+      function saveActiveHtml() {
+        const active = getActive();
+        if (!active) return;
+        const mode = getMode();
+        active.mode[mode].html = messagesEl.innerHTML;
+      }
+
+      function renderTabs() {
+        tabsEl.innerHTML = tabs
+          .map(t => {
+            const isActive = t.id === activeId;
+            return `
+              <li class="nav-item" role="presentation" data-chatbot-tab="${t.id}">
+                <button class="nav-link ${isActive ? 'active' : ''} pe-2"
+                        type="button"
+                        role="tab"
+                        aria-selected="${isActive ? 'true' : 'false'}"
+                        data-chatbot-tab-btn="${t.id}">
+                  <span class="text-truncate d-inline-block chatbot-tab-name">${escapeHtml(t.title)}</span>
+                  <span class="chatbot-tab-close ms-2 text-body-tertiary"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Close tab"
+                        data-chatbot-tab-close="${t.id}">
+                    <span class="fas fa-times"></span>
+                  </span>
+                </button>
+              </li>
+            `;
+          })
+          .join('');
+      }
+
+      function showTab(id) {
+        const target = tabs.find(t => t.id === id);
+        if (!target) return;
+        saveActiveHtml();
+        activeId = id;
+        const mode = getMode();
+        messagesEl.innerHTML = target.mode[mode].html || initialTemplate;
+        renderTabs();
+      }
+
+      function createTab(title) {
+        saveActiveHtml();
+        tabCounter += 1;
+        const id = `chat_tab_${Date.now()}_${tabCounter}`;
+        tabs.push({
+          id,
+          title: title || `New chat ${tabCounter}`,
+          mode: {
+            general: emptyModeState(),
+            agent: emptyModeState()
+          }
+        });
+        activeId = id;
+        renderTabs();
+        messagesEl.innerHTML = initialTemplate;
+      }
+
+      function closeTab(id) {
+        if (tabs.length <= 1) {
+          // Always keep at least one tab
+          const only = tabs[0];
+          only.title = 'New chat 1';
+          only.mode.general = emptyModeState();
+          only.mode.agent = emptyModeState();
+          activeId = only.id;
+          messagesEl.innerHTML = initialTemplate;
+          renderTabs();
+          return;
+        }
+
+        const idx = tabs.findIndex(t => t.id === id);
+        if (idx === -1) return;
+
+        const wasActive = activeId === id;
+        tabs.splice(idx, 1);
+
+        if (!wasActive) {
+          renderTabs();
+          return;
+        }
+
+        const next = tabs[Math.max(0, idx - 1)];
+        activeId = next.id;
+        const mode = getMode();
+        messagesEl.innerHTML = next.mode[mode].html || initialTemplate;
+        renderTabs();
+      }
+
+      function appendUserBubble(text) {
+        const trimmed = (text || '').trim();
+        if (!trimmed) return false;
+        messagesEl.insertAdjacentHTML(
+          'beforeend',
+          `
+            <div class="d-flex justify-content-end mt-2">
+              <div class="bg-primary text-white rounded-2 px-3 py-2 fs-9 text-break">
+                ${escapeHtml(trimmed)}
+              </div>
+            </div>
+          `
+        );
+        return true;
+      }
+
+      function appendAssistantPending() {
+        const id = `pending_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        messagesEl.insertAdjacentHTML(
+          'beforeend',
+          `
+            <div class="d-flex justify-content-start mt-2" data-chatbot-pending="${id}">
+              <div class="bg-body-secondary rounded-2 px-3 py-2 fs-9 text-body-emphasis text-break markdown-content">
+                ...
+              </div>
+            </div>
+          `
+        );
+        return id;
+      }
+
+      function renderFlowDiagram(containerId, flowData) {
+        console.log('renderFlowDiagram called with containerId:', containerId, 'flowData:', flowData);
+        
+        if (!window.echarts) {
+          console.warn('ECharts not loaded, cannot render flow diagram');
+          return;
+        }
+
+        const container = document.getElementById(containerId);
+        if (!container) {
+          console.warn(`Flow container not found: ${containerId}`);
+          return;
+        }
+
+        // Ensure container has dimensions and is visible
+        if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+          console.warn('Container has no dimensions, setting defaults');
+          container.style.display = 'block';
+          container.style.width = '100%';
+          container.style.height = '500px';
+          container.style.minHeight = '500px';
+          container.style.backgroundColor = '#f8f9fa';
+          container.style.border = '1px solid #dee2e6';
+          container.style.borderRadius = '0.5rem';
+        }
+        
+        console.log('Rendering chart in container:', {
+          id: containerId,
+          width: container.offsetWidth,
+          height: container.offsetHeight,
+          dataNodes: flowData?.nodes?.length || 0,
+          dataLinks: flowData?.links?.length || 0
+        });
+
+        // Fit fixed-position nodes into the container (prevents "blank/white chart" when panel is narrow).
+        function fitFixedNodesToContainer(baseNodes, targetEl) {
+          try {
+            const cw = targetEl?.clientWidth || 0;
+            const ch = targetEl?.clientHeight || 0;
+            if (!cw || !ch) return baseNodes;
+
+            const fixed = (baseNodes || []).filter(n => typeof n.x === 'number' && typeof n.y === 'number');
+            if (fixed.length === 0) return baseNodes;
+
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            fixed.forEach(n => {
+              minX = Math.min(minX, n.x);
+              maxX = Math.max(maxX, n.x);
+              minY = Math.min(minY, n.y);
+              maxY = Math.max(maxY, n.y);
+            });
+            const bw = Math.max(1, maxX - minX);
+            const bh = Math.max(1, maxY - minY);
+
+            const pad = 30;
+            const scale = Math.min((cw - pad * 2) / bw, (ch - pad * 2) / bh, 1);
+            const scaledW = bw * scale;
+            const scaledH = bh * scale;
+            const offsetX = (cw - scaledW) / 2;
+            const offsetY = (ch - scaledH) / 2;
+
+            return (baseNodes || []).map(n => {
+              if (typeof n.x !== 'number' || typeof n.y !== 'number') return n;
+              return {
+                ...n,
+                x: offsetX + (n.x - minX) * scale,
+                y: offsetY + (n.y - minY) * scale
+              };
+            });
+          } catch (e) {
+            console.warn('fitFixedNodesToContainer failed:', e);
+            return baseNodes;
+          }
+        }
+
+        try {
+          if (!flowData || !flowData.nodes || !flowData.links) {
+            console.error('Invalid flow data structure:', flowData);
+            return;
+          }
+
+          // If this message tab is re-rendered (history/tabs), the same DOM node can be reused.
+          // ECharts throws if you call init twice on the same DOM, so dispose the old instance first.
+          try {
+            const existing = echarts.getInstanceByDom(container);
+            if (existing) existing.dispose();
+          } catch (_) {}
+
+          const chart = echarts.init(container);
+
+          // Ensure nodes have proper structure for ECharts Graph
+          const baseNodes = (flowData.nodes || []).map(node => {
+            // If label is already an object, use it; otherwise create one
+            const labelObj = typeof node.label === 'object' 
+              ? node.label 
+              : { show: true, formatter: node.label || node.name, fontSize: 11, color: '#333', position: 'inside' };
+            
+            return {
+              ...node,
+              label: labelObj,
+              // Ensure symbolSize is array
+              symbolSize: Array.isArray(node.symbolSize) ? node.symbolSize : (node.symbolSize || [100, 50]),
+              // Ensure itemStyle exists
+              itemStyle: node.itemStyle || { color: '#2A7BE4', borderColor: '#1A5BBE', borderWidth: 2 }
+            };
+          });
+
+          // Fix link labels
+          const links = (flowData.links || []).map(link => ({
+            ...link,
+            label: link.label || { show: false }
+          }));
+          
+          console.log('Processed nodes:', baseNodes.length, 'Processed links:', links.length);
+          
+          // If backend provides fixed x/y positions, use deterministic layout; otherwise fall back to force.
+          const hasFixedPositions = baseNodes.every(n => typeof n.x === 'number' && typeof n.y === 'number');
+          const nodes = hasFixedPositions ? fitFixedNodesToContainer(baseNodes, container) : baseNodes;
+
+          // For simple "flow" diagrams, ECharts 'tree' (TB) is more stable than 'graph'
+          // inside a narrow/resizable chatbot panel.
+          function tryBuildTreeData(nodesArr, linksArr) {
+            try {
+              const byName = new Map();
+              (nodesArr || []).forEach(n => {
+                if (n && n.name) byName.set(String(n.name), n);
+              });
+              if (byName.size === 0) return null;
+
+              const inDeg = new Map();
+              const out = new Map(); // source -> [targets]
+              byName.forEach((_, k) => { inDeg.set(k, 0); out.set(k, []); });
+
+              (linksArr || []).forEach(l => {
+                const s = l?.source != null ? String(l.source) : null;
+                const t = l?.target != null ? String(l.target) : null;
+                if (!s || !t) return;
+                if (!byName.has(s) || !byName.has(t)) return;
+                inDeg.set(t, (inDeg.get(t) || 0) + 1);
+                out.get(s)?.push({ target: t, label: l.label });
+              });
+
+              // Root heuristic: prefer camera_stream, else any inDeg==0
+              let rootName = byName.has('camera_stream') ? 'camera_stream' : null;
+              if (!rootName) {
+                for (const [k, d] of inDeg.entries()) {
+                  if (!d) { rootName = k; break; }
+                }
+              }
+              if (!rootName) return null;
+
+              // If it's too "graphy" (lots of merges), tree will look odd; bail.
+              const maxInDeg = Math.max(...Array.from(inDeg.values()));
+              if (maxInDeg > 1) return null;
+
+              const seen = new Set();
+              function buildNode(name) {
+                if (seen.has(name)) return null;
+                seen.add(name);
+                const n = byName.get(name);
+                if (!n) return null;
+                const lbl = (typeof n.label === 'object' && n.label)
+                  ? (n.label.formatter || n.name)
+                  : (n.label || n.name);
+
+                const children = (out.get(name) || [])
+                  .map(edge => {
+                    const child = buildNode(edge.target);
+                    if (!child) return null;
+                    // edge label shown as a small badge above the child node (optional)
+                    const edgeText = edge?.label?.formatter || '';
+                    if (edgeText) {
+                      child._edgeLabel = edgeText;
+                    }
+                    return child;
+                  })
+                  .filter(Boolean);
+
+                return {
+                  name: n.name,
+                  value: n.value,
+                  symbol: n.symbol || 'roundRect',
+                  // Override sizes for tree layout to prevent node overlap (and make link segments visible).
+                  symbolSize: (function() {
+                    const sym = n.symbol || 'roundRect';
+                    // Compact nodes for narrow chatbot panel
+                    if (sym === 'diamond') return [100, 65];
+                    return [130, 35];
+                  })(),
+                  itemStyle: n.itemStyle || undefined,
+                  labelText: String(lbl || n.name || ''),
+                  children
+                };
+              }
+
+              const root = buildNode(rootName);
+              if (!root) return null;
+              return root;
+            } catch (e) {
+              console.warn('tryBuildTreeData failed:', e);
+              return null;
+            }
+          }
+
+          const treeRoot = tryBuildTreeData(nodes, links);
+
+          if (treeRoot) {
+            const option = {
+              backgroundColor: 'transparent',
+              tooltip: { show: false },
+              series: [{
+                type: 'tree',
+                layout: 'orthogonal',
+                data: [treeRoot],
+                top: 15,
+                bottom: 15,
+                left: 15,
+                right: 15,
+                orient: 'TB',
+                expandAndCollapse: false,
+                initialTreeDepth: -1,
+                symbol: 'roundRect',
+                // Compact spacing for chatbot panel
+                nodeGap: 22,
+                // Disable interactions to prevent chart breaking on click
+                emphasis: {
+                  focus: 'none',
+                  disabled: true
+                },
+                select: {
+                  disabled: true
+                },
+                silent: true, // Disable all mouse events
+                lineStyle: {
+                  color: '#495057',
+                  width: 2,
+                  opacity: 0.95,
+                  curveness: 0
+                },
+                label: {
+                  show: true,
+                  position: 'inside',
+                  color: '#fff',
+                  fontSize: 8,
+                  lineHeight: 11,
+                  formatter: (p) => p?.data?.labelText || p?.data?.name || ''
+                },
+                leaves: {
+                  label: {
+                    show: true,
+                    position: 'inside',
+                    color: '#fff'
+                  }
+                }
+              }]
+            };
+
+            chart.setOption(option, false); // Use merge mode to preserve chart state
+            
+            // Disable click interactions to prevent chart breaking
+            chart.off('click');
+            
+            // Debounce resize to prevent rapid-fire calls that can break the chart
+            // CRITICAL: Block resize during layout transitions (ECharts breaks on invalid dimensions)
+            let resizeTimer = null;
+            const resizeHandler = () => {
+              // 🔴 HARD-BLOCK during layout settling (prevents resize during CSS transition)
+              if (layoutSettling) return;
+              
+              if (resizeTimer) clearTimeout(resizeTimer);
+              resizeTimer = setTimeout(() => {
+                try {
+                  if (!chart || chart.isDisposed()) return;
+                  if (!container) return;
+                  
+                  const w = container.clientWidth;
+                  const h = container.clientHeight;
+                  
+                  // Extra safety margin: ECharts treats <80px as invalid and can corrupt internally
+                  // Even 1-5px during CSS transition will break the chart permanently
+                  if (w < 80 || h < 80) {
+                    console.warn('Chart resize skipped: container dimensions too small', { w, h });
+                    return;
+                  }
+                  
+                  chart.resize();
+                } catch (e) {
+                  console.warn('Chart resize error (ignored):', e);
+                }
+              }, 100);
+            };
+            
+            // ✅ Force ONE safe resize AFTER layout fully settles (on mouseup completion)
+            const safeResizeAfterSettle = () => {
+              if (!chart || chart.isDisposed()) return;
+              if (!container) return;
+              
+              const w = container.clientWidth;
+              const h = container.clientHeight;
+              
+              if (w > 80 && h > 80) {
+                try {
+                  chart.resize();
+                } catch (e) {
+                  console.warn('Chart safe resize error (ignored):', e);
+                }
+              }
+            };
+            
+            document.addEventListener('chatbot:layout-settled', safeResizeAfterSettle);
+            
+            window.addEventListener('resize', resizeHandler);
+            if (!container._resizeObserver && typeof ResizeObserver !== 'undefined') {
+              container._resizeObserver = new ResizeObserver(() => {
+                resizeHandler();
+              });
+              container._resizeObserver.observe(container);
+            }
+            
+            container._resizeHandler = resizeHandler;
+            container._echartsInstance = chart;
+            container._resizeTimer = resizeTimer;
+            container._safeResizeHandler = safeResizeAfterSettle;
+            return chart;
+          }
+
+          const option = {
+            backgroundColor: 'transparent',
+            tooltip: {
+              show: true,
+              trigger: 'item',
+              formatter: function(params) {
+                if (params.dataType === 'node') {
+                  const nodeLabel = params.data.label?.formatter || params.data.name || 'Node';
+                  return `<div style="padding: 4px;">${nodeLabel}</div>`;
+                }
+                return '';
+              }
+            },
+            animation: true,
+            animationDuration: 1000,
+            series: [{
+              type: 'graph',
+              layout: hasFixedPositions ? 'none' : 'force',
+              ...(hasFixedPositions ? {} : {
+                force: {
+                  initLayout: 'circular',
+                  repulsion: 400,
+                  gravity: 0.25,
+                  edgeLength: [150, 250],
+                  layoutAnimation: true,
+                  friction: 0.8
+                }
+              }),
+              // For "flow" diagrams in a narrow chatbot panel, keep interaction minimal and stable.
+              roam: false, // Disable zoom/pan to prevent chart breaking
+              draggable: false, // Disable drag to prevent chart breaking
+              focusNodeAdjacency: false,
+              silent: true, // Disable all mouse events to prevent click issues
+              edgeSymbol: ['none', 'arrow'],
+              edgeSymbolSize: 10,
+              top: 10,
+              bottom: 10,
+              left: 10,
+              right: 10,
+              label: {
+                show: true,
+                position: 'inside',
+                fontSize: 10,
+                fontWeight: 'normal',
+                color: '#fff',
+                textStyle: {
+                  color: '#fff',
+                  fontSize: 10
+                }
+              },
+              edgeLabel: {
+                // Default OFF (too noisy). Individual links can still enable labels via link.label.show=true
+                show: false,
+                fontSize: 9,
+                color: '#666',
+                formatter: function(params) {
+                  return params.data.label?.formatter || '';
+                }
+              },
+              data: nodes,
+              links: links,
+              lineStyle: {
+                color: '#999',
+                width: 2,
+                // Curves look like "sine waves" in vertical flows; keep straight for fixed-position flowcharts.
+                curveness: hasFixedPositions ? 0 : 0.05,
+                opacity: 0.7
+              },
+              emphasis: {
+                focus: 'adjacency',
+                lineStyle: {
+                  width: 3,
+                  color: '#2A7BE4'
+                },
+                itemStyle: {
+                  shadowBlur: 15,
+                  shadowColor: 'rgba(42, 123, 228, 0.5)',
+                  borderWidth: 3
+                },
+                label: {
+                  fontSize: 12,
+                  fontWeight: 'bold'
+                }
+              }
+            }]
+          };
+
+          console.log('Setting ECharts option with', nodes.length, 'nodes and', links.length, 'links');
+          chart.setOption(option, false); // Use merge mode to preserve chart state
+          
+          // Disable click interactions to prevent chart breaking
+          chart.off('click');
+          
+          // Debounce resize to prevent rapid-fire calls that can break the chart
+          // CRITICAL: Block resize during layout transitions (ECharts breaks on invalid dimensions)
+          let resizeTimer = null;
+          const resizeHandler = () => {
+            // 🔴 HARD-BLOCK during layout settling (prevents resize during CSS transition)
+            if (layoutSettling) return;
+            
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+              try {
+                if (!chart || chart.isDisposed()) return;
+                if (!container) return;
+                
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                
+                // Extra safety margin: ECharts treats <80px as invalid and can corrupt internally
+                // Even 1-5px during CSS transition will break the chart permanently
+                if (w < 80 || h < 80) {
+                  console.warn('Chart resize skipped: container dimensions too small', { w, h });
+                  return;
+                }
+                
+                chart.resize();
+              } catch (e) {
+                console.warn('Chart resize error (ignored):', e);
+              }
+            }, 100);
+          };
+          
+          // ✅ Force ONE safe resize AFTER layout fully settles (on mouseup completion)
+          const safeResizeAfterSettle = () => {
+            if (!chart || chart.isDisposed()) return;
+            if (!container) return;
+            
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            
+            if (w > 80 && h > 80) {
+              try {
+                chart.resize();
+              } catch (e) {
+                console.warn('Chart safe resize error (ignored):', e);
+              }
+            }
+          };
+          
+          document.addEventListener('chatbot:layout-settled', safeResizeAfterSettle);
+          
+          window.addEventListener('resize', resizeHandler);
+
+          // Also handle container resize (chatbot width drag, tab layout changes).
+          // Use the debounced handler to prevent conflicts and chart breaking
+          if (!container._resizeObserver && typeof ResizeObserver !== 'undefined') {
+            container._resizeObserver = new ResizeObserver(() => {
+              resizeHandler(); // Use the debounced handler instead of direct calls
+            });
+            container._resizeObserver.observe(container);
+          }
+
+          // Store cleanup hooks on container
+          container._resizeHandler = resizeHandler;
+          container._echartsInstance = chart;
+          container._resizeTimer = resizeTimer;
+          container._safeResizeHandler = safeResizeAfterSettle;
+
+          return chart;
+        } catch (e) {
+          console.error('Failed to render flow diagram:', e);
+          console.error('Error stack:', e.stack);
+        }
+      }
+
+      function replaceAssistantPending(pendingId, text, isError = false) {
+        const node = messagesEl.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+        if (!node) return;
+        const bubble = node.querySelector?.('div');
+        if (!bubble) return;
+        const msg = text || '';
+
+        if (isError) {
+          bubble.textContent = msg;
+          bubble.classList.remove('bg-body-secondary');
+          bubble.classList.add('bg-danger', 'text-white');
+          return;
+        }
+
+        // Ensure styling hook exists for markdown CSS
+        bubble.classList.add('markdown-content');
+
+        // Check if message contains flow diagram and extract it BEFORE markdown parsing
+        const flowStartMarker = '<!-- FLOW_DIAGRAM_START -->';
+        const flowEndMarker = '<!-- FLOW_DIAGRAM_END -->';
+        const hasFlow = msg.includes(flowStartMarker) && msg.includes(flowEndMarker);
+        
+        let flowDiagramData = null;
+        let flowContainerId = null;
+        let msgWithoutFlow = msg;
+        
+        if (hasFlow) {
+          // Extract flow diagram HTML section and parse the data
+          const startIdx = msg.indexOf(flowStartMarker);
+          const endIdx = msg.indexOf(flowEndMarker) + flowEndMarker.length;
+          const flowDiagramHtml = msg.substring(startIdx, endIdx);
+          
+          // Extract container ID and data from the HTML
+          const containerMatch = flowDiagramHtml.match(/id="flow-container-([^"]+)"/);
+          const dataB64Match = flowDiagramHtml.match(/data-flow-data-b64="([^"]+)"/);
+          const dataMatch = flowDiagramHtml.match(/data-flow-data="([^"]+)"/);
+          
+          if (containerMatch) {
+            flowContainerId = 'flow-container-' + containerMatch[1];
+            
+            // Try to decode the data
+            if (dataB64Match) {
+              try {
+                const decodedJson = atob(dataB64Match[1]);
+                flowDiagramData = JSON.parse(decodedJson);
+                console.log('Extracted flow diagram data from base64');
+              } catch (e) {
+                console.error('Failed to decode base64 flow data:', e);
+              }
+            } else if (dataMatch) {
+              try {
+                flowDiagramData = JSON.parse(dataMatch[1]);
+                console.log('Extracted flow diagram data from data attribute');
+              } catch (e) {
+                console.error('Failed to parse flow data:', e);
+              }
+            }
+          }
+          
+          // Remove flow diagram HTML from message for markdown parsing (keep placeholder)
+          msgWithoutFlow = msg.substring(0, startIdx) + 
+            `\n\n<div id="${flowContainerId}" class="flow-diagram-placeholder" style="width: 100%; height: 500px; margin-top: 1rem; margin-bottom: 1rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;"></div>\n\n` +
+            msg.substring(endIdx);
+        }
+
+        // Render markdown if deps available; else fall back to plain text
+        try {
+          if (window.marked && window.DOMPurify) {
+            // Update allowed tags to include script and div for flow diagrams
+            const allowedTags = [
+              'p', 'br', 'strong', 'em', 'u', 's',
+              'code', 'pre',
+              'ul', 'ol', 'li',
+              'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+              'blockquote', 'a', 'hr',
+              'table', 'thead', 'tbody', 'tr', 'th', 'td',
+              'script', 'div'
+            ];
+            
+            // Parse markdown (marked.js preserves HTML tags by default)
+            let rawHtml;
+            try {
+              if (window.marked && typeof window.marked.parse === 'function') {
+                // Try with options if supported (newer versions)
+                if (window.marked.setOptions) {
+                  rawHtml = window.marked.parse(msgWithoutFlow);
+                } else {
+                  rawHtml = window.marked.parse(msgWithoutFlow);
+                }
+              } else {
+                rawHtml = msgWithoutFlow; // Fallback to raw text
+              }
+            } catch (e) {
+              console.warn('Markdown parsing failed:', e);
+              rawHtml = msgWithoutFlow;
+            }
+            const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
+              ALLOWED_TAGS: allowedTags,
+              ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'id', 'style', 'type', 'class', 'data-flow-data', 'data-flow-data-b64'],
+              KEEP_CONTENT: true,  // Preserve content
+              ADD_ATTR: ['id', 'style', 'class']  // Ensure these attributes are kept
+            });
+            
+            // Set the HTML (flow diagram placeholder is already in cleanHtml if hasFlow is true)
+            bubble.innerHTML = cleanHtml;
+            
+            // Best-effort: ensure safe link behavior
+            bubble.querySelectorAll?.('a[href]')?.forEach(a => {
+              a.setAttribute('target', '_blank');
+              a.setAttribute('rel', 'noopener noreferrer');
+            });
+
+            // Render flow diagram if present
+            if (hasFlow && flowDiagramData && flowContainerId) {
+              // Wait a bit for DOM to be ready, then render
+              setTimeout(() => {
+                let flowContainer = bubble.querySelector(`#${flowContainerId}`) || 
+                                    bubble.querySelector('.flow-diagram-placeholder');
+                
+                // If container not found, create it manually
+                if (!flowContainer) {
+                  console.warn('Flow diagram container not found, creating manually');
+                  flowContainer = document.createElement('div');
+                  flowContainer.id = flowContainerId;
+                  flowContainer.className = 'flow-diagram-placeholder';
+                  flowContainer.style.cssText = 'width: 100%; height: 500px; margin-top: 1rem; margin-bottom: 1rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;';
+                  
+                  // Try to find where to insert it (after the last paragraph or before the italicized text)
+                  const lastP = bubble.querySelector('p:last-of-type');
+                  const italicText = Array.from(bubble.querySelectorAll('em, i')).find(el => 
+                    el.textContent && el.textContent.includes('processing pipeline')
+                  );
+                  
+                  if (italicText && italicText.parentElement) {
+                    italicText.parentElement.insertBefore(flowContainer, italicText);
+                  } else if (lastP && lastP.nextSibling) {
+                    lastP.parentElement.insertBefore(flowContainer, lastP.nextSibling);
+                  } else {
+                    bubble.appendChild(flowContainer);
+                  }
+                  
+                  console.log('Manually created flow container');
+                }
+                
+                // Update container ID if it was a placeholder
+                if (flowContainer.id !== flowContainerId) {
+                  flowContainer.id = flowContainerId;
+                }
+                
+                // Ensure container has proper dimensions and is visible
+                flowContainer.style.display = 'block';
+                flowContainer.style.width = '100%';
+                flowContainer.style.height = '500px';
+                flowContainer.style.minHeight = '500px';
+                flowContainer.style.position = 'relative';
+                flowContainer.style.backgroundColor = '#f8f9fa';
+                flowContainer.style.border = '1px solid #dee2e6';
+                flowContainer.style.borderRadius = '0.5rem';
+                
+                console.log('Container found, dimensions:', {
+                  width: flowContainer.offsetWidth,
+                  height: flowContainer.offsetHeight,
+                  id: flowContainer.id,
+                  dataNodes: flowDiagramData.nodes?.length,
+                  dataLinks: flowDiagramData.links?.length
+                });
+                
+                // Render immediately if ECharts is loaded, otherwise load and retry
+                if (window.echarts) {
+                  setTimeout(() => {
+                    renderFlowDiagram(flowContainer.id, flowDiagramData);
+                  }, 300);
+                } else {
+                  ensureECharts().then(() => {
+                    setTimeout(() => {
+                      renderFlowDiagram(flowContainer.id, flowDiagramData);
+                    }, 500);
+                  }).catch(err => {
+                    console.error('Failed to load ECharts:', err);
+                  });
+                }
+              }, 600); // Wait for DOM and markdown rendering to complete
+            } else if (hasFlow) {
+              console.warn('Flow diagram markers found but data extraction failed:', {
+                hasFlow,
+                hasData: !!flowDiagramData,
+                hasContainerId: !!flowContainerId
+              });
+            }
+          } else {
+            bubble.textContent = msg;
+          }
+        } catch (e) {
+          console.warn('Markdown render failed:', e);
+          bubble.textContent = msg;
+        }
+      }
+
+      async function sendTextMessage(text) {
+        const trimmed = (text || '').trim();
+        if (!trimmed) return;
+
+        if (!window.visionAPI || typeof window.visionAPI.isAuthenticated !== 'function') {
+          return;
+        }
+
+        const active = getActive();
+        if (!active) return;
+
+        const mode = getMode();
+        const state = active.mode[mode];
+
+        // On first message per tab+mode, remove the initial welcome/suggestions content
+        if (!state.started) {
+          state.started = true;
+          messagesEl.innerHTML = '';
+        }
+
+        const ok = appendUserBubble(trimmed);
+        if (!ok) return;
+        const pendingId = appendAssistantPending();
+        saveActiveHtml();
+        // Always keep view pinned to bottom
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        try {
+          // ------------------------------------------------------------
+          // DEMO MODE (no-backend): useful to debug chart rendering/resizing
+          // Commands:
+          // - "demo on"  → enable demo mode
+          // - "demo off" → disable demo mode
+          // - "chart"    → render a dummy flow diagram message
+          // ------------------------------------------------------------
+          const DEMO_KEY = 'chatbot_demo_mode';
+          const lower = trimmed.toLowerCase();
+
+          if (lower === 'demo on' || lower === '/demo on') {
+            localStorage.setItem(DEMO_KEY, 'true');
+            replaceAssistantPending(pendingId, '**Demo mode enabled** (backend calls are disabled). Type `chart` to render a sample flow diagram, or `demo off` to exit.');
+            state.html = messagesEl.innerHTML;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            return;
+          }
+          if (lower === 'demo off' || lower === '/demo off') {
+            localStorage.setItem(DEMO_KEY, 'false');
+            replaceAssistantPending(pendingId, '**Demo mode disabled** (backend calls are enabled again).');
+            state.html = messagesEl.innerHTML;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            return;
+          }
+
+          const demoEnabled = localStorage.getItem(DEMO_KEY) === 'true';
+          if (demoEnabled) {
+            // Ensure ECharts is available (in demo we still need the library)
+            await ensureECharts();
+            if (!window.echarts) {
+              replaceAssistantPending(
+                pendingId,
+                '**Demo mode error**: ECharts is not loaded, so the chart cannot render.\n\n' +
+                  '- Check `vendors/echarts/echarts.min.js` exists and is reachable from the current page.\n' +
+                  '- Then reload and try `demo on` → `chart` again.',
+                true
+              );
+              state.html = messagesEl.innerHTML;
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+              return;
+            }
+
+            // Dummy top→bottom flow data (fixed x/y; renderer will auto-fit on resize)
+            const flowData = {
+              nodes: [
+                { name: 'camera_stream', x: 250, y: 0,   symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#DC3545', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Camera\\nCAM-XXXXX...', color: '#fff', position: 'inside', fontSize: 8 } },
+                { name: 'frame_extraction', x: 250, y: 75, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#2A7BE4', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Frame Extraction\\n1 FPS', color: '#fff', position: 'inside', fontSize: 8 } },
+                { name: 'ai_model', x: 250, y: 150, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#2A7BE4', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'AI Model\\nYOLOv8', color: '#fff', position: 'inside', fontSize: 8 } },
+                { name: 'object_detection', x: 250, y: 225, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#2A7BE4', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Object\\nDetection', color: '#fff', position: 'inside', fontSize: 8 } },
+                { name: 'rule_engine', x: 250, y: 300, symbol: 'diamond', symbolSize: [100, 65], itemStyle: { color: '#6E7891', borderColor: '#1A5BBE', borderWidth: 2 }, label: { show: true, formatter: 'Rule\\nEngine', color: '#fff', position: 'inside', fontSize: 8 } },
+                { name: 'rules', x: 250, y: 400, symbol: 'diamond', symbolSize: [100, 65], itemStyle: { color: '#6E7891', borderColor: '#1A5BBE', borderWidth: 2 }, label: { show: true, formatter: 'Rules\\nClass Presence', color: '#fff', position: 'inside', fontSize: 8 } },
+                { name: 'run_mode', x: 250, y: 500, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#DC3545', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Continuous', color: '#fff', position: 'inside', fontSize: 8 } },
+                { name: 'event_generation', x: 250, y: 575, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#28A745', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Event\\nGeneration', color: '#fff', position: 'inside', fontSize: 8 } },
+                { name: 'database', x: 250, y: 880, symbol: 'roundRect', symbolSize: [170, 60], itemStyle: { color: '#28A745', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 10 }, label: { show: true, formatter: 'MongoDB', color: '#fff', position: 'inside' } },
+                { name: 'notification', x: 250, y: 990, symbol: 'roundRect', symbolSize: [170, 60], itemStyle: { color: '#28A745', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 10 }, label: { show: true, formatter: 'WebSocket\\nNotify', color: '#fff', position: 'inside' } },
+              ],
+              links: [
+                { source: 'camera_stream', target: 'frame_extraction' },
+                { source: 'frame_extraction', target: 'ai_model' },
+                { source: 'ai_model', target: 'object_detection' },
+                { source: 'object_detection', target: 'rule_engine' },
+                { source: 'rule_engine', target: 'rules' },
+                { source: 'rules', target: 'run_mode', label: { show: true, formatter: 'MATCH' } },
+                { source: 'run_mode', target: 'event_generation' },
+                { source: 'event_generation', target: 'database' },
+                { source: 'database', target: 'notification' }
+              ]
+            };
+
+            if (lower === 'chart' || lower === '/chart') {
+              const b64 = btoa(JSON.stringify(flowData));
+              const fakeId = `demo_${Date.now()}`;
+              const answer =
+                `## Demo Processing Flow Diagram\n\n` +
+                `This is a **dummy** flow diagram rendered locally (no backend).\n\n` +
+                `<!-- FLOW_DIAGRAM_START -->\n` +
+                `<div id="flow-container-${fakeId}" data-flow-data-b64="${b64}" style="width: 100%; height: 500px; margin-top: 1rem; margin-bottom: 1rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;"></div>\n` +
+                `<!-- FLOW_DIAGRAM_END -->\n\n` +
+                `Try resizing the chatbot width now — the diagram should stay visible and auto-fit.`;
+
+              replaceAssistantPending(pendingId, answer);
+              state.html = messagesEl.innerHTML;
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+              return;
+            }
+
+            // Default demo response for other messages
+            replaceAssistantPending(pendingId, `**Demo mode** is ON. Type \`chart\` to render the dummy flow diagram, or \`demo off\` to enable backend again.\n\nYou said: \`${escapeHtml(trimmed)}\``);
+            state.html = messagesEl.innerHTML;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            return;
+          }
+
+          if (!window.visionAPI.isAuthenticated()) {
+            throw new Error('Please login first.');
+          }
+
+          let resp;
+          if (mode === 'agent') {
+            resp = await window.visionAPI.chatWithAgent(trimmed, state.sessionId);
+          } else {
+            resp = await window.visionAPI.generalChat(trimmed, state.sessionId);
+          }
+
+          const answer = resp?.response ?? '';
+          const nextSessionId = resp?.session_id ?? null;
+          if (nextSessionId) state.sessionId = nextSessionId;
+
+          replaceAssistantPending(pendingId, answer || '(empty response)');
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        } catch (err) {
+          const msg = err?.message ? String(err.message) : 'Chat request failed.';
+          replaceAssistantPending(pendingId, msg, true);
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+      }
+
+      // Events
+      tabsEl.addEventListener('click', (e) => {
+        const closeEl = e.target.closest?.('[data-chatbot-tab-close]');
+        if (closeEl) {
+          e.stopPropagation();
+          const id = closeEl.getAttribute('data-chatbot-tab-close');
+          if (id) closeTab(id);
+          return;
+        }
+
+        const tabBtn = e.target.closest?.('[data-chatbot-tab-btn]');
+        if (tabBtn) {
+          const id = tabBtn.getAttribute('data-chatbot-tab-btn');
+          if (id) showTab(id);
+        }
+      });
+
+      newTabBtn?.addEventListener('click', () => createTab());
+
+      sendBtn?.addEventListener('click', () => {
+        if (!textarea) return;
+        const text = textarea.value;
+        textarea.value = '';
+        textarea.dispatchEvent(new Event('input'));
+        sendTextMessage(text);
+      });
+
+      document.addEventListener('click', (e) => {
+        const el = e.target.closest?.('[data-chatbot-action="clear"]');
+        if (!el) return;
+        e.preventDefault();
+        const active = getActive();
+        if (!active) return;
+        const mode = getMode();
+        active.mode[mode] = emptyModeState();
+        messagesEl.innerHTML = initialTemplate;
+        saveActiveHtml();
+      });
+
+      document.addEventListener('click', (e) => {
+        const el = e.target.closest?.('[data-chatbot-mode]');
+        if (!el) return;
+        e.preventDefault();
+        const mode = el.getAttribute('data-chatbot-mode');
+        if (!mode) return;
+        setMode(mode);
+      });
+
+      // Voice (General only): click to start/stop recording
+      (function initVoice() {
+        if (!voiceBtn) return;
+        let recorder = null;
+        let chunks = [];
+        let isRecording = false;
+
+        async function start() {
+          if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error('Microphone not supported.');
+          }
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          chunks = [];
+          recorder = new MediaRecorder(stream);
+          recorder.ondataavailable = (ev) => {
+            if (ev.data && ev.data.size > 0) chunks.push(ev.data);
+          };
+          recorder.onstop = () => {
+            // stop tracks
+            stream.getTracks().forEach(t => t.stop());
+          };
+          recorder.start();
+          isRecording = true;
+          voiceBtn.classList.add('text-danger');
+        }
+
+        async function stopAndSend() {
+          if (!recorder) return;
+          const active = getActive();
+          if (!active) return;
+          if (!window.visionAPI?.isAuthenticated?.() ) throw new Error('Please login first.');
+          if (getMode() !== 'general') throw new Error('Voice is available in General mode only.');
+
+          const state = active.mode.general;
+
+          // On first voice use per tab+general, remove welcome/suggestions
+          if (!state.started) {
+            state.started = true;
+            messagesEl.innerHTML = '';
+          }
+
+          const stopped = new Promise(resolve => {
+            recorder.addEventListener('stop', resolve, { once: true });
+          });
+          recorder.stop();
+          await stopped;
+
+          isRecording = false;
+          voiceBtn.classList.remove('text-danger');
+
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          const file = new File([blob], 'voice.webm', { type: 'audio/webm' });
+
+          // Render placeholders
+          appendUserBubble('[Voice message]');
+          const pendingId = appendAssistantPending();
+          saveActiveHtml();
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+
+          const result = await window.visionAPI.voiceChat(file, state.sessionId);
+          if (result?.sessionId) state.sessionId = result.sessionId;
+          const textResp = result?.textResponse || '(voice response)';
+          replaceAssistantPending(pendingId, textResp);
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+
+          // Play audio (best-effort)
+          try {
+            if (result?.audioBlob) {
+              const url = URL.createObjectURL(result.audioBlob);
+              const audio = new Audio(url);
+              audio.play().catch(() => {});
+              audio.onended = () => URL.revokeObjectURL(url);
+            }
+          } catch {}
+        }
+
+        voiceBtn.addEventListener('click', async () => {
+          try {
+            if (getMode() !== 'general') {
+              // keep silent; user can switch mode
+              return;
+            }
+
+            if (!isRecording) {
+              await start();
+            } else {
+              await stopAndSend();
+            }
+          } catch (err) {
+            isRecording = false;
+            voiceBtn.classList.remove('text-danger');
+            const active = getActive();
+            if (active) {
+              appendAssistantPending(); // ensures latest is visible even if template is empty
+              const lastPending = messagesEl.querySelector?.('[data-chatbot-pending]');
+              if (lastPending) {
+                const bubble = lastPending.querySelector?.('div');
+                if (bubble) {
+                  bubble.textContent = err?.message ? String(err.message) : 'Voice failed.';
+                  bubble.classList.remove('bg-body-secondary');
+                  bubble.classList.add('bg-danger', 'text-white');
+                }
+              }
+              active.mode.general.html = messagesEl.innerHTML;
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+          }
+        });
+      })();
+
+      // Init with first tab
+      chatbotOffcanvas.dataset.chatbotMode = chatbotOffcanvas.dataset.chatbotMode || 'general';
+      if (modeLabel) modeLabel.textContent = getMode() === 'agent' ? 'Agent' : 'General';
+      createTab('New chat 1');
+    }
+
+    function initChatbotKeyboardShortcut() {
+      // Ctrl+L (or Cmd+L on Mac) to toggle chatbot
+      document.addEventListener('keydown', function(e) {
+        // Check for Ctrl+L (Windows/Linux) or Cmd+L (Mac)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'l' && !e.shiftKey && !e.altKey) {
+          // Prevent default browser behavior (focus address bar)
+          e.preventDefault();
+          
+          const chatbotOffcanvas = document.getElementById('chatbot-offcanvas');
+          if (!chatbotOffcanvas || typeof bootstrap === 'undefined') return;
+          
+          const offcanvasInstance = bootstrap.Offcanvas.getInstance(chatbotOffcanvas);
+          
+          if (offcanvasInstance) {
+            // Toggle: if open, close it; if closed, open it
+            offcanvasInstance.toggle();
+          } else {
+            // Create new instance and show
+            const newInstance = new bootstrap.Offcanvas(chatbotOffcanvas);
+            newInstance.show();
+          }
+        }
+      });
+    }
+    
+    // Wait for DOM and Bootstrap to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        // Wait for Bootstrap to be available
+        if (typeof bootstrap !== 'undefined') {
+          initChatbotPush();
+          initChatbotComposer();
+          initChatbotTabs();
+          initChatbotKeyboardShortcut();
+        } else {
+          // Wait a bit more for Bootstrap to load
+          setTimeout(function() {
+            if (typeof bootstrap !== 'undefined') {
+              initChatbotPush();
+              initChatbotComposer();
+              initChatbotTabs();
+              initChatbotKeyboardShortcut();
+            }
+          }, 100);
+        }
+      });
+    } else {
+      // DOM already loaded
+      if (typeof bootstrap !== 'undefined') {
+        initChatbotPush();
+        initChatbotComposer();
+        initChatbotTabs();
+        initChatbotKeyboardShortcut();
+      } else {
+        setTimeout(function() {
+          if (typeof bootstrap !== 'undefined') {
+            initChatbotPush();
+            initChatbotComposer();
+            initChatbotTabs();
+            initChatbotKeyboardShortcut();
+          }
+        }, 100);
+      }
+    }
+  })();
+</script>
+

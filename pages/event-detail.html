@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Event Details - Vision AI</title>
+    
+    <!-- Layout Loader - Must be loaded early -->
+    <script src="../custom_js/layout-loader.js"></script>
+</head>
+<body>
+    <!-- Page Content Container - This will be replaced by layout loader -->
+    <div id="page-content" style="display:none;">
+        <div class="content">
+            <!-- Breadcrumb Navigation -->
+            <nav class="mb-3" aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="dashboard.html">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="events-board.html">Events Board</a></li>
+                    <li class="breadcrumb-item active">Event Details</li>
+                </ol>
+            </nav>
+
+            <div class="pb-9">
+                <!-- Back Button -->
+                <div class="mb-4">
+                    <button class="btn btn-phoenix-secondary btn-sm" onclick="window.location.href='events-board.html'">
+                        <span class="fa-solid fa-arrow-left me-2"></span>Back to Events Board
+                    </button>
+                </div>
+
+                <!-- Event Image/Thumbnail -->
+                <div class="position-relative mb-5 mb-md-6 mb-xl-8">
+                    <div class="rounded overflow-hidden position-relative bg-body-secondary" style="height: 300px;">
+                        <img id="event-image" alt="" class="w-100 h-100 position-absolute top-0 start-0" style="object-fit: cover; display: none;">
+                        <div class="w-100 h-100 position-absolute top-0 start-0" style="background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%);"></div>
+                        <!-- Severity Badge Overlay -->
+                        <div class="position-absolute top-0 end-0 m-3">
+                            <span class="badge badge-phoenix badge-phoenix-info fs-9 px-3 py-2" id="severity-badge"></span>
+                        </div>
+                        <!-- Timestamp Overlay -->
+                        <div class="position-absolute bottom-0 start-0 m-3">
+                            <span class="badge bg-dark bg-opacity-75 text-white fs-9 px-3 py-2" id="event-timestamp"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row gx-lg-9">
+                    <!-- Main Content Column -->
+                    <div class="col-xl-8 border-end-xl">
+                        <!-- Event Header Card -->
+                        <div class="card mb-9">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start justify-content-between mb-3">
+                                    <div class="flex-1">
+                                        <h1 class="lh-sm fs-6 fs-xxl-4 mb-2" id="event-title"></h1>
+                                        <p class="fs-8 mb-4 text-body-tertiary" id="event-camera"></p>
+                                    </div>
+                                    <div class="ms-3">
+                                        <span class="badge badge-phoenix badge-phoenix-info fs-9 px-3 py-2" id="event-type-badge"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Location & Time Card -->
+                                <div class="card mb-5 mb-xxl-7">
+                                    <div class="card-body">
+                                        <div class="row gy-5">
+                                            <div class="col-md-6 d-flex justify-content-between">
+                                                <div>
+                                                    <div class="mb-3">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="px-2 py-1 bg-info-subtle rounded">
+                                                                <span class="text-info" data-feather="map-pin"></span>
+                                                            </div>
+                                                            <h5 class="ms-2 text-body-emphasis mb-0">Camera Location</h5>
+                                                        </div>
+                                                    </div>
+                                                    <p class="lh-sm mb-0 text-body-tertiary" id="event-location"></p>
+                                                </div>
+                                                <div class="my-4 mx-3 border-start border-translucent d-none d-md-block"></div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="px-2 py-1 bg-primary-subtle rounded">
+                                                            <span class="text-primary" data-feather="clock"></span>
+                                                        </div>
+                                                        <h5 class="ms-2 mb-0">Date & Time</h5>
+                                                    </div>
+                                                </div>
+                                                <p class="lh-sm mb-0 text-body-tertiary" id="event-datetime"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="row g-2">
+                                    <div class="col-12 col-md-auto flex-md-grow-1">
+                                        <button class="btn btn-primary w-100" type="button" id="resolve-btn">
+                                            <span class="fa-solid fa-check-circle me-2"></span>Mark as Resolved
+                                        </button>
+                                    </div>
+                                    <div class="col-12 col-sm-auto flex-sm-grow-1 flex-md-grow-0">
+                                        <button class="btn btn-phoenix-primary w-100" type="button">
+                                            <span class="fa-solid fa-download me-2"></span>Download Evidence
+                                        </button>
+                                    </div>
+                                    <div class="col-6 col-sm-auto">
+                                        <button class="btn btn-phoenix-primary w-100" type="button">
+                                            <span class="fa-solid fa-archive me-2"></span>Archive
+                                        </button>
+                                    </div>
+                                    <div class="col-6 col-sm-auto">
+                                        <button class="btn btn-phoenix-primary w-100" type="button">
+                                            <span class="fa-solid fa-share-nodes me-2"></span>Share
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Event Description - Only show if description exists -->
+                        <div id="event-description-section" style="display: none;">
+                            <h2 class="mb-3">Event Description</h2>
+                            <p class="text-justify text-body-secondary mb-6 mb-xxl-8" id="event-description"></p>
+                        </div>
+
+                        <!-- Event Details -->
+                        <div id="detection-details-section" style="display: none;">
+                            <h4 class="mb-3 fw-bold text-body-highlight fs-xxl-6">Detection Details:</h4>
+                            <ul class="mb-6 ps-4" id="detection-details"></ul>
+                        </div>
+
+                        <!-- Related Media (future) -->
+                        <div id="event-related-media" class="mb-7 mb-xxl-8"></div>
+
+                        <!-- AI Agent Response - Only show if agent data exists -->
+                        <div id="ai-agent-section" style="display: none;">
+                            <h4 class="mb-3 text-body-highlight fs-xxl-6">AI Agent Response:</h4>
+                            <div class="card bg-body-emphasis mb-6">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-start mb-3">
+                                        <div class="px-2 py-1 bg-info-subtle rounded me-3">
+                                            <span class="fa-solid fa-robot text-info"></span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <h6 class="mb-2" id="agent-response-title">Agent Response</h6>
+                                            <p class="mb-2 text-body-secondary fs-9" id="agent-response-text"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Event Statistics - Only show if statistics exist in metadata -->
+                        <div id="event-statistics-section" style="display: none;">
+                            <h3 class="mb-3 fw-bold text-body-highlight fs-7 fs-xxl-6">Event Statistics:</h3>
+                            <div class="d-flex mb-6" id="event-statistics"></div>
+                        </div>
+
+                        <!-- Full Size Image at Bottom -->
+                        <div id="full-image-section" style="display: none;" class="mb-6">
+                            <h3 class="mb-3 fw-bold text-body-highlight fs-7 fs-xxl-6">Full Image:</h3>
+                            <div class="card">
+                                <div class="card-body p-0">
+                                    <img id="full-event-image" alt="Event image" class="w-100" style="display: none; max-height: 800px; object-fit: contain;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar Column -->
+                    <div class="col-xl-4">
+                        <!-- Event Status Card -->
+                        <div class="card mb-6">
+                            <div class="card-body">
+                                <h5 class="mb-4">Event Status</h5>
+                                <div class="mb-3">
+                                    <p class="text-body-tertiary fs-9 mb-1">Current Status</p>
+                                    <span class="badge badge-phoenix badge-phoenix-danger fs-9 px-3 py-2" id="status-badge">
+                                        <span class="fa-solid fa-circle me-2"></span>Active - Critical
+                                    </span>
+                                </div>
+                                <div id="priority-section" class="mb-3" style="display: none;">
+                                    <p class="text-body-tertiary fs-9 mb-1">Priority Level</p>
+                                    <span class="badge badge-phoenix badge-phoenix-danger fs-9 px-3 py-2" id="priority-badge"></span>
+                                </div>
+                                <div id="assigned-section" class="mb-3" style="display: none;">
+                                    <p class="text-body-tertiary fs-9 mb-1">Assigned To</p>
+                                    <p class="mb-0 fw-semibold" id="assigned-to"></p>
+                                </div>
+                                <div>
+                                    <p class="text-body-tertiary fs-9 mb-1">Event ID</p>
+                                    <p class="mb-0 fw-semibold text-body-emphasis" id="event-id"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Camera Information -->
+                        <div class="card mb-6">
+                            <div class="card-body">
+                                <h5 class="mb-4">Camera Information</h5>
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="px-2 py-1 bg-primary-subtle rounded me-3">
+                                        <span class="fa-solid fa-video text-primary"></span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h6 class="mb-1" id="camera-name">Camera 01 - Main Entrance</h6>
+                                        <p class="mb-0 text-body-tertiary fs-9">Status: <span class="text-success">Online</span></p>
+                                    </div>
+                                </div>
+                                <div id="zone-coverage-section" class="border-top pt-3" style="display: none;">
+                                    <p class="text-body-tertiary fs-9 mb-2">Zone Coverage:</p>
+                                    <div class="d-flex flex-wrap gap-2" id="zone-badges"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Related Events - Removed dummy data, can be added later with real API -->
+
+                        <!-- Quick Actions -->
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="mb-4">Quick Actions</h5>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-phoenix-primary btn-sm" type="button" id="view-live-feed-btn" style="display: none;">
+                                        <span class="fa-solid fa-eye me-2"></span>View Live Feed
+                                    </button>
+                                    <button class="btn btn-phoenix-primary btn-sm" type="button" id="resolve-btn-sidebar" style="display: none;">
+                                        <span class="fa-solid fa-check-circle me-2"></span>Mark as Resolved
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <script type="text/visionai-page-script">
+        console.log('Event detail: Script tag executed');
+        (function() {
+            'use strict';
+            console.log('Event detail: IIFE executing, URL:', window.location.href);
+
+            // Load event data from API
+            async function loadEventData() {
+                const urlParams = new URLSearchParams(window.location.search);
+                // Support both 'event_id' (from realtime notifications) and 'id' (from hardcoded links)
+                const eventId = urlParams.get('event_id') || urlParams.get('id');
+                if (!eventId) {
+                    console.warn('Event detail: No event_id or id in URL parameters');
+                    const titleEl = document.getElementById('event-title');
+                    if (titleEl) titleEl.textContent = 'No event ID provided';
+                    return;
+                }
+
+                try {
+                    console.log('Event detail: Fetching event data for:', eventId);
+                    const ev = await window.visionAPI.getEvent(eventId);
+                    console.log('Event detail: Received event data:', ev);
+                    
+                    const title = ev?.label || 'Event';
+                    const camera = ev?.camera_id ? `Camera ${ev.camera_id}` : 'Camera';
+                    const dt = ev?.event_ts ? new Date(ev.event_ts) : (ev?.received_at ? new Date(ev.received_at) : null);
+                    const sev = String(ev?.severity || 'info').toLowerCase();
+
+                    const titleEl = document.getElementById('event-title');
+                    const cameraEl = document.getElementById('event-camera');
+                    const locationEl = document.getElementById('event-location');
+                    const datetimeEl = document.getElementById('event-datetime');
+                    const descriptionEl = document.getElementById('event-description');
+                    const descriptionSection = document.getElementById('event-description-section');
+                    const typeBadgeEl = document.getElementById('event-type-badge');
+                    const eventIdEl = document.getElementById('event-id');
+                    const cameraNameEl = document.getElementById('camera-name');
+                    const severityBadgeEl = document.getElementById('severity-badge');
+                    const timestampEl = document.getElementById('event-timestamp');
+                    const statusBadgeEl = document.getElementById('status-badge');
+                    const detectionDetailsEl = document.getElementById('detection-details');
+                    const detectionDetailsSection = document.getElementById('detection-details-section');
+
+                    // Try to fetch camera name if camera_id exists
+                    let cameraName = camera;
+                    if (ev?.camera_id) {
+                        try {
+                            const cameraData = await window.visionAPI.getCamera(ev.camera_id);
+                            if (cameraData?.name) {
+                                cameraName = cameraData.name;
+                            }
+                        } catch (err) {
+                            console.warn('Event detail: Could not fetch camera data:', err);
+                        }
+                    }
+
+                    if (titleEl) titleEl.textContent = title;
+                    if (cameraEl) cameraEl.textContent = cameraName;
+                    if (locationEl) locationEl.innerHTML = cameraName;
+                    if (datetimeEl) datetimeEl.innerHTML = dt && !isNaN(dt.getTime()) ? dt.toLocaleString() : '';
+                    
+                    // Description - only show if metadata has description
+                    if (descriptionEl && descriptionSection) {
+                        const desc = ev?.metadata?.description || '';
+                        if (desc) {
+                            descriptionEl.textContent = desc;
+                            descriptionSection.style.display = 'block';
+                        } else {
+                            descriptionSection.style.display = 'none';
+                        }
+                    }
+                    
+                    if (typeBadgeEl) typeBadgeEl.innerHTML = `<span class="fa-solid fa-triangle-exclamation me-2"></span>${title}`;
+                    if (eventIdEl) eventIdEl.textContent = ev?.id || eventId;
+                    if (cameraNameEl) cameraNameEl.textContent = cameraName;
+
+                    const sevText = sev ? (sev.charAt(0).toUpperCase() + sev.slice(1)) : 'Info';
+                    if (severityBadgeEl) severityBadgeEl.textContent = sevText;
+                    if (timestampEl) timestampEl.textContent = dt && !isNaN(dt.getTime()) ? dt.toLocaleTimeString() : '';
+                    if (statusBadgeEl) statusBadgeEl.innerHTML = `<span class="fa-solid fa-circle me-2"></span>Active - ${sevText}`;
+
+                    const sevColor = sev === 'critical' ? 'danger' : (sev === 'warning' ? 'warning' : 'info');
+                    const badgeClass = `badge-phoenix-${sevColor}`;
+                    if (typeBadgeEl) typeBadgeEl.className = `badge badge-phoenix ${badgeClass} fs-9 px-3 py-2`;
+                    if (severityBadgeEl) severityBadgeEl.className = `badge badge-phoenix ${badgeClass} fs-9 px-3 py-2`;
+                    if (statusBadgeEl) statusBadgeEl.className = `badge badge-phoenix ${badgeClass} fs-9 px-3 py-2`;
+
+                    // Detection Details - populate from metadata if available
+                    if (detectionDetailsEl && ev?.metadata) {
+                        const metadata = ev.metadata;
+                        const details = [];
+                        
+                        if (metadata.rule_index !== undefined) {
+                            details.push(`Rule Index: ${metadata.rule_index}`);
+                        }
+                        if (metadata.confidence !== undefined) {
+                            details.push(`Confidence: ${metadata.confidence}%`);
+                        }
+                        if (metadata.detection_time !== undefined) {
+                            details.push(`Detection Time: ${metadata.detection_time}s`);
+                        }
+                        if (metadata.boxes && Array.isArray(metadata.boxes) && metadata.boxes.length > 0) {
+                            details.push(`Detected Objects: ${metadata.boxes.length}`);
+                        }
+                        if (metadata.classes && Array.isArray(metadata.classes) && metadata.classes.length > 0) {
+                            details.push(`Classes: ${metadata.classes.join(', ')}`);
+                        }
+                        
+                        // Add any other metadata fields as list items
+                        Object.keys(metadata).forEach(key => {
+                            if (!['rule_index', 'confidence', 'detection_time', 'boxes', 'classes', 'description'].includes(key)) {
+                                const value = metadata[key];
+                                if (value !== null && value !== undefined && value !== '') {
+                                    details.push(`${key.charAt(0).toUpperCase() + key.slice(1)}: ${JSON.stringify(value)}`);
+                                }
+                            }
+                        });
+                        
+                        if (details.length > 0) {
+                            detectionDetailsEl.innerHTML = details.map(d => `<li>${d}</li>`).join('');
+                            detectionDetailsSection.style.display = 'block';
+                        } else {
+                            detectionDetailsSection.style.display = 'none';
+                        }
+                    } else {
+                        detectionDetailsSection.style.display = 'none';
+                    }
+
+                    // AI Agent Response - only show if agent_name exists
+                    const aiAgentSection = document.getElementById('ai-agent-section');
+                    if (aiAgentSection) {
+                        if (ev?.agent_name) {
+                            const agentTitleEl = document.getElementById('agent-response-title');
+                            const agentTextEl = document.getElementById('agent-response-text');
+                            if (agentTitleEl) {
+                                agentTitleEl.textContent = `Agent "${ev.agent_name}" Triggered`;
+                            }
+                            if (agentTextEl) {
+                                agentTextEl.textContent = ev?.metadata?.agent_response || `Event detected by agent: ${ev.agent_name}`;
+                            }
+                            aiAgentSection.style.display = 'block';
+                        } else {
+                            aiAgentSection.style.display = 'none';
+                        }
+                    }
+
+                    // Event Statistics - only show if statistics exist in metadata
+                    const statsSection = document.getElementById('event-statistics-section');
+                    const statsEl = document.getElementById('event-statistics');
+                    if (statsSection && statsEl && ev?.metadata) {
+                        const stats = [];
+                        if (ev.metadata.detection_time !== undefined) {
+                            stats.push({ label: 'Detection Time', value: `${ev.metadata.detection_time}s` });
+                        }
+                        if (ev.metadata.response_time !== undefined) {
+                            stats.push({ label: 'Response Time', value: `${ev.metadata.response_time}s` });
+                        }
+                        if (ev.metadata.confidence !== undefined) {
+                            stats.push({ label: 'Confidence', value: `${ev.metadata.confidence}%` });
+                        }
+                        
+                        if (stats.length > 0) {
+                            statsEl.innerHTML = stats.map((stat, idx) => {
+                                const border = idx > 0 ? '<div class="my-3 mx-2 mx-sm-3 border-start"></div>' : '';
+                                return `
+                                    ${border}
+                                    <div class="${idx === 0 ? 'me-3' : idx === stats.length - 1 ? 'ms-3' : 'mx-3'}">
+                                        <p class="mb-2 text-body-secondary">${stat.label}</p>
+                                        <h3 class="text-body-secondary fs-8">${stat.value}</h3>
+                                    </div>
+                                `;
+                            }).join('');
+                            statsSection.style.display = 'block';
+                        } else {
+                            statsSection.style.display = 'none';
+                        }
+                    }
+
+                    // Priority and Assigned To - only show if data exists
+                    const prioritySection = document.getElementById('priority-section');
+                    const priorityBadge = document.getElementById('priority-badge');
+                    if (prioritySection && ev?.metadata?.priority) {
+                        priorityBadge.textContent = ev.metadata.priority;
+                        prioritySection.style.display = 'block';
+                    }
+                    
+                    const assignedSection = document.getElementById('assigned-section');
+                    const assignedToEl = document.getElementById('assigned-to');
+                    if (assignedSection && ev?.metadata?.assigned_to) {
+                        assignedToEl.textContent = ev.metadata.assigned_to;
+                        assignedSection.style.display = 'block';
+                    }
+
+                    // Zone Coverage - only show if zones exist in metadata
+                    const zoneSection = document.getElementById('zone-coverage-section');
+                    const zoneBadgesEl = document.getElementById('zone-badges');
+                    if (zoneSection && zoneBadgesEl && ev?.metadata?.zones && Array.isArray(ev.metadata.zones) && ev.metadata.zones.length > 0) {
+                        zoneBadgesEl.innerHTML = ev.metadata.zones.map(zone => 
+                            `<span class="badge badge-phoenix badge-phoenix-info fs-10">${zone}</span>`
+                        ).join('');
+                        zoneSection.style.display = 'block';
+                    }
+
+                    // Thumbnail Image at top
+                    const imgEl = document.getElementById('event-image');
+                    if (imgEl && typeof window.visionAPI.fetchEventImageObjectUrl === 'function' && ev?.has_image) {
+                        try {
+                            const objUrl = await window.visionAPI.fetchEventImageObjectUrl(eventId);
+                            imgEl.src = objUrl;
+                            imgEl.style.display = 'block';
+                        } catch (err) {
+                            console.warn('Event detail: Failed to load event image:', err);
+                        }
+                    }
+
+                    // Full Size Image at bottom
+                    const fullImageSection = document.getElementById('full-image-section');
+                    const fullImageEl = document.getElementById('full-event-image');
+                    if (fullImageSection && fullImageEl && typeof window.visionAPI.fetchEventImageObjectUrl === 'function' && ev?.has_image) {
+                        try {
+                            const objUrl = await window.visionAPI.fetchEventImageObjectUrl(eventId);
+                            fullImageEl.src = objUrl;
+                            fullImageEl.style.display = 'block';
+                            fullImageEl.onload = () => {
+                                fullImageSection.style.display = 'block';
+                            };
+                            fullImageEl.onerror = () => {
+                                fullImageSection.style.display = 'none';
+                            };
+                        } catch (err) {
+                            console.warn('Event detail: Failed to load full event image:', err);
+                            fullImageSection.style.display = 'none';
+                        }
+                    }
+
+                    // View Live Feed button - only show if camera_id exists
+                    const viewLiveFeedBtn = document.getElementById('view-live-feed-btn');
+                    if (viewLiveFeedBtn && ev?.camera_id) {
+                        viewLiveFeedBtn.style.display = 'block';
+                        viewLiveFeedBtn.onclick = () => {
+                            window.location.href = `camera-detail.html?camera=${encodeURIComponent(ev.camera_id)}`;
+                        };
+                    }
+                    
+                    console.log('Event detail: Successfully loaded and displayed event data');
+                } catch (err) {
+                    console.error('Event detail: Error fetching event data:', err);
+                    const titleEl = document.getElementById('event-title');
+                    if (titleEl) titleEl.textContent = 'Error loading event: ' + (err.message || 'Unknown error');
+                }
+            }
+
+            // Boot function - waits for auth before loading data (matches dashboard pattern)
+            async function boot() {
+                console.log('Event detail: boot() called');
+                console.log('Event detail: window.visionAPI exists?', !!window.visionAPI);
+                console.log('Event detail: window.visionAPI.isAuthenticated exists?', !!(window.visionAPI && typeof window.visionAPI.isAuthenticated === 'function'));
+                
+                // Wait for API service and authentication
+                let tries = 0;
+                const maxTries = 50;
+                
+                (function checkAuth() {
+                    console.log('Event detail: checkAuth attempt', tries, 'visionAPI:', !!window.visionAPI, 'isAuthenticated:', !!(window.visionAPI && window.visionAPI.isAuthenticated && window.visionAPI.isAuthenticated()));
+                    
+                    if (window.visionAPI && window.visionAPI.isAuthenticated && window.visionAPI.isAuthenticated()) {
+                        console.log('Event detail: Auth confirmed, calling loadEventData()');
+                        loadEventData();
+                    } else if (++tries < maxTries) {
+                        setTimeout(checkAuth, 100);
+                    } else {
+                        console.error('Event detail: Auth/API not ready after ' + maxTries + ' attempts');
+                        console.error('Event detail: Final state - visionAPI:', !!window.visionAPI, 'isAuthenticated func:', !!(window.visionAPI && typeof window.visionAPI.isAuthenticated === 'function'));
+                        const titleEl = document.getElementById('event-title');
+                        if (titleEl) titleEl.textContent = 'Please login to view event';
+                    }
+                })();
+            }
+
+            // Also listen for auth state changes
+            window.addEventListener('authStateChanged', (event) => {
+                if (event.detail.loggedIn) {
+                    loadEventData();
+                }
+            });
+
+            // Listen for SPA navigation events
+            window.addEventListener('vision:spa:navigated', function(event) {
+                console.log('Event detail: vision:spa:navigated event received', window.location.pathname);
+                if (window.location.pathname.includes('event-detail.html')) {
+                    console.log('Event detail: On event-detail page, calling boot()');
+                    boot();
+                }
+            });
+
+            // Start boot process (matches dashboard pattern)
+            // Small delay to ensure layout-loader has finished injecting DOM
+            console.log('Event detail: Scheduling boot() after short delay');
+            setTimeout(() => {
+                console.log('Event detail: Calling boot() after delay');
+                boot().catch(console.error);
+            }, 100);
+        })();
+    </script>
+
+    <style>
+        .line-clamp-1 {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-clamp: 1;
+        }
+    </style>
+    </div>
+</body>
+</html>
+

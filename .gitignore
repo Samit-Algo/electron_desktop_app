@@ -1,0 +1,30 @@
+# Electron
+node_modules/
+dist/
+out/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build
+*.asar
+*.dmg
+*.exe
+*.AppImage
+*.deb
+*.rpm
+
+# Environment
+.env
+.env.local
+

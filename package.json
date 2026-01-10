@@ -1,0 +1,55 @@
+{
+  "name": "phoenix-desktop-app",
+  "version": "1.0.0",
+  "description": "Phoenix Dashboard Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": [
+    "electron",
+    "desktop",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "build": {
+    "appId": "com.phoenix.desktop",
+    "productName": "Phoenix Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!src/**/*",
+      "!node_modules/**/*",
+      "!dist/**/*",
+      "!.git/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/img/favicons/favicon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/img/favicons/apple-touch-icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/img/favicons/favicon-32x32.png"
+    }
+  }
+}
+

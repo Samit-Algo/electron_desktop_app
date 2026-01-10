@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Events Board - Vision AI</title>
+    
+    <!-- Layout Loader - Must be loaded early -->
+    <script src="../custom_js/layout-loader.js"></script>
+</head>
+<body>
+    <!-- Page Content Container - This will be replaced by layout loader -->
+    <div id="page-content" style="display:none;">
+        <div class="content">
+            <nav class="mb-3" aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="dashboard.html">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Events Board</li>
+                </ol>
+            </nav>
+            
+            <div class="row gx-6 gy-3 mb-4 align-items-center">
+                <div class="col-auto">
+                    <h2 class="mb-0">Events<span class="fw-normal text-body-tertiary ms-3">(<span id="vision-events-count">0</span>)</span></h2>
+                </div>
+                <div class="col-auto">
+                    <div class="search-box me-3">
+                        <form class="position-relative">
+                            <input class="form-control search-input search" type="search" placeholder="Search events" aria-label="Search" />
+                            <span class="fas fa-search search-box-icon"></span>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row justify-content-between align-items-end mb-4 g-3">
+                <div class="col-12 col-sm-auto">
+                    <ul class="nav nav-links mx-n2">
+                        <li class="nav-item"><a class="nav-link px-2 py-1 active" aria-current="page" href="#"><span>All</span><span class="text-body-tertiary fw-semibold">(0)</span></a></li>
+                        <li class="nav-item"><a class="nav-link px-2 py-1" href="#"><span>Critical</span><span class="text-body-tertiary fw-semibold">(0)</span></a></li>
+                        <li class="nav-item"><a class="nav-link px-2 py-1" href="#"><span>Warning</span><span class="text-body-tertiary fw-semibold">(0)</span></a></li>
+                        <li class="nav-item"><a class="nav-link px-2 py-1" href="#"><span>Info</span><span class="text-body-tertiary fw-semibold">(0)</span></a></li>
+                        <li class="nav-item"><a class="nav-link px-2 py-1" href="#"><span>Resolved</span><span class="text-body-tertiary fw-semibold">(0)</span></a></li>
+                    </ul>
+                </div>
+                <div class="col-12 col-sm-auto">
+                    <div class="d-flex align-items-center">
+                        <select class="form-select form-select-sm me-2" style="width: auto;" id="vision-events-range">
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="all" selected>All</option>
+                        </select>
+                        <select class="form-select form-select-sm me-2" style="width: auto;">
+                            <option>All Cameras</option>
+                            <option>Camera 01</option>
+                            <option>Camera 02</option>
+                            <option>Camera 03</option>
+                        </select>
+                        <button class="btn btn-phoenix-secondary btn-sm" type="button">
+                            <span class="fa-solid fa-filter me-1"></span>Filter
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-3 mb-9" id="vision-events-board-grid">
+                <!-- Realtime events injected by notifications-realtime.js -->
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-clamp: 2;
+        }
+        .btn-reveal-trigger:hover .btn-reveal {
+            opacity: 1;
+        }
+        .btn-reveal {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+    </style>
+
+</body>
+</html>
