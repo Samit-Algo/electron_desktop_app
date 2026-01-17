@@ -204,13 +204,16 @@
     const badgeCls = severityBadgeClass(ev.severity);
     const timeLine = ev.timestamp ? escapeHtml(new Date(ev.timestamp).toLocaleString()) : '';
     const avatarLetter = escapeHtml((ev.label || 'E').trim().charAt(0).toUpperCase());
+    const eventKey = escapeHtml(ev.eventId || '');
+    const thumb = getEventThumbUrl(ev);
 
     // Keep structure close to existing Phoenix notification-card
     const wrapper = document.createElement('div');
     wrapper.className = 'px-2 px-sm-3 py-3 notification-card position-relative unread border-bottom';
+    if (eventKey) wrapper.setAttribute('data-vision-event-id', eventKey);
     wrapper.innerHTML = `
       <div class="d-flex align-items-center justify-content-between position-relative">
-        <div class="d-flex">
+        <div class="d-flex align-items-center">
           <div class="avatar avatar-m status-online me-3">
             <div class="avatar-name rounded-circle"><span>${avatarLetter}</span></div>
           </div>
@@ -225,10 +228,50 @@
             ${timeLine ? `<p class="text-body-secondary fs-9 mb-0"><span class="me-1 fas fa-clock"></span>${timeLine}</p>` : ''}
           </div>
         </div>
+        <div class="ms-3 flex-shrink-0">
+          <div class="rounded-2 overflow-hidden bg-body-secondary"
+               style="width:84px;height:56px;position:relative;border:1px solid rgba(0,0,0,0.06);">
+            <img
+              data-vision-event-thumb="${eventKey}"
+              src="${thumb ? escapeHtml(thumb) : ''}"
+              alt=""
+              style="width:100%;height:100%;object-fit:cover;display:${thumb ? 'block' : 'none'};"
+            >
+            <div
+              data-vision-event-thumb-fallback="${eventKey}"
+              class="d-flex align-items-center justify-content-center text-body-secondary"
+              style="width:100%;height:100%;display:${thumb ? 'none' : 'flex'};"
+            >
+              <span class="fa-solid fa-image"></span>
+            </div>
+          </div>
+        </div>
       </div>
       <a class="stretched-link" href="${href}"></a>
     `;
     return wrapper;
+  }
+
+  function updateTopbarThumb(ev) {
+    if (!ev?.eventId) return;
+    const listEl = document.getElementById('vision-notif-list');
+    if (!listEl) return;
+    const key = String(ev.eventId);
+    const card = listEl.querySelector?.(`.notification-card[data-vision-event-id="${CSS.escape(key)}"]`);
+    if (!card) return;
+
+    const thumb = getEventThumbUrl(ev);
+    if (!thumb) return;
+
+    const img = card.querySelector?.(`img[data-vision-event-thumb="${CSS.escape(key)}"]`);
+    const fb = card.querySelector?.(`[data-vision-event-thumb-fallback="${CSS.escape(key)}"]`);
+    try {
+      if (img) {
+        img.src = thumb;
+        img.style.display = 'block';
+      }
+      if (fb) fb.style.display = 'none';
+    } catch {}
   }
 
   function pushTopbar(ev) {
@@ -402,6 +445,8 @@
     state.unread += 1;
     updateTopbar();
     pushTopbar(ev);
+    // If backend has an image stored, load it async and swap the thumb in the topbar item.
+    ensureEventImageLoaded(ev).then(() => updateTopbarThumb(ev)).catch(() => {});
     // Refresh UI from DB-backed APIs so navigation/reload is always correct
     refreshDashboardLatestFromApi();
     const sel = document.getElementById('vision-events-range');
@@ -409,6 +454,9 @@
     showNativeNotification(ev);
 
     window.dispatchEvent(new CustomEvent('vision:event-notification', { detail: ev }));
+    // Raw payload dispatch (for pages that need agent_id / full metadata)
+    // Example consumers: camera-detail timeline grouped by active agents.
+    window.dispatchEvent(new CustomEvent('vision:event-notification-raw', { detail: payload }));
   }
 
   function onWsMessage(msg) {

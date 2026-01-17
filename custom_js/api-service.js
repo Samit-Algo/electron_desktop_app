@@ -64,6 +64,103 @@ class VisionAPIService {
   }
 
   /**
+   * Stream an endpoint that returns Server-Sent Events (SSE).
+   *
+   * This uses fetch() (not EventSource) so we can send Authorization headers.
+   *
+   * Yields objects: { event: string, data: any }
+   */
+  async *sseRequest(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    const config = {
+      ...options,
+      headers: {
+        ...this.getAuthHeaders(),
+        Accept: 'text/event-stream',
+        ...(options.headers || {}),
+      },
+    };
+
+    const response = await fetch(url, config);
+
+    if (response.status === 401) {
+      this.logout();
+      throw new Error('Session expired. Please login again.');
+    }
+    if (!response.ok) {
+      // Best-effort: parse JSON error, else plain text
+      let msg = `API Error: ${response.statusText}`;
+      try {
+        const err = await response.json();
+        msg = err?.detail || msg;
+      } catch (_) {
+        try {
+          const t = await response.text();
+          if (t) msg = t;
+        } catch (_) {}
+      }
+      throw new Error(msg);
+    }
+
+    if (!response.body || typeof response.body.getReader !== 'function') {
+      throw new Error('Streaming not supported in this environment.');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+
+    function parseEventBlock(block) {
+      // SSE block: multiple lines; blank line terminates the event.
+      // We support: "event: name" and one or more "data: ..." lines.
+      let eventName = 'message';
+      const dataLines = [];
+      const lines = String(block || '').split(/\r?\n/);
+      for (const line of lines) {
+        if (!line) continue;
+        if (line.startsWith(':')) continue; // comment/heartbeat
+        if (line.startsWith('event:')) {
+          eventName = line.slice('event:'.length).trim() || 'message';
+          continue;
+        }
+        if (line.startsWith('data:')) {
+          dataLines.push(line.slice('data:'.length).trimStart());
+          continue;
+        }
+      }
+      const dataText = dataLines.join('\n');
+      let data = dataText;
+      try {
+        data = dataText ? JSON.parse(dataText) : null;
+      } catch (_) {
+        // keep as string
+      }
+      return { event: eventName, data };
+    }
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // Normalize newlines for simpler SSE parsing (handles \r\n coming from some servers/proxies)
+        buffer = buffer.replace(/\r\n/g, '\n');
+
+        // Process complete SSE blocks separated by blank line
+        let idx;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          const parsed = parseEventBlock(block);
+          yield parsed;
+        }
+      }
+    } finally {
+      try { reader.releaseLock(); } catch (_) {}
+    }
+  }
+
+  /**
    * Authentication Methods
    */
   async register(fullName, email, password) {
@@ -206,6 +303,49 @@ class VisionAPIService {
   }
 
   /**
+   * Fetch event video URL from local file system (Electron only)
+   * Serves video through local HTTP server instead of blob for better codec support
+   * @param {string} videoPath - Absolute path to video file
+   * @returns {Promise<string>} URL to the video file served by local server
+   */
+  async fetchEventVideoObjectUrl(videoPath) {
+    // Use HTTP server approach instead of blob for better codec support
+    // This works by serving the video file through the Express server
+    try {
+      console.log('[API] Fetching video from path:', videoPath);
+      
+      // Get the server port (from window.location or default)
+      const serverPort = window.location.port || '3000';
+      const serverHost = window.location.hostname || '127.0.0.1';
+      
+      // Encode the file path for URL (handle Windows paths with backslashes)
+      const encodedPath = encodeURIComponent(videoPath.replace(/\\/g, '/'));
+      
+      // Create URL to serve video through Express server
+      const videoUrl = `http://${serverHost}:${serverPort}/api/v1/videos/${encodedPath}`;
+      
+      console.log('[API] Video URL created:', videoUrl);
+      
+      // Verify the file exists by making a HEAD request
+      try {
+        const response = await fetch(videoUrl, { method: 'HEAD' });
+        if (!response.ok) {
+          throw new Error(`Video file not found or not accessible: ${response.status}`);
+        }
+        console.log('[API] Video file verified, size:', response.headers.get('Content-Length'), 'bytes');
+      } catch (err) {
+        console.error('[API] Video file verification failed:', err);
+        throw new Error(`Failed to access video file: ${err.message}`);
+      }
+      
+      return videoUrl;
+    } catch (error) {
+      console.error('[API] Error fetching video file:', error);
+      throw new Error(`Failed to load video: ${error.message}`);
+    }
+  }
+
+  /**
    * Streaming Methods
    */
   async getStreamStatus(cameraId) {
@@ -223,6 +363,15 @@ class VisionAPIService {
     if (!this.token) throw new Error('Not authenticated');
     const wsBase = this.baseURL.replace('http://', 'ws://').replace('https://', 'wss://');
     return `${wsBase}/api/v1/streams/${cameraId}/live/ws?token=${encodeURIComponent(this.token)}`;
+  }
+
+  /**
+   * Agent overlay WS URL (Option A): JSON detections for canvas overlay.
+   */
+  getAgentOverlayWsURL(agentId) {
+    if (!this.token) throw new Error('Not authenticated');
+    const wsBase = this.baseURL.replace('http://', 'ws://').replace('https://', 'wss://');
+    return `${wsBase}/api/v1/streams/agents/${encodeURIComponent(agentId)}/overlay/ws?token=${encodeURIComponent(this.token)}`;
   }
 
   /**
@@ -248,6 +397,23 @@ class VisionAPIService {
     });
   }
 
+  async *chatWithAgentStream(message, sessionId = null, cameraId = null, zoneData = null, signal = null) {
+    const body = JSON.stringify({
+      message,
+      session_id: sessionId,
+      camera_id: cameraId,
+      zone_data: zoneData,
+    });
+    yield* this.sseRequest('/api/v1/chat/message/stream', {
+      method: 'POST',
+      body,
+      signal: signal || undefined,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
   async generalChat(message, sessionId = null) {
     return await this.request('/api/v1/general-chat/message', {
       method: 'POST',
@@ -255,6 +421,21 @@ class VisionAPIService {
         message,
         session_id: sessionId,
       }),
+    });
+  }
+
+  async *generalChatStream(message, sessionId = null, signal = null) {
+    const body = JSON.stringify({
+      message,
+      session_id: sessionId,
+    });
+    yield* this.sseRequest('/api/v1/general-chat/message/stream', {
+      method: 'POST',
+      body,
+      signal: signal || undefined,
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
   }
 

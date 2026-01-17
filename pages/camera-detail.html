@@ -94,6 +94,8 @@
                         <div class="card-body p-0 visionai-right-body">
                             <div class="position-relative bg-black visionai-video-stage">
                                 <video id="camera-video" class="w-100 h-100 visionai-video" controls autoplay muted playsinline></video>
+                                <!-- Agent overlay canvas (Option A) -->
+                                <canvas id="agent-overlay-canvas" class="visionai-agent-overlay"></canvas>
 
                                 <div class="position-absolute bottom-0 start-0 m-3">
                                     <span class="badge bg-dark bg-opacity-75 text-white fs-9" id="camera-overlay-badge">
@@ -102,22 +104,50 @@
                                 </div>
                             </div>
 
-                            <!-- Timeline (shows only when agent sidebar is collapsed) -->
-                            <div class="visionai-timeline border-top border-translucent" id="visionai-timeline">
-                                <div class="d-flex align-items-center justify-content-between p-2 p-sm-3 gap-2">
-                                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                                        <!-- removed timeline label + time indicator -->
+                            <!-- CCTV-style Timeline (dummy, 24h with zoom) -->
+                            <div class="visionai-timeline border-top border-translucent" id="visionai-timeline" aria-label="Camera timeline">
+                                <div class="cctv-timeline__header">
+                                    <div class="cctv-timeline__title">
+                                        <span class="fa-solid fa-clock me-2 text-info"></span>
+                                        <span class="fw-semibold">Timeline</span>
+                                        <span class="cctv-timeline__subtitle ms-2">Dummy 24h view</span>
                                     </div>
-                                    <!-- zoom controls removed (use mouse wheel zoom on timeline instead) -->
+                                    <div class="cctv-timeline__controls" aria-label="Timeline zoom controls">
+                                        <button class="btn btn-phoenix-secondary btn-sm cctv-timeline__btn" type="button" id="cctv-zoom-out" title="Zoom out (mouse wheel supported)">
+                                            <span class="fa-solid fa-minus"></span>
+                                        </button>
+                                        <span class="cctv-timeline__zoom-pill" id="cctv-zoom-label" aria-live="polite">24h</span>
+                                        <button class="btn btn-phoenix-secondary btn-sm cctv-timeline__btn" type="button" id="cctv-zoom-in" title="Zoom in (mouse wheel supported)">
+                                            <span class="fa-solid fa-plus"></span>
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <div class="visionai-timeline-scroll">
-                                    <div class="visionai-timeline-inner" id="timeline-inner">
-                                        <!-- Ruler + tracks are built by JS -->
+                                <!-- vis-timeline container (engine handles zoom/pan/scales) -->
+                                <div class="cctv-vis" id="cctv-vis"></div>
+                                <!-- Event hover popup (custom overlay) -->
+                                <div class="cctv-event-popup" id="cctv-event-popup" aria-hidden="true">
+                                    <div class="cctv-event-popup__media">
+                                        <div class="cctv-event-popup__img-wrap">
+                                            <img class="cctv-event-popup__img" id="cctv-event-popup-img" alt="" />
+                                        </div>
+                                    </div>
+                                    <div class="cctv-event-popup__meta">
+                                        <div class="cctv-event-popup__title" id="cctv-event-popup-title">Event</div>
+                                        <div class="cctv-event-popup__row">
+                                            <span class="cctv-event-popup__k">Time</span>
+                                            <span class="cctv-event-popup__v" id="cctv-event-popup-time">--:--</span>
+                                        </div>
+                                        <div class="cctv-event-popup__row">
+                                            <span class="cctv-event-popup__k">Agent</span>
+                                            <span class="cctv-event-popup__v" id="cctv-event-popup-agent">—</span>
+                                        </div>
+                                        <div class="cctv-event-popup__row">
+                                            <span class="cctv-event-popup__k">Severity</span>
+                                            <span class="cctv-event-popup__v" id="cctv-event-popup-sev">—</span>
+                                        </div>
                                     </div>
                                 </div>
-
-                                <div class="visionai-tooltip" id="timeline-tooltip" role="tooltip" aria-hidden="true"></div>
                             </div>
                         </div>
 
@@ -147,12 +177,23 @@
                     background-color: rgba(var(--phoenix-primary-rgb), 0.05);
                 }
 
+                /* Agent overlay canvas (draw detections over camera video) */
+                .visionai-video-stage { position: relative; }
+                .visionai-agent-overlay {
+                    position: absolute;
+                    inset: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 4;
+                }
+
                 /* Sidebar collapse: hide left panel, let video take full width */
                 #camera-detail-shell.visionai-sidebar-collapsed #agent-sidebar { display: none !important; }
 
                 /* Timeline: always visible under the camera (right pane).
                    When the sidebar collapses, the right pane becomes full width, so the timeline does too. */
-                #visionai-timeline { display: block; background: var(--phoenix-body-bg); }
+                #visionai-timeline { display: block; background: #0b0f14; }
 
                 /* No internal scrolling: timeline should push the page naturally */
                 .visionai-right-body {
@@ -185,109 +226,427 @@
                     display: block;
                 }
 
-                .visionai-timeline-scroll {
-                    overflow-x: auto;
-                    overflow-y: hidden;
-                    border-top: 1px solid var(--phoenix-border-color, #e9ecef);
-                }
-                .visionai-timeline-inner {
-                    position: relative;
-                    min-height: 210px;
-                    padding: 10px 12px 12px 12px;
-                    background:
-                        linear-gradient(to bottom, rgba(var(--phoenix-body-color-rgb), 0.04), rgba(var(--phoenix-body-color-rgb), 0)) 0 0/100% 40px no-repeat;
-                }
-                .timeline-ruler {
-                    position: sticky;
-                    top: 0;
-                    background: var(--phoenix-body-bg);
-                    z-index: 2;
-                    padding-bottom: 8px;
-                }
-                .timeline-ruler-track {
-                    position: relative;
-                    height: 30px;
-                }
-                .timeline-tick {
-                    position: absolute;
-                    top: 0;
-                    width: 1px;
-                    background: rgba(var(--phoenix-body-color-rgb), 0.18);
-                }
-                .timeline-tick.small { height: 8px; opacity: 0.45; }
-                .timeline-tick.medium { height: 14px; opacity: 0.6; }
-                .timeline-tick.big { height: 22px; opacity: 0.85; }
-                .timeline-hour-label {
-                    position: absolute;
-                    top: 18px;
-                    transform: translateX(-50%);
-                    font-size: 10px;
-                    color: rgba(var(--phoenix-body-color-rgb), 0.6);
-                    white-space: nowrap;
+                /* ------------------------------------------------------------------
+                   CCTV timeline (dummy 24h + zoom) — pro timeline model + themes
+                   Theme tokens: set data-theme="dark|light" on <html> or <body>
+                   ------------------------------------------------------------------ */
+                :root,
+                [data-theme="dark"] {
+                    --cctv-bg: #0b0f14;
+                    --cctv-header-bg: rgba(0,0,0,0.18);
+                    --cctv-header-border: rgba(255,255,255,0.06);
+                    --cctv-text: rgba(255,255,255,0.92);
+                    --cctv-text-muted: rgba(255,255,255,0.55);
+                    --cctv-pill-bg: rgba(0,0,0,0.35);
+                    --cctv-pill-border: rgba(255,255,255,0.10);
+
+                    --cctv-bar-bg: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+                    --cctv-bar-border: rgba(255,255,255,0.08);
+
+                    --cctv-grid-minor: rgba(255,255,255,0.06);
+                    --cctv-grid-major: rgba(255,255,255,0.12);
+                    --cctv-label: rgba(255,255,255,0.70);
+
+                    --cctv-seg-recording: rgba(13, 202, 240, 0.78);
+                    --cctv-seg-motion: rgba(13, 110, 253, 0.78);
+                    --cctv-seg-event: rgba(25, 135, 84, 0.88);
+
+                    --cctv-now: #13e6ff;
+                    --cctv-now-glow: rgba(19, 230, 255, 0.16);
+                    --cctv-now-label-bg: rgba(0,0,0,0.75);
+                    --cctv-now-label-text: rgba(255,255,255,0.92);
+
+                    --cctv-hover-line: rgba(19, 230, 255, 0.55);
+                    --cctv-hover-tip-bg: rgba(0,0,0,0.78);
+                    --cctv-hover-tip-text: rgba(255,255,255,0.92);
                 }
 
-                .timeline-rows { display: grid; gap: 10px; }
-                .timeline-row {
-                    display: grid;
-                    grid-template-columns: 160px 1fr;
-                    gap: 10px;
+                [data-theme="light"] {
+                    --cctv-bg: #f6f8fb;
+                    --cctv-header-bg: rgba(0,0,0,0.04);
+                    --cctv-header-border: rgba(0,0,0,0.08);
+                    --cctv-text: rgba(0,0,0,0.88);
+                    --cctv-text-muted: rgba(0,0,0,0.55);
+                    --cctv-pill-bg: rgba(255,255,255,0.70);
+                    --cctv-pill-border: rgba(0,0,0,0.10);
+
+                    --cctv-bar-bg: linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.02));
+                    --cctv-bar-border: rgba(0,0,0,0.12);
+
+                    --cctv-grid-minor: rgba(0,0,0,0.10);
+                    --cctv-grid-major: rgba(0,0,0,0.18);
+                    --cctv-label: rgba(0,0,0,0.65);
+
+                    --cctv-seg-recording: rgba(0, 145, 255, 0.70);
+                    --cctv-seg-motion: rgba(0, 180, 120, 0.70);
+                    --cctv-seg-event: rgba(255, 140, 0, 0.78);
+
+                    --cctv-now: #00bcd4;
+                    --cctv-now-glow: rgba(0, 188, 212, 0.18);
+                    --cctv-now-label-bg: rgba(255,255,255,0.90);
+                    --cctv-now-label-text: rgba(0,0,0,0.85);
+
+                    --cctv-hover-line: rgba(0, 188, 212, 0.55);
+                    --cctv-hover-tip-bg: rgba(255,255,255,0.92);
+                    --cctv-hover-tip-text: rgba(0,0,0,0.86);
+
+                    --cctv-popup-bg: rgba(255,255,255,0.96);
+                    --cctv-popup-text: rgba(0,0,0,0.88);
+                    --cctv-popup-muted: rgba(0,0,0,0.55);
+                    --cctv-popup-border: rgba(0,0,0,0.12);
+                }
+
+                .cctv-timeline__header {
+                    display: flex;
                     align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                    padding: 10px 12px;
+                    background: var(--cctv-header-bg);
+                    border-bottom: 1px solid var(--cctv-header-border);
                 }
-                .timeline-agent {
+                .cctv-timeline__title {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    color: var(--cctv-text);
+                }
+                .cctv-timeline__subtitle {
                     font-size: 12px;
-                    color: var(--phoenix-body-color);
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
+                    color: var(--cctv-text-muted);
                 }
-                .timeline-track {
+                .cctv-timeline__controls {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .cctv-timeline__zoom-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 52px;
+                    padding: 4px 10px;
+                    border-radius: 999px;
+                    font-size: 12px;
+                    color: color-mix(in oklab, var(--cctv-text) 92%, transparent);
+                    background: var(--cctv-pill-bg);
+                    border: 1px solid var(--cctv-pill-border);
+                    user-select: none;
+                }
+                .cctv-timeline__btn {
+                    border-color: rgba(255,255,255,0.12) !important;
+                }
+
+                /* The timeline block itself */
+                .cctv-timeline {
+                    width: 100%;
+                    padding: 10px 12px 14px 12px;
+                    background: var(--cctv-bg);
+                }
+                .cctv-timeline__labels {
                     position: relative;
-                    height: 34px;
-                    border-radius: 10px;
-                    background: rgba(var(--phoenix-body-color-rgb), 0.04);
-                    border: 1px solid rgba(var(--phoenix-body-color-rgb), 0.06);
+                    height: 18px;
+                    margin-bottom: 8px;
+                    font-size: 12px;
+                    color: var(--cctv-label);
+                    user-select: none;
                     overflow: hidden;
+                    cursor: grab;
                 }
-                .timeline-gridline {
+                .cctv-timeline__labels.is-panning { cursor: grabbing; }
+                .cctv-timeline__label {
+                    position: absolute;
+                    top: 0;
+                    transform: translateX(-50%);
+                    white-space: nowrap;
+                    letter-spacing: 0.2px;
+                }
+                .cctv-timeline__bar {
+                    position: relative;
+                    height: 52px;
+                    border-radius: 10px;
+                    background: var(--cctv-bar-bg);
+                    border: 1px solid var(--cctv-bar-border);
+                    overflow: hidden;
+                    cursor: grab;
+                }
+                .cctv-timeline__bar.is-panning { cursor: grabbing; }
+                .cctv-timeline__grid {
+                    position: absolute;
+                    inset: 0;
+                    pointer-events: none;
+                }
+                .cctv-timeline__tick {
                     position: absolute;
                     top: 0;
                     bottom: 0;
                     width: 1px;
-                    background: rgba(var(--phoenix-body-color-rgb), 0.08);
+                    background: var(--cctv-grid-minor);
                 }
-                .timeline-event {
-                    position: absolute;
-                    top: 6px;
-                    bottom: 6px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
+                .cctv-timeline__tick--major {
+                    background: var(--cctv-grid-major);
                 }
-                .timeline-event.critical { background: rgba(220,53,69,0.9); }
-                .timeline-event.warning { background: rgba(255,193,7,0.95); }
-                .timeline-event.info { background: rgba(13,202,240,0.85); }
-                .timeline-event.success { background: rgba(25,135,84,0.85); }
 
-                .timeline-playhead {
+                .cctv-timeline__segments {
+                    position: absolute;
+                    inset: 0;
+                    pointer-events: none;
+                }
+                .cctv-seg {
+                    position: absolute;
+                    height: 6px;
+                    border-radius: 999px;
+                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+                }
+                .cctv-seg--recording {
+                    background: var(--cctv-seg-recording);
+                }
+                .cctv-seg--event {
+                    background: var(--cctv-seg-event);
+                }
+                .cctv-seg--motion {
+                    background: var(--cctv-seg-motion);
+                }
+
+                /* Lanes for thin bars */
+                .cctv-seg[data-lane="0"] { top: 14px; }
+                .cctv-seg[data-lane="1"] { top: 24px; }
+                .cctv-seg[data-lane="2"] { top: 34px; }
+
+                /* Current time marker */
+                .cctv-timeline__now {
                     position: absolute;
                     top: 0;
                     bottom: 0;
                     width: 2px;
-                    background: #ff3b30;
+                    background: var(--cctv-now);
+                    box-shadow: 0 0 0 3px var(--cctv-now-glow);
                     z-index: 3;
                     pointer-events: none;
                 }
-                .timeline-playhead::before {
+                .cctv-timeline__now::before {
                     content: '';
                     position: absolute;
-                    top: -6px;
+                    top: -7px;
                     left: 50%;
                     transform: translateX(-50%);
                     width: 10px;
                     height: 10px;
                     border-radius: 50%;
-                    background: #ff3b30;
-                    box-shadow: 0 0 0 3px rgba(255,59,48,0.2);
+                    background: var(--cctv-now);
+                    box-shadow: 0 0 0 4px var(--cctv-now-glow);
+                }
+                .cctv-timeline__now::after {
+                    content: attr(data-label);
+                    position: absolute;
+                    top: -30px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    padding: 4px 8px;
+                    border-radius: 999px;
+                    font-size: 11px;
+                    line-height: 1;
+                    white-space: nowrap;
+                    color: var(--cctv-now-label-text);
+                    background: var(--cctv-now-label-bg);
+                    border: 1px solid color-mix(in oklab, var(--cctv-now) 35%, transparent);
+                }
+                .cctv-timeline__now.is-clamped-left::after,
+                .cctv-timeline__now.is-clamped-right::after {
+                    content: attr(data-label) " (off-screen)";
+                }
+
+                /* Hover cursor */
+                .cctv-timeline__hover {
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    width: 1px;
+                    background: var(--cctv-hover-line);
+                    z-index: 2;
+                    pointer-events: none;
+                    opacity: 0;
+                    transition: opacity 80ms ease;
+                }
+                .cctv-timeline__hover.is-visible { opacity: 1; }
+                .cctv-timeline__hover-tip {
+                    position: absolute;
+                    top: 6px;
+                    transform: translateX(-50%);
+                    padding: 4px 8px;
+                    border-radius: 999px;
+                    font-size: 11px;
+                    line-height: 1;
+                    white-space: nowrap;
+                    color: var(--cctv-hover-tip-text);
+                    background: var(--cctv-hover-tip-bg);
+                    border: 1px solid color-mix(in oklab, var(--cctv-hover-line) 40%, transparent);
+                    z-index: 4;
+                    pointer-events: none;
+                    opacity: 0;
+                    transition: opacity 80ms ease;
+                }
+                .cctv-timeline__hover-tip.is-visible { opacity: 1; }
+
+                /* ------------------------------------------------------------------
+                   vis-timeline skinning (override defaults)
+                   ------------------------------------------------------------------ */
+                .cctv-vis {
+                    width: 100%;
+                    background: var(--cctv-bg);
+                    padding: 10px 12px 12px 12px;
+                }
+
+                .cctv-vis .vis-timeline {
+                    border: 1px solid var(--cctv-bar-border) !important;
+                    border-radius: 10px !important;
+                    background: var(--cctv-bar-bg) !important;
+                }
+                .cctv-vis .vis-panel,
+                .cctv-vis .vis-panel.vis-center,
+                .cctv-vis .vis-panel.vis-left,
+                .cctv-vis .vis-panel.vis-right,
+                .cctv-vis .vis-panel.vis-top,
+                .cctv-vis .vis-panel.vis-bottom {
+                    background: transparent !important;
+                    border: 0 !important;
+                }
+
+                /* Dense / compact layout */
+                .cctv-vis .vis-time-axis {
+                    border: 0 !important;
+                    background: transparent !important;
+                }
+                .cctv-vis .vis-time-axis .vis-text {
+                    color: var(--cctv-label) !important;
+                    font-size: 12px !important;
+                    letter-spacing: 0.2px;
+                }
+                .cctv-vis .vis-itemset {
+                    border: 0 !important;
+                }
+
+                /* Grid hierarchy */
+                .cctv-vis .vis-grid.vis-major { border-color: var(--cctv-grid-major) !important; }
+                .cctv-vis .vis-grid.vis-minor { border-color: var(--cctv-grid-minor) !important; }
+
+                /* Group labels: compact */
+                .cctv-vis .vis-labelset .vis-label {
+                    color: var(--cctv-text) !important;
+                    background: transparent !important;
+                    border-color: transparent !important;
+                }
+                .cctv-vis .vis-labelset .vis-label .vis-inner {
+                    padding: 4px 8px !important;
+                    opacity: 0.75;
+                    font-size: 12px !important;
+                }
+                .cctv-vis .vis-group { border-color: color-mix(in oklab, var(--cctv-grid-minor) 80%, transparent) !important; }
+
+                /* Activity bars */
+                .cctv-vis .vis-item {
+                    border: 0 !important;
+                    border-radius: 999px !important;
+                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+                    height: 8px;
+                }
+                .cctv-vis .vis-item.vis-range .vis-item-content {
+                    padding: 0 !important;
+                    line-height: 0 !important;
+                }
+                .cctv-vis .vis-item.cctv-recording { background: var(--cctv-seg-recording) !important; }
+                .cctv-vis .vis-item.cctv-motion { background: var(--cctv-seg-motion) !important; }
+                .cctv-vis .vis-item.cctv-event { background: var(--cctv-seg-event) !important; }
+
+                /* NOW playhead via custom time */
+                .cctv-vis .vis-custom-time {
+                    background: var(--cctv-now) !important;
+                    width: 2px !important;
+                    box-shadow: 0 0 0 3px var(--cctv-now-glow);
+                    pointer-events: none;
+                }
+                .cctv-vis .vis-custom-time::before {
+                    content: '';
+                    position: absolute;
+                    top: -7px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    background: var(--cctv-now);
+                    box-shadow: 0 0 0 4px var(--cctv-now-glow);
+                }
+                .cctv-vis .vis-custom-time .vis-custom-time-marker {
+                    color: var(--cctv-now-label-text) !important;
+                    background: var(--cctv-now-label-bg) !important;
+                    border: 1px solid color-mix(in oklab, var(--cctv-now) 35%, transparent) !important;
+                    border-radius: 999px !important;
+                    padding: 4px 8px !important;
+                    font-size: 11px !important;
+                }
+
+                /* ------------------------------------------------------------------
+                   Timeline event hover popup
+                   ------------------------------------------------------------------ */
+                .cctv-event-popup {
+                    position: fixed;
+                    z-index: 9999;
+                    display: none;
+                    width: 320px;
+                    max-width: 360px;
+                    border-radius: 14px;
+                    background: var(--cctv-popup-bg, rgba(0,0,0,0.88));
+                    color: var(--cctv-popup-text, rgba(255,255,255,0.92));
+                    border: 1px solid var(--cctv-popup-border, rgba(255,255,255,0.12));
+                    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+                    overflow: hidden;
+                    pointer-events: none;
+                }
+                :root,
+                [data-theme="dark"] {
+                    --cctv-popup-bg: rgba(9, 12, 18, 0.92);
+                    --cctv-popup-text: rgba(255,255,255,0.92);
+                    --cctv-popup-muted: rgba(255,255,255,0.60);
+                    --cctv-popup-border: rgba(255,255,255,0.10);
+                }
+                .cctv-event-popup[data-show="true"] { display: grid; grid-template-columns: 110px 1fr; }
+                .cctv-event-popup__media { background: rgba(0,0,0,0.10); }
+                .cctv-event-popup__img-wrap {
+                    width: 110px;
+                    height: 110px;
+                    background: rgba(0,0,0,0.20);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .cctv-event-popup__img {
+                    width: 110px;
+                    height: 110px;
+                    object-fit: cover;
+                    display: none;
+                }
+                .cctv-event-popup__meta { padding: 10px 12px; }
+                .cctv-event-popup__title {
+                    font-weight: 700;
+                    font-size: 13px;
+                    margin-bottom: 6px;
+                    line-height: 1.2;
+                }
+                .cctv-event-popup__row {
+                    display: flex;
+                    align-items: baseline;
+                    justify-content: space-between;
+                    gap: 10px;
+                    font-size: 12px;
+                    line-height: 1.3;
+                    padding: 2px 0;
+                }
+                .cctv-event-popup__k { color: var(--cctv-popup-muted); }
+                .cctv-event-popup__v { color: var(--cctv-popup-text); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .cctv-event-popup__loading {
+                    font-size: 11px;
+                    color: var(--cctv-popup-muted);
                 }
 
                 .visionai-tooltip {
@@ -397,13 +756,17 @@
                     const overlayBadge = document.getElementById('camera-overlay-badge');
                     const streamTypeIcon = document.getElementById('stream-type-icon');
                     const switchToCameraBtn = document.getElementById('switch-to-camera-btn');
+                    const overlayCanvas = document.getElementById('agent-overlay-canvas');
 
                     let livePlayer = null;
                     let cameraData = null;
                     let isUserSeeking = false;
                     let currentCameraId = null;
-                    let currentStreamType = 'camera'; // 'camera' or 'agent'
-                    let currentAgentId = null;
+                    let selectedAgentId = null;
+                    let overlayWs = null;
+                    let overlayLastFrameIndex = null;
+                    let overlayLastTimestamp = null;  // Track latest overlay timestamp for staleness check
+                    let overlayStalenessCheckInterval = null;  // Interval to check for stale overlays
 
                     // Register SPA cleanup hook so navigating away closes WS + MSE resources.
                     window.__visionaiPageCleanup = () => {
@@ -415,6 +778,8 @@
                             // ignore
                         }
                         livePlayer = null;
+                        try { overlayWs?.close?.(); } catch {}
+                        overlayWs = null;
                     };
 
                     function loadScriptOnce(src) {
@@ -499,7 +864,7 @@
                         }
                     }
 
-                    async function initLivePlayer(streamType = 'camera', agentId = null) {
+                    async function initLivePlayer() {
                         // Use the stored camera ID
                         const camId = currentCameraId;
                         if (!camId) {
@@ -536,19 +901,8 @@
 
                         let wsUrl = null;
                         try {
-                            if (streamType === 'agent' && agentId) {
-                                // Agent stream from jetson backend
-                                wsUrl = window.visionAPI.getAgentStreamWsURL(agentId);
-                                currentStreamType = 'agent';
-                                currentAgentId = agentId;
-                                console.log('Switching to agent stream:', agentId);
-                            } else {
-                                // Camera stream from vision backend
-                                wsUrl = window.visionAPI.getLiveWsURL(camId);
-                                currentStreamType = 'camera';
-                                currentAgentId = null;
-                                console.log('Switching to camera stream');
-                            }
+                            // Camera stream from vision backend (always on)
+                            wsUrl = window.visionAPI.getLiveWsURL(camId);
                         } catch (e) {
                             statusText.textContent = 'Auth error';
                             statusDot?.classList.add('text-warning');
@@ -561,34 +915,16 @@
                         statusDot?.classList.remove('text-success');
                         statusDot?.classList.add('text-warning');
 
-                        // Update header to show which stream is active
-                        if (streamType === 'agent' && agentId) {
-                            // Find agent name
-                            const agentItem = document.querySelector(`[data-agent-id="${agentId}"]`);
-                            const agentName = agentItem?.querySelector('.name')?.textContent || 'Agent';
-                            headerEl.textContent = `${agentName} (Annotated)`;
-                            if (streamTypeIcon) {
-                                streamTypeIcon.className = 'fa-solid fa-robot text-info me-2';
-                            }
-                            if (overlayBadge) {
-                                overlayBadge.innerHTML = '<span class="fa-solid fa-robot me-1"></span>Agent Stream';
-                            }
-                            // Show switch to camera button
-                            if (switchToCameraBtn) {
-                                switchToCameraBtn.classList.remove('d-none');
-                            }
-                        } else {
-                            headerEl.textContent = cameraData?.name || camId || 'Live Camera';
-                            if (streamTypeIcon) {
-                                streamTypeIcon.className = 'fa-solid fa-video text-primary me-2';
-                            }
-                            if (overlayBadge) {
-                                overlayBadge.innerHTML = '<span class="fa-solid fa-eye me-1"></span>Live';
-                            }
-                            // Hide switch to camera button
-                            if (switchToCameraBtn) {
-                                switchToCameraBtn.classList.add('d-none');
-                            }
+                        // Base header (overlay will adjust badge text)
+                        headerEl.textContent = cameraData?.name || camId || 'Live Camera';
+                        if (streamTypeIcon) {
+                            streamTypeIcon.className = 'fa-solid fa-video text-primary me-2';
+                        }
+                        if (overlayBadge) {
+                            overlayBadge.innerHTML = '<span class="fa-solid fa-eye me-1"></span>Live preview';
+                        }
+                        if (switchToCameraBtn) {
+                            switchToCameraBtn.classList.add('d-none');
                         }
 
                         livePlayer = window.createWsFmp4Player({
@@ -610,7 +946,7 @@
                                 if (ev.state === 'first-append') {
                                     statusDot?.classList.remove('text-warning');
                                     statusDot?.classList.add('text-success');
-                                    statusText.textContent = streamType === 'agent' ? 'Agent Live' : 'Live';
+                                    statusText.textContent = 'Live';
                                     try {
                                         videoEl.play().catch(() => {});
                                     } catch {}
@@ -630,27 +966,183 @@
                         });
 
                         // Sync video position with timeline
+                        // NOTE: Timeline-to-video sync is not implemented yet (timeline is an evidence/event UI only).
+                        // Keep these hooks guarded to avoid breaking the page.
+                        function updateTimelineFromVideo() {
+                            // future: map videoEl.currentTime to a timeline playhead
+                        }
                         videoEl.addEventListener('timeupdate', () => {
                             if (!isUserSeeking && videoEl.buffered.length > 0) {
-                                updateTimelineFromVideo();
+                                if (typeof updateTimelineFromVideo === 'function') updateTimelineFromVideo();
                             }
                         });
 
                         // Handle user seeking in video controls
                         videoEl.addEventListener('seeked', () => {
                             isUserSeeking = false;
-                            updateTimelineFromVideo();
+                            if (typeof updateTimelineFromVideo === 'function') updateTimelineFromVideo();
                         });
                     }
 
                     // Function to switch to agent stream
+                    function clearOverlayCanvas() {
+                        if (!overlayCanvas) return;
+                        try {
+                            const ctx = overlayCanvas.getContext('2d');
+                            if (ctx) ctx.clearRect(0, 0, overlayCanvas.width || 0, overlayCanvas.height || 0);
+                        } catch {}
+                    }
+
+                    function closeOverlayWs() {
+                        try { overlayWs?.close?.(); } catch {}
+                        overlayWs = null;
+                        overlayLastFrameIndex = null;
+                        overlayLastTimestamp = null;
+                        if (overlayStalenessCheckInterval) {
+                            clearInterval(overlayStalenessCheckInterval);
+                            overlayStalenessCheckInterval = null;
+                        }
+                    }
+
+                    function resizeOverlayCanvasToVideo() {
+                        if (!overlayCanvas || !videoEl) return;
+                        const rect = videoEl.getBoundingClientRect();
+                        const dpr = window.devicePixelRatio || 1;
+                        const w = Math.max(1, Math.round(rect.width * dpr));
+                        const h = Math.max(1, Math.round(rect.height * dpr));
+                        if (overlayCanvas.width !== w) overlayCanvas.width = w;
+                        if (overlayCanvas.height !== h) overlayCanvas.height = h;
+                    }
+
+                    function drawOverlay(payload) {
+                        if (!overlayCanvas || !videoEl) return;
+                        if (!payload || payload.type !== 'agent_overlay') return;
+                        if (!payload.detections) return;
+
+                        resizeOverlayCanvasToVideo();
+                        const ctx = overlayCanvas.getContext('2d');
+                        if (!ctx) return;
+
+                        const rect = videoEl.getBoundingClientRect();
+                        const dpr = window.devicePixelRatio || 1;
+                        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                        ctx.clearRect(0, 0, rect.width, rect.height);
+
+                        const srcW = Number(payload.width || 0);
+                        const srcH = Number(payload.height || 0);
+                        if (!srcW || !srcH) return;
+
+                        const scaleX = rect.width / srcW;
+                        const scaleY = rect.height / srcH;
+
+                        const det = payload.detections || {};
+                        const boxes = Array.isArray(det.boxes) ? det.boxes : [];
+                        const classes = Array.isArray(det.classes) ? det.classes : [];
+                        const scores = Array.isArray(det.scores) ? det.scores : [];
+
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = 'rgba(0, 255, 102, 0.95)';
+                        ctx.fillStyle = 'rgba(0, 255, 102, 0.95)';
+                        ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+
+                        for (let i = 0; i < boxes.length; i++) {
+                            const b = boxes[i];
+                            if (!Array.isArray(b) || b.length < 4) continue;
+                            const x1 = Number(b[0]), y1 = Number(b[1]), x2 = Number(b[2]), y2 = Number(b[3]);
+                            if (!Number.isFinite(x1 + y1 + x2 + y2)) continue;
+
+                            const dx = x1 * scaleX;
+                            const dy = y1 * scaleY;
+                            const dw = Math.max(0, (x2 - x1) * scaleX);
+                            const dh = Math.max(0, (y2 - y1) * scaleY);
+                            ctx.strokeRect(dx, dy, dw, dh);
+
+                            const cls = String(classes[i] || '');
+                            const sc = Number(scores[i] || 0);
+                            const label = cls ? `${cls}${Number.isFinite(sc) && sc ? ` ${(sc).toFixed(2)}` : ''}` : '';
+                            if (label) {
+                                const tx = dx + 4;
+                                const ty = Math.max(14, dy - 6);
+                                ctx.fillText(label, tx, ty);
+                            }
+                        }
+                    }
+
+                    async function openOverlayWsForAgent(agentId, agentName) {
+                        closeOverlayWs();
+                        clearOverlayCanvas();
+                        selectedAgentId = agentId || null;
+
+                        if (!agentId) return;
+                        if (!window.visionAPI || !window.visionAPI.isAuthenticated || !window.visionAPI.isAuthenticated()) return;
+                        if (!window.visionAPI.getAgentOverlayWsURL) {
+                            console.warn('visionAPI.getAgentOverlayWsURL missing');
+                            return;
+                        }
+
+                        let wsUrl = null;
+                        try {
+                            wsUrl = window.visionAPI.getAgentOverlayWsURL(agentId);
+                        } catch (e) {
+                            console.warn('Overlay WS auth error', e);
+                            return;
+                        }
+
+                        overlayWs = new WebSocket(wsUrl);
+                        overlayWs.onmessage = (evt) => {
+                            try {
+                                const data = JSON.parse(evt.data);
+                                if (data && data.frame_index != null) {
+                                    if (overlayLastFrameIndex === data.frame_index) return;
+                                    overlayLastFrameIndex = data.frame_index;
+                                }
+                                
+                                // Update timestamp (use ts_monotonic from backend, or current time as fallback)
+                                // ts_monotonic is in seconds, convert to milliseconds
+                                overlayLastTimestamp = data.ts_monotonic ? (data.ts_monotonic * 1000) : Date.now();
+                                
+                                // Always draw latest overlay (no timestamp matching for live stream)
+                                // This works even if YOLO processing is slower than video playback
+                                drawOverlay(data);
+                            } catch {
+                                // ignore
+                            }
+                        };
+                        overlayWs.onclose = () => {
+                            // leave last overlay drawn; user can click again
+                        };
+
+                        // Start staleness check: clear overlay if no new data for 5 seconds
+                        // This prevents stale overlays from showing when agent stops processing or is too slow
+                        overlayStalenessCheckInterval = setInterval(() => {
+                            if (overlayLastTimestamp) {
+                                const now = Date.now();
+                                const age = now - overlayLastTimestamp;
+                                const STALE_THRESHOLD_MS = 5000;  // 5 seconds
+                                
+                                if (age > STALE_THRESHOLD_MS) {
+                                    // Overlay is stale, clear it
+                                    clearOverlayCanvas();
+                                    overlayLastTimestamp = null;
+                                }
+                            }
+                        }, 1000);  // Check every second
+
+                        if (overlayBadge) {
+                            overlayBadge.innerHTML = `<span class="fa-solid fa-robot me-1"></span>${escapeHtml(agentName || 'Agent')} overlay`;
+                        }
+                        if (switchToCameraBtn) {
+                            switchToCameraBtn.classList.remove('d-none');
+                        }
+                    }
+
                     async function switchToAgentStream(agentId, agentName) {
                         if (!agentId) {
                             console.error('No agent ID provided');
                             return;
                         }
 
-                        console.log('Switching to agent stream:', agentId);
+                        console.log('Selecting agent overlay:', agentId);
                         
                         // Update active agent highlight in list
                         document.querySelectorAll('.agent-item').forEach(item => {
@@ -661,21 +1153,28 @@
                             agentItem.classList.add('active');
                         }
 
-                        // Switch to agent stream
-                        await initLivePlayer('agent', agentId);
+                        // Keep camera stream running; only switch overlay WS
+                        await openOverlayWsForAgent(agentId, agentName);
                     }
 
                     // Function to switch back to camera stream
                     async function switchToCameraStream() {
-                        console.log('Switching back to camera stream');
+                        console.log('Clearing agent overlay');
                         
                         // Remove active highlight from all agents
                         document.querySelectorAll('.agent-item').forEach(item => {
                             item.classList.remove('active');
                         });
 
-                        // Switch to camera stream
-                        await initLivePlayer('camera', null);
+                        closeOverlayWs();
+                        clearOverlayCanvas();
+                        selectedAgentId = null;
+                        if (overlayBadge) {
+                            overlayBadge.innerHTML = '<span class="fa-solid fa-eye me-1"></span>Live preview';
+                        }
+                        if (switchToCameraBtn) {
+                            switchToCameraBtn.classList.add('d-none');
+                        }
                     }
 
                     // Add click handler for switch to camera button
@@ -689,11 +1188,13 @@
                             livePlayer.destroy();
                             livePlayer = null;
                         }
-                        // Reload current stream type
-                        if (currentStreamType === 'agent' && currentAgentId) {
-                            initLivePlayer('agent', currentAgentId);
-                        } else {
-                            initLivePlayer('camera', null);
+                        // Reload camera stream (video always stays camera in Option A)
+                        initLivePlayer();
+                        // If an agent overlay is selected, re-open overlay WS
+                        if (selectedAgentId) {
+                            const agentItem = document.querySelector(`[data-agent-id="${selectedAgentId}"]`);
+                            const agentName = agentItem?.querySelector('.name')?.textContent || 'Agent';
+                            openOverlayWsForAgent(selectedAgentId, agentName);
                         }
                         loadAgentsForCamera().catch(() => {});
                     });
@@ -853,8 +1354,12 @@
 
                         try {
                             const agents = await window.visionAPI.listAgentsByCamera(camId);
+                            // Keep latest agents for timeline grouping (active agents -> groups)
+                            lastAgentsForCamera = Array.isArray(agents) ? agents : [];
                             renderAgentList(agents);
                             applyFilter();
+                            // If timeline already exists, resync groups
+                            syncTimelineGroupsFromAgents(lastAgentsForCamera);
                         } catch (e) {
                             console.error('Failed to load agents:', e);
                             listEl.innerHTML = '<li class="nav-item"><div class="text-danger fs-9 p-3">Failed to load agents.</div></li>';
@@ -890,205 +1395,460 @@
 
                     // Agents are loaded from initCamera() once camera id is known.
 
-                    // ---------------------------------------------------------------------
-                    // Timeline (live buffer)
-                    // ---------------------------------------------------------------------
-                    const timelineEl = document.getElementById('visionai-timeline');
-                    const innerEl = document.getElementById('timeline-inner');
-                    const tooltipEl = document.getElementById('timeline-tooltip');
-
-                    const ZOOM_KEY = 'visionai.cameraDetail.timelineZoom.v1';
-                    // Live buffer is short (we keep ~60 seconds). This UI is informational only.
-                    const DVR_MINUTES = 0;
-                    const TRACK_LABEL_WIDTH = 160;
-                    let pxPerMinute = 2;
-                    let playheadMinutes = 0;
-
-                    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
-                    function pad2(n) { return String(n).padStart(2, '0'); }
-
-                    // Convert video time to timeline minutes (relative to current time)
-                    function videoTimeToTimelineMinutes(videoTime) {
-                        if (!videoEl.buffered.length) return 0;
-                        const buffered = videoEl.buffered;
-                        const liveEdge = buffered.end(buffered.length - 1);
-                        const secondsBehind = liveEdge - videoTime;
-                        const minutesBehind = secondsBehind / 60;
-                        return Math.max(0, Math.min(DVR_MINUTES, minutesBehind));
+                    // vis-timeline assets are loaded lazily so this page works in Electron static HTML.
+                    // NOTE: for production builds, node_modules is excluded by electron-builder config,
+                    // so you'll likely want to vendor these two files into /custom_js/vendor later.
+                    function ensureLinkOnce(href) {
+                        if (document.querySelector(`link[data-visionai="true"][href="${href}"]`)) return;
+                        const link = document.createElement('link');
+                        link.rel = 'stylesheet';
+                        link.href = href;
+                        link.setAttribute('data-visionai', 'true');
+                        document.head.appendChild(link);
                     }
 
-                    // Convert timeline minutes to video time
-                    function timelineMinutesToVideoTime(timelineMinutes) {
-                        if (!videoEl.buffered.length) return null;
-                        const buffered = videoEl.buffered;
-                        const liveEdge = buffered.end(buffered.length - 1);
-                        const secondsBehind = timelineMinutes * 60;
-                        return Math.max(buffered.start(0), liveEdge - secondsBehind);
+                    function fmtHHmm(d) { return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+                    function getDayBounds() {
+                        const start = new Date();
+                        start.setHours(0, 0, 0, 0);
+                        const end = new Date();
+                        end.setHours(23, 59, 59, 999);
+                        return { start, end };
+                    }
+                    function dateAtMinute(dayStart, minute) {
+                        return new Date(dayStart.getTime() + (minute * 60_000));
                     }
 
-                    function updateTimelineFromVideo() {
-                        if (!videoEl.buffered.length) return;
-                        const timelineMins = videoTimeToTimelineMinutes(videoEl.currentTime);
-                        setPlayheadMinutes(timelineMins, { syncVideo: false });
+                    const visContainer = document.getElementById('cctv-vis');
+                    const zoomInBtn = document.getElementById('cctv-zoom-in');
+                    const zoomOutBtn = document.getElementById('cctv-zoom-out');
+                    const zoomLabel = document.getElementById('cctv-zoom-label');
+
+                    const VIS_CSS_HREF = '../node_modules/vis-timeline/styles/vis-timeline-graph2d.min.css';
+                    const VIS_JS_SRC = '../node_modules/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js';
+
+                    let timeline = null;
+                    let nowInterval = null;
+                    let lastPointerX = null;
+                    const nowId = 'now';
+
+                    function getVisGlobal() {
+                        return window.vis || window.visTimeline || window['vis-timeline'] || null;
                     }
 
-                    function buildRuler(totalWidth) {
-                        const ruler = document.createElement('div');
-                        ruler.className = 'timeline-ruler';
-                        const track = document.createElement('div');
-                        track.className = 'timeline-ruler-track';
-                        track.style.width = `${TRACK_LABEL_WIDTH + totalWidth}px`;
+                    async function ensureVisLoaded() {
+                        // Load base vis CSS (we override most classes in our stylesheet)
+                        ensureLinkOnce(VIS_CSS_HREF);
+                        await loadScriptOnce(VIS_JS_SRC);
+                        return getVisGlobal();
+                    }
 
-                        // Live-only (no DVR)
-                        for (let m = 0; m <= DVR_MINUTES; m += 5) {
-                            const x = TRACK_LABEL_WIDTH + (m * pxPerMinute);
-                            const tick = document.createElement('div');
-                            tick.className = 'timeline-tick small';
-                            if (m % 15 === 0) tick.className = 'timeline-tick medium';
-                            if (m % 30 === 0) tick.className = 'timeline-tick big';
-                            tick.style.left = `${x}px`;
-                            track.appendChild(tick);
+                    // ------------------------------------------------------------
+                    // Realtime timeline model (agents -> groups, events -> items)
+                    // ------------------------------------------------------------
+                    let lastAgentsForCamera = [];
+                    let visLibRef = null;
+                    let groupsDS = null;
+                    let itemsDS = null;
+                    const imageUrlCache = new Map(); // eventId -> objectURL
 
-                            if (m % 15 === 0) {
-                                const label = document.createElement('div');
-                                label.className = 'timeline-hour-label';
-                                label.style.left = `${x}px`;
-                                const minutesAgo = DVR_MINUTES - m;
-                                label.textContent = `${minutesAgo}m ago`;
-                                track.appendChild(label);
+                    function getActiveAgents(agents) {
+                        return (Array.isArray(agents) ? agents : []).filter(a => mapAgentStatus(a?.status) === 'active');
+                    }
+
+                    function buildGroupsFromAgents(visLib, agents) {
+                        const active = getActiveAgents(agents);
+                        const rows = active.map((a) => ({
+                            id: String(a?.id || ''),
+                            content: escapeHtml(a?.name || 'Agent')
+                        })).filter(g => g.id);
+
+                        // Fallback group so timeline isn't blank
+                        if (!rows.length) {
+                            rows.push({ id: '__no_agents__', content: 'No active agents' });
+                        }
+                        return new visLib.DataSet(rows);
+                    }
+
+                    function syncTimelineGroupsFromAgents(agents) {
+                        if (!visLibRef || !groupsDS) return;
+                        try {
+                            groupsDS.clear();
+                            const next = buildGroupsFromAgents(visLibRef, agents);
+                            next.forEach((g) => groupsDS.add(g));
+                        } catch {
+                            // ignore
+                        }
+                    }
+
+                    function parseEventDate(ts) {
+                        if (!ts) return new Date();
+                        const d = new Date(ts);
+                        return Number.isFinite(d.getTime()) ? d : new Date();
+                    }
+
+                    function classifyEventClass(label) {
+                        const t = String(label || '').toLowerCase();
+                        if (t.includes('motion') || t.includes('movement')) return 'cctv-motion';
+                        if (t.includes('record')) return 'cctv-recording';
+                        return 'cctv-event';
+                    }
+
+                    function addTimelineItemFromNotificationPayload(payload) {
+                        if (!itemsDS || !payload) return;
+                        if (payload.type && payload.type !== 'event_notification') return;
+
+                        const camId = payload?.agent?.camera_id || payload?.agent?.cameraId || '';
+                        if (!camId || camId !== currentCameraId) return;
+
+                        const agentId = String(payload?.agent?.agent_id || payload?.agent?.agentId || '');
+                        if (!agentId) return;
+
+                        // Only show if this agent is currently active (group exists)
+                        const groupExists = !!groupsDS.get(agentId);
+                        if (!groupExists) return;
+
+                        const start = parseEventDate(payload?.event?.timestamp || payload?.received_at);
+                        const durSec = Number(payload?.metadata?.duration_seconds || payload?.metadata?.duration_sec || 30);
+                        const end = new Date(start.getTime() + (Math.max(5, durSec) * 1000));
+
+                        const id =
+                            String(payload?.event_id || payload?.metadata?.event_id || payload?.session_id || payload?.metadata?.session_id || '') ||
+                            `${agentId}_${start.getTime()}`;
+
+                        if (itemsDS.get(id)) return;
+
+                        itemsDS.add({
+                            id,
+                            group: agentId,
+                            start,
+                            end,
+                            type: 'range',
+                            className: classifyEventClass(payload?.event?.label),
+                            content: '',
+                            // popup fields
+                            label: String(payload?.event?.label || 'Event'),
+                            severity: String(payload?.event?.severity || payload?.metadata?.severity || ''),
+                            agentName: String(payload?.agent?.agent_name || payload?.agent?.agentName || ''),
+                            cameraId: String(camId),
+                            eventId: String(payload?.event_id || payload?.metadata?.event_id || ''),
+                            hasImage: true,
+                        });
+                    }
+
+                    // ------------------------------------------------------------
+                    // Popup overlay using vis itemover/itemout
+                    // ------------------------------------------------------------
+                    const popupEl = document.getElementById('cctv-event-popup');
+                    const popupImg = document.getElementById('cctv-event-popup-img');
+                    const popupTitle = document.getElementById('cctv-event-popup-title');
+                    const popupTime = document.getElementById('cctv-event-popup-time');
+                    const popupAgent = document.getElementById('cctv-event-popup-agent');
+                    const popupSev = document.getElementById('cctv-event-popup-sev');
+
+                    function fmtTimeLocal(d) {
+                        try {
+                            const dt = d instanceof Date ? d : new Date(d);
+                            return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        } catch {
+                            return '--:--';
+                        }
+                    }
+
+                    function positionPopup(clientX, clientY) {
+                        if (!popupEl) return;
+                        const pad = 12;
+                        const w = popupEl.offsetWidth || 320;
+                        const h = popupEl.offsetHeight || 120;
+                        const vw = window.innerWidth || 1024;
+                        const vh = window.innerHeight || 768;
+
+                        let x = clientX + 14;
+                        let y = clientY + 14;
+                        if (x + w + pad > vw) x = clientX - w - 14;
+                        if (y + h + pad > vh) y = clientY - h - 14;
+                        x = Math.max(pad, Math.min(vw - w - pad, x));
+                        y = Math.max(pad, Math.min(vh - h - pad, y));
+                        popupEl.style.left = `${x}px`;
+                        popupEl.style.top = `${y}px`;
+                    }
+
+                    function setPopupVisible(show) {
+                        if (!popupEl) return;
+                        popupEl.setAttribute('data-show', show ? 'true' : 'false');
+                        popupEl.setAttribute('aria-hidden', show ? 'false' : 'true');
+                    }
+
+                    async function ensureEventThumb(eventId) {
+                        if (!eventId) return null;
+                        if (imageUrlCache.has(eventId)) return imageUrlCache.get(eventId);
+                        if (!window.visionAPI || typeof window.visionAPI.fetchEventImageObjectUrl !== 'function') return null;
+                        try {
+                            const url = await window.visionAPI.fetchEventImageObjectUrl(eventId);
+                            imageUrlCache.set(eventId, url);
+                            return url;
+                        } catch {
+                            return null;
+                        }
+                    }
+
+                    async function showPopupForItem(itemId, clientX, clientY) {
+                        if (!itemsDS || !popupEl) return;
+                        const it = itemsDS.get(itemId);
+                        if (!it) return;
+
+                        popupTitle.textContent = String(it.label || 'Event');
+                        popupTime.textContent = fmtTimeLocal(it.start);
+                        popupAgent.textContent = String(it.agentName || '—');
+                        popupSev.textContent = String(it.severity || '—');
+
+                        // image
+                        if (popupImg) {
+                            popupImg.style.display = 'none';
+                            popupImg.removeAttribute('src');
+                        }
+                        const eventId = String(it.eventId || it.id || '');
+                        const hasImage = it.hasImage !== false;
+                        if (hasImage && eventId) {
+                            const url = await ensureEventThumb(eventId);
+                            if (url && popupImg) {
+                                popupImg.src = url;
+                                popupImg.style.display = 'block';
                             }
                         }
-                        ruler.appendChild(track);
-                        return ruler;
+
+                        positionPopup(clientX, clientY);
+                        setPopupVisible(true);
                     }
 
-                    function buildRows(totalWidth) {
-                        const rowsWrap = document.createElement('div');
-                        rowsWrap.className = 'timeline-rows';
-                            const empty = document.createElement('div');
-                            empty.className = 'text-body-tertiary fs-9';
-                        empty.textContent = 'Live mode (no DVR seeking)';
-                            rowsWrap.appendChild(empty);
-                        return rowsWrap;
+                    function hidePopup() {
+                        setPopupVisible(false);
                     }
 
-                    function ensurePlayhead(totalWidth) {
-                        let ph = innerEl.querySelector('.timeline-playhead');
-                        if (!ph) {
-                            ph = document.createElement('div');
-                            ph.className = 'timeline-playhead';
-                            innerEl.appendChild(ph);
+                    function updateZoomPill() {
+                        if (!timeline || !zoomLabel) return;
+                        const w = timeline.getWindow();
+                        const mins = Math.round((w.end.getTime() - w.start.getTime()) / 60_000);
+                        if (mins >= 24 * 60) zoomLabel.textContent = '24h';
+                        else if (mins >= 6 * 60) zoomLabel.textContent = '6h';
+                        else if (mins >= 60) zoomLabel.textContent = '1h';
+                        else zoomLabel.textContent = `${mins}m`;
+                    }
+
+                    // Cursor anchored zoom for +/- buttons using setWindow.
+                    // (Mouse wheel zoom remains vis-timeline's built-in cursor-anchored behavior.)
+                    function zoomAtCursor(factor, anchorClientX) {
+                        if (!timeline || !visContainer) return;
+                        const { start: dayStart, end: dayEnd } = getDayBounds();
+                        const w = timeline.getWindow();
+                        const startMs = w.start.getTime();
+                        const endMs = w.end.getTime();
+                        const duration = Math.max(1, endMs - startMs);
+
+                        const rect = visContainer.getBoundingClientRect();
+                        const x = clamp((anchorClientX ?? (rect.left + rect.width / 2)) - rect.left, 0, rect.width);
+                        const p = rect.width > 0 ? (x / rect.width) : 0.5;
+                        const timeAtCursor = startMs + p * duration;
+
+                        const newDuration = duration * factor;
+                        let newStart = timeAtCursor - p * newDuration;
+                        let newEnd = newStart + newDuration;
+
+                        // Clamp to 24h day bounds
+                        const minMs = dayStart.getTime();
+                        const maxMs = dayEnd.getTime();
+                        if (newStart < minMs) {
+                            newStart = minMs;
+                            newEnd = minMs + newDuration;
                         }
-                        ph.style.left = `${TRACK_LABEL_WIDTH + playheadMinutes * pxPerMinute}px`;
-                        return ph;
+                        if (newEnd > maxMs) {
+                            newEnd = maxMs;
+                            newStart = maxMs - newDuration;
+                        }
+                        newStart = clamp(newStart, minMs, maxMs);
+                        newEnd = clamp(newEnd, minMs, maxMs);
+
+                        timeline.setWindow(new Date(newStart), new Date(newEnd), { animation: false });
+                        updateZoomPill();
                     }
 
-                    function rebuildTimeline() {
-                        if (!timelineEl || !innerEl) return;
-                        innerEl.innerHTML = '';
-
-                        const totalWidth = Math.round(DVR_MINUTES * pxPerMinute);
-                        innerEl.appendChild(buildRuler(totalWidth));
-                        innerEl.appendChild(buildRows(totalWidth));
-                        ensurePlayhead(totalWidth);
+                    function updateNowMarker() {
+                        if (!timeline) return;
+                        const now = new Date();
+                        try {
+                            timeline.setCustomTime(now, nowId);
+                            timeline.setCustomTimeMarker(`NOW ${fmtHHmm(now)}`, nowId);
+                        } catch {
+                            // ignore
+                        }
                     }
 
-                    function setZoom(next) {
-                        pxPerMinute = clamp(Number(next) || 2, 0.5, 8);
-                        localStorage.setItem(ZOOM_KEY, String(pxPerMinute));
-                        rebuildTimeline();
-                    }
+                    async function initCctvTimeline() {
+                        if (!visContainer) return;
 
-                    function setPlayheadMinutes(nextMinutes, { syncVideo = true } = {}) {
-                        playheadMinutes = clamp(Math.round(nextMinutes), 0, DVR_MINUTES);
-                        ensurePlayhead(Math.round(DVR_MINUTES * pxPerMinute));
+                        const visLib = await ensureVisLoaded();
+                        if (!visLib || !visLib.Timeline || !visLib.DataSet) {
+                            console.warn('vis-timeline not available');
+                            return;
+                        }
 
-                        // Sync video position when user seeks on timeline
-                        if (syncVideo && videoEl && videoEl.buffered.length > 0) {
-                            const seekTime = timelineMinutesToVideoTime(playheadMinutes);
-                            if (seekTime !== null && Math.abs(videoEl.currentTime - seekTime) > 0.5) {
-                                isUserSeeking = true;
-                                videoEl.currentTime = seekTime;
+                        // Prevent double init on SPA reinjection
+                        if (timeline) return;
+
+                        const { start: dayStart, end: dayEnd } = getDayBounds();
+                        visLibRef = visLib;
+                        groupsDS = buildGroupsFromAgents(visLib, lastAgentsForCamera);
+                        itemsDS = new visLib.DataSet([]);
+
+                        const options = {
+                            // 24h bounds
+                            min: dayStart,
+                            max: dayEnd,
+                            start: dayStart,
+                            end: dayEnd,
+
+                            // Interaction
+                            moveable: true,
+                            zoomable: true,
+                            zoomKey: '', // allow wheel zoom without ctrl
+                            selectable: false,
+                            multiselect: false,
+                            stack: false,
+
+                            // Compact layout
+                            height: 160,
+                            margin: { item: 6, axis: 8 },
+                            groupHeightMode: 'fixed',
+                        };
+
+                        timeline = new visLib.Timeline(visContainer, itemsDS, groupsDS, options);
+
+                        // Custom NOW playhead (cyan). (Disable default current time marker)
+                        try {
+                            timeline.addCustomTime(new Date(), nowId);
+                            timeline.setCustomTimeMarker(`NOW ${fmtHHmm(new Date())}`, nowId);
+                        } catch {
+                            // ignore
+                        }
+
+                        // Update NOW periodically
+                        nowInterval = setInterval(updateNowMarker, 15_000);
+
+                        // Zoom pill updates
+                        timeline.on('rangechanged', updateZoomPill);
+                        updateZoomPill();
+
+                        // Track last pointer for +/- anchoring
+                        visContainer.addEventListener('mousemove', (e) => { lastPointerX = e.clientX; });
+
+                        zoomInBtn?.addEventListener('click', () => zoomAtCursor(0.7, lastPointerX));
+                        zoomOutBtn?.addEventListener('click', () => zoomAtCursor(1.35, lastPointerX));
+
+                        // Hook into existing cleanup to destroy timeline on SPA nav
+                        const prevCleanup = window.__visionaiPageCleanup;
+                        const onRawEvent = (ev) => addTimelineItemFromNotificationPayload(ev?.detail);
+                        window.addEventListener('vision:event-notification-raw', onRawEvent);
+                        // Popup interactions
+                        let popupItemId = null;
+                        timeline.on('itemover', async (props) => {
+                            try {
+                                popupItemId = props?.item || null;
+                                const e = props?.event;
+                                if (!popupItemId || !e) return;
+                                await showPopupForItem(popupItemId, e.clientX, e.clientY);
+                            } catch {
+                                // ignore
                             }
+                        });
+                        timeline.on('itemout', () => {
+                            popupItemId = null;
+                            hidePopup();
+                        });
+                        timeline.on('mouseMove', (props) => {
+                            if (!popupItemId) return;
+                            const e = props?.event;
+                            if (!e) return;
+                            positionPopup(e.clientX, e.clientY);
+                        });
+
+                        window.__visionaiPageCleanup = () => {
+                            try { prevCleanup?.(); } catch {}
+                            try { window.removeEventListener('vision:event-notification-raw', onRawEvent); } catch {}
+                            try { hidePopup(); } catch {}
+                            try {
+                                // Revoke cached object URLs
+                                imageUrlCache.forEach((u) => {
+                                    try { URL.revokeObjectURL(u); } catch {}
+                                });
+                                imageUrlCache.clear();
+                            } catch {}
+                            try { if (nowInterval) clearInterval(nowInterval); } catch {}
+                            nowInterval = null;
+                            try { timeline?.destroy?.(); } catch {}
+                            timeline = null;
+                            groupsDS = null;
+                            itemsDS = null;
+                            visLibRef = null;
+                        };
+
+                        async function listEventsPaged(range, totalLimit) {
+                            const maxPageSize = 100; // backend likely validates max limit (avoid 422)
+                            const desired = Math.max(0, Number(totalLimit || 0));
+                            const all = [];
+                            if (!window.visionAPI?.listEvents) return all;
+
+                            for (let skip = 0; skip < desired; skip += maxPageSize) {
+                                const limit = Math.min(maxPageSize, desired - skip);
+                                const res = await window.visionAPI.listEvents(range, limit, skip);
+                                const rows = Array.isArray(res?.items) ? res.items : [];
+                                all.push(...rows);
+                                if (rows.length < limit) break; // no more pages
+                            }
+                            return all;
                         }
-                    }
 
-                    function timelineMinutesFromClientX(clientX) {
-                        const scrollEl = timelineEl?.querySelector('.visionai-timeline-scroll');
-                        const trackLeft = innerEl.getBoundingClientRect().left + TRACK_LABEL_WIDTH;
-                        const scrollX = scrollEl ? scrollEl.scrollLeft : 0;
-                        const x = (clientX - trackLeft) + scrollX;
-                        return x / pxPerMinute;
-                    }
-
-                    function initTimeline() {
-                        if (!timelineEl || !innerEl) return;
-
-                        const scrollEl = timelineEl.querySelector('.visionai-timeline-scroll');
-
-                        const savedZoom = Number(localStorage.getItem(ZOOM_KEY));
-                        if (savedZoom) pxPerMinute = clamp(savedZoom, 0.5, 8);
-
-                        setPlayheadMinutes(0, { syncVideo: false }); // Start at live (0 minutes ago)
-
-                        rebuildTimeline();
-
-                        // mouse wheel zoom (zoom in on scroll up, zoom out on scroll down),
-                        // anchored at the cursor position so the hovered time stays put.
-                        scrollEl?.addEventListener('wheel', (e) => {
-                            // Only zoom when the user is actually aiming at the timeline area
-                            e.preventDefault();
-
-                            const direction = e.deltaY < 0 ? 1 : -1; // up = zoom in
-                            const step = 0.25;
-                            const nextPx = clamp(pxPerMinute + direction * step, 0.5, 8);
-                            if (nextPx === pxPerMinute) return;
-
-                            const beforeRect = innerEl.getBoundingClientRect();
-                            const beforeTrackLeft = beforeRect.left + TRACK_LABEL_WIDTH;
-                            const cursorOffset = e.clientX - beforeTrackLeft;
-                            const beforeScrollLeft = scrollEl.scrollLeft;
-                            const minuteAtCursor = (cursorOffset + beforeScrollLeft) / pxPerMinute;
-
-                            setZoom(nextPx);
-
-                            // After rebuild, re-anchor the same minute under the cursor.
-                            requestAnimationFrame(() => {
-                                const afterRect = innerEl.getBoundingClientRect();
-                                const afterTrackLeft = afterRect.left + TRACK_LABEL_WIDTH;
-                                const afterCursorOffset = e.clientX - afterTrackLeft;
-                                const desiredScrollLeft = (minuteAtCursor * pxPerMinute) - afterCursorOffset;
-                                scrollEl.scrollLeft = Math.max(0, desiredScrollLeft);
-                            });
-                        }, { passive: false });
-
-                        // Click-to-seek + drag playhead
-                        let dragging = false;
-                        innerEl.addEventListener('mousedown', (e) => {
-                            dragging = true;
-                            const m = timelineMinutesFromClientX(e.clientX);
-                            setPlayheadMinutes(m, { syncVideo: true }); // Seek video
-                        });
-                        window.addEventListener('mousemove', (e) => {
-                            if (!dragging) return;
-                            const m = timelineMinutesFromClientX(e.clientX);
-                            setPlayheadMinutes(m, { syncVideo: true }); // Seek video
-                        });
-                        window.addEventListener('mouseup', () => { 
-                            dragging = false;
-                            isUserSeeking = false;
-                        });
-
-                        innerEl.addEventListener('mouseleave', () => {
-                            dragging = false;
-                            isUserSeeking = false;
-                        });
+                        // Initial history: load today's events and render them into agent lanes
+                        // (DB-backed, so timeline isn't empty on load)
+                        try {
+                            if (window.visionAPI?.listEvents) {
+                                const rows = await listEventsPaged('today', 500);
+                                rows
+                                    .filter(r => String(r?.camera_id || '') === String(currentCameraId || ''))
+                                    .forEach((r) => {
+                                        const agentId = String(r?.agent_id || '');
+                                        if (!agentId) return;
+                                        if (!groupsDS.get(agentId)) return; // only active agents
+                                        const start = parseEventDate(r?.event_ts || r?.received_at);
+                                        const end = new Date(start.getTime() + 30_000);
+                                        const id = String(r?.id || `${agentId}_${start.getTime()}`);
+                                        if (itemsDS.get(id)) return;
+                                        itemsDS.add({
+                                            id,
+                                            group: agentId,
+                                            start,
+                                            end,
+                                            type: 'range',
+                                            className: classifyEventClass(r?.label),
+                                            content: '',
+                                            // popup fields
+                                            label: String(r?.label || 'Event'),
+                                            severity: String(r?.severity || ''),
+                                            agentName: String(r?.agent_name || ''),
+                                            cameraId: String(r?.camera_id || ''),
+                                            eventId: String(r?.id || ''),
+                                            hasImage: !!r?.has_image,
+                                        });
+                                    });
+                            }
+                        } catch {
+                            // ignore history load failures (realtime will still work)
+                        }
                     }
 
                     // Initialize after a short delay to ensure all dependencies are loaded
                     setTimeout(() => {
                         init().then(() => {
-                            initTimeline();
+                            initCctvTimeline();
                         });
                     }, 500);
                 })();

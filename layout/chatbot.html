@@ -310,9 +310,106 @@
     font-weight: 600;
   }
   
-  /* Prevent flow diagram containers from being clipped during CSS transitions */
-  .flow-diagram-placeholder {
-    overflow: visible !important;
+  /* (Mermaid removed) */
+
+  /* -----------------------------
+     Rete.js-Style Flow Diagram Styles
+     ----------------------------- */
+  .flow-diagram-container {
+    margin: 16px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    /* Fixed visual area: diagram fits via SVG viewBox, no page scrolling */
+    height: clamp(240px, 45vh, 560px);
+    /* Theme-aware colors (Phoenix/Bootstrap variables) */
+    --flow-bg: var(--bs-emphasis-bg, #f8f9fa);
+    --flow-border: rgba(var(--bs-border-color-rgb, 222, 226, 230), 0.9);
+    --flow-edge-color: rgba(var(--bs-body-color-rgb, 33, 37, 41), 0.45);
+    --flow-label-color: rgba(var(--bs-body-color-rgb, 33, 37, 41), 0.85);
+    --flow-label-bg: var(--bs-body-bg, #fff);
+    background: var(--flow-bg);
+    border: 1px solid var(--flow-border);
+    position: relative;
+  }
+
+  /* (Toolbar removed as requested) */
+
+  /* Node styles */
+  .flow-node {
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .flow-node .node-shape {
+    transition: all 0.2s ease;
+  }
+
+  .flow-node:hover .node-shape {
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+  }
+
+  .flow-node.active .node-shape {
+    filter: drop-shadow(0 0 12px rgba(42, 123, 228, 0.8));
+    stroke: #2A7BE4 !important;
+    stroke-width: 3 !important;
+  }
+
+  /* Connection styles */
+  .flow-connection {
+    transition: all 0.2s ease;
+  }
+
+  .flow-connection .connection-path {
+    transition: all 0.2s ease;
+  }
+
+  .flow-connection:hover .connection-path {
+    stroke: #2A7BE4;
+    stroke-width: 3;
+  }
+
+  .flow-connection.active .connection-path {
+    stroke: #2A7BE4;
+    stroke-width: 3;
+    stroke-dasharray: 8 6;
+    animation: flowConnectionDash 1s linear infinite;
+  }
+
+  .flow-connection.active .connection-arrow {
+    fill: #2A7BE4;
+  }
+
+  @keyframes flowConnectionDash {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -28; }
+  }
+
+  /* Connection labels */
+  .connection-label {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Node labels */
+  .node-label {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .flow-diagram-container {
+      margin: 12px 0;
+    }
+    
+    .flow-node .node-label {
+      font-size: 9px !important;
+    }
+    
+    .connection-label {
+      font-size: 8px !important;
+    }
   }
 </style>
 
@@ -438,12 +535,12 @@
         try {
           const existing = document.querySelector(`script[src="${src}"]`);
           if (existing) return resolve();
-          const s = document.createElement('script');
-          s.src = src;
-          s.defer = true;
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-          document.head.appendChild(s);
+          const scriptEl = document.createElement('script');
+          scriptEl.src = src;
+          scriptEl.defer = true;
+          scriptEl.onload = () => resolve();
+          scriptEl.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+          document.head.appendChild(scriptEl);
         } catch (e) {
           reject(e);
         }
@@ -462,18 +559,37 @@
         });
     }
 
-    // Load ECharts for Sankey diagrams
-    function ensureECharts() {
-      if (window.echarts) return Promise.resolve();
-      const echartsSrc = vendorPath('echarts/echarts.min.js');
-      return loadScriptOnce(echartsSrc)
+    // Load Rete.js-style flow renderer (custom, no external deps)
+    function ensureReteFlowRenderer() {
+      if (window.reteFlowRenderer && window.flowTransforms) return Promise.resolve();
+      
+      // Load transformation utilities first
+      const transformsSrc = (() => {
+        const path = String(window.location.pathname || '').replace(/\\/g, '/');
+        const customJsRel = path.includes('/pages/') ? '../custom_js/' : 'custom_js/';
+        return new URL(customJsRel + 'flow-transforms.js', window.location.href).toString();
+      })();
+      
+      // Load renderer
+      const rendererSrc = (() => {
+        const path = String(window.location.pathname || '').replace(/\\/g, '/');
+        const customJsRel = path.includes('/pages/') ? '../custom_js/' : 'custom_js/';
+        return new URL(customJsRel + 'rete-flow-renderer.js', window.location.href).toString();
+      })();
+      
+      return loadScriptOnce(transformsSrc)
+        .then(() => loadScriptOnce(rendererSrc))
+        .then(() => {
+          console.log('[rete-flow] Rete flow renderer initialized');
+        })
         .catch((e) => {
-          console.warn('ECharts load failed:', e);
+          console.warn('Rete flow renderer load failed:', e);
         });
     }
+
+    // (Mermaid removed)
     
-    // Global flag to block chart resizing during layout transitions (critical for ECharts stability)
-    // Must be in outer scope so both initChatbotPush() and renderFlowDiagram() can access it
+    // Global flag to block heavy layout work during transitions
     let layoutSettling = false;
     
     function initChatbotPush() {
@@ -756,8 +872,8 @@
 
       // Kick off markdown deps load early (non-blocking)
       ensureMarkdownDeps();
-      // Also load ECharts for Sankey diagrams
-      ensureECharts();
+      // Rete flow renderer loaded on-demand when diagrams are present
+      ensureReteFlowRenderer();
 
       // Treat current markup as the "blank chat" template for new tabs
       const initialTemplate = messagesEl.innerHTML;
@@ -917,6 +1033,76 @@
         return true;
       }
 
+      async function renderFlowDiagram(pendingId, flowDiagramData) {
+        try {
+          // Validate flow data
+          if (!window.flowTransforms || !window.flowTransforms.isValid(flowDiagramData)) {
+            console.warn('[chatbot] Invalid flow diagram data');
+            return;
+          }
+
+          // Find the pending message wrapper using the correct attribute
+          const pendingNode = messagesEl.querySelector(`[data-chatbot-pending="${pendingId}"]`);
+          if (!pendingNode) {
+            console.warn('[chatbot] Pending node not found for pendingId:', pendingId);
+            return;
+          }
+
+          // Always append INSIDE the assistant bubble (not as a sibling in the flex row)
+          const bubble = pendingNode.querySelector?.('div');
+          if (!bubble) {
+            console.warn('[chatbot] Bubble not found in pending node:', pendingId);
+            return;
+          }
+
+          // Create a unique container ID for this diagram
+          const diagramId = `flow-diagram-${pendingId}`;
+          
+          // Check if container already exists (avoid duplicates)
+          if (document.getElementById(diagramId)) {
+            console.warn('[chatbot] Flow diagram already rendered for:', pendingId);
+            return;
+          }
+
+          // Create diagram container and insert UNDER the bubble content
+          const container = document.createElement('div');
+          container.id = diagramId;
+          container.className = 'flow-diagram-container mt-3';
+          container.style.width = '100%';
+          bubble.appendChild(container);
+
+          // Ensure Rete renderer is loaded
+          await ensureReteFlowRenderer();
+          
+          if (!window.reteFlowRenderer) {
+            throw new Error('Rete flow renderer not available');
+          }
+
+          // Transform generic data to Rete format
+          const reteData = window.flowTransforms.toRete(flowDiagramData);
+
+          // Render the diagram
+          await window.reteFlowRenderer.render(diagramId, reteData, {
+            readonly: true,
+            autoLayout: true,
+            layoutDirection: 'horizontal-wrap',
+            // spacing.x/y are treated as GAPs between nodes (not absolute step)
+            nodeSpacing: { x: 28, y: 54 },
+            wrapColumns: 3,
+            enablePanZoom: true,
+            fitOnInit: true,
+            minScale: 0.5,
+            maxScale: 2.2,
+            animate: true
+          });
+
+          console.log('[chatbot] Flow diagram rendered successfully:', diagramId);
+        } catch (error) {
+          console.error('[chatbot] Failed to render flow diagram:', error);
+          // Don't show error to user, just log it
+        }
+      }
+
       function appendAssistantPending() {
         const id = `pending_${Date.now()}_${Math.random().toString(16).slice(2)}`;
         messagesEl.insertAdjacentHTML(
@@ -932,497 +1118,7 @@
         return id;
       }
 
-      function renderFlowDiagram(containerId, flowData) {
-        console.log('renderFlowDiagram called with containerId:', containerId, 'flowData:', flowData);
-        
-        if (!window.echarts) {
-          console.warn('ECharts not loaded, cannot render flow diagram');
-          return;
-        }
-
-        const container = document.getElementById(containerId);
-        if (!container) {
-          console.warn(`Flow container not found: ${containerId}`);
-          return;
-        }
-
-        // Ensure container has dimensions and is visible
-        if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-          console.warn('Container has no dimensions, setting defaults');
-          container.style.display = 'block';
-          container.style.width = '100%';
-          container.style.height = '500px';
-          container.style.minHeight = '500px';
-          container.style.backgroundColor = '#f8f9fa';
-          container.style.border = '1px solid #dee2e6';
-          container.style.borderRadius = '0.5rem';
-        }
-        
-        console.log('Rendering chart in container:', {
-          id: containerId,
-          width: container.offsetWidth,
-          height: container.offsetHeight,
-          dataNodes: flowData?.nodes?.length || 0,
-          dataLinks: flowData?.links?.length || 0
-        });
-
-        // Fit fixed-position nodes into the container (prevents "blank/white chart" when panel is narrow).
-        function fitFixedNodesToContainer(baseNodes, targetEl) {
-          try {
-            const cw = targetEl?.clientWidth || 0;
-            const ch = targetEl?.clientHeight || 0;
-            if (!cw || !ch) return baseNodes;
-
-            const fixed = (baseNodes || []).filter(n => typeof n.x === 'number' && typeof n.y === 'number');
-            if (fixed.length === 0) return baseNodes;
-
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            fixed.forEach(n => {
-              minX = Math.min(minX, n.x);
-              maxX = Math.max(maxX, n.x);
-              minY = Math.min(minY, n.y);
-              maxY = Math.max(maxY, n.y);
-            });
-            const bw = Math.max(1, maxX - minX);
-            const bh = Math.max(1, maxY - minY);
-
-            const pad = 30;
-            const scale = Math.min((cw - pad * 2) / bw, (ch - pad * 2) / bh, 1);
-            const scaledW = bw * scale;
-            const scaledH = bh * scale;
-            const offsetX = (cw - scaledW) / 2;
-            const offsetY = (ch - scaledH) / 2;
-
-            return (baseNodes || []).map(n => {
-              if (typeof n.x !== 'number' || typeof n.y !== 'number') return n;
-              return {
-                ...n,
-                x: offsetX + (n.x - minX) * scale,
-                y: offsetY + (n.y - minY) * scale
-              };
-            });
-          } catch (e) {
-            console.warn('fitFixedNodesToContainer failed:', e);
-            return baseNodes;
-          }
-        }
-
-        try {
-          if (!flowData || !flowData.nodes || !flowData.links) {
-            console.error('Invalid flow data structure:', flowData);
-            return;
-          }
-
-          // If this message tab is re-rendered (history/tabs), the same DOM node can be reused.
-          // ECharts throws if you call init twice on the same DOM, so dispose the old instance first.
-          try {
-            const existing = echarts.getInstanceByDom(container);
-            if (existing) existing.dispose();
-          } catch (_) {}
-
-          const chart = echarts.init(container);
-
-          // Ensure nodes have proper structure for ECharts Graph
-          const baseNodes = (flowData.nodes || []).map(node => {
-            // If label is already an object, use it; otherwise create one
-            const labelObj = typeof node.label === 'object' 
-              ? node.label 
-              : { show: true, formatter: node.label || node.name, fontSize: 11, color: '#333', position: 'inside' };
-            
-            return {
-              ...node,
-              label: labelObj,
-              // Ensure symbolSize is array
-              symbolSize: Array.isArray(node.symbolSize) ? node.symbolSize : (node.symbolSize || [100, 50]),
-              // Ensure itemStyle exists
-              itemStyle: node.itemStyle || { color: '#2A7BE4', borderColor: '#1A5BBE', borderWidth: 2 }
-            };
-          });
-
-          // Fix link labels
-          const links = (flowData.links || []).map(link => ({
-            ...link,
-            label: link.label || { show: false }
-          }));
-          
-          console.log('Processed nodes:', baseNodes.length, 'Processed links:', links.length);
-          
-          // If backend provides fixed x/y positions, use deterministic layout; otherwise fall back to force.
-          const hasFixedPositions = baseNodes.every(n => typeof n.x === 'number' && typeof n.y === 'number');
-          const nodes = hasFixedPositions ? fitFixedNodesToContainer(baseNodes, container) : baseNodes;
-
-          // For simple "flow" diagrams, ECharts 'tree' (TB) is more stable than 'graph'
-          // inside a narrow/resizable chatbot panel.
-          function tryBuildTreeData(nodesArr, linksArr) {
-            try {
-              const byName = new Map();
-              (nodesArr || []).forEach(n => {
-                if (n && n.name) byName.set(String(n.name), n);
-              });
-              if (byName.size === 0) return null;
-
-              const inDeg = new Map();
-              const out = new Map(); // source -> [targets]
-              byName.forEach((_, k) => { inDeg.set(k, 0); out.set(k, []); });
-
-              (linksArr || []).forEach(l => {
-                const s = l?.source != null ? String(l.source) : null;
-                const t = l?.target != null ? String(l.target) : null;
-                if (!s || !t) return;
-                if (!byName.has(s) || !byName.has(t)) return;
-                inDeg.set(t, (inDeg.get(t) || 0) + 1);
-                out.get(s)?.push({ target: t, label: l.label });
-              });
-
-              // Root heuristic: prefer camera_stream, else any inDeg==0
-              let rootName = byName.has('camera_stream') ? 'camera_stream' : null;
-              if (!rootName) {
-                for (const [k, d] of inDeg.entries()) {
-                  if (!d) { rootName = k; break; }
-                }
-              }
-              if (!rootName) return null;
-
-              // If it's too "graphy" (lots of merges), tree will look odd; bail.
-              const maxInDeg = Math.max(...Array.from(inDeg.values()));
-              if (maxInDeg > 1) return null;
-
-              const seen = new Set();
-              function buildNode(name) {
-                if (seen.has(name)) return null;
-                seen.add(name);
-                const n = byName.get(name);
-                if (!n) return null;
-                const lbl = (typeof n.label === 'object' && n.label)
-                  ? (n.label.formatter || n.name)
-                  : (n.label || n.name);
-
-                const children = (out.get(name) || [])
-                  .map(edge => {
-                    const child = buildNode(edge.target);
-                    if (!child) return null;
-                    // edge label shown as a small badge above the child node (optional)
-                    const edgeText = edge?.label?.formatter || '';
-                    if (edgeText) {
-                      child._edgeLabel = edgeText;
-                    }
-                    return child;
-                  })
-                  .filter(Boolean);
-
-                return {
-                  name: n.name,
-                  value: n.value,
-                  symbol: n.symbol || 'roundRect',
-                  // Override sizes for tree layout to prevent node overlap (and make link segments visible).
-                  symbolSize: (function() {
-                    const sym = n.symbol || 'roundRect';
-                    // Compact nodes for narrow chatbot panel
-                    if (sym === 'diamond') return [100, 65];
-                    return [130, 35];
-                  })(),
-                  itemStyle: n.itemStyle || undefined,
-                  labelText: String(lbl || n.name || ''),
-                  children
-                };
-              }
-
-              const root = buildNode(rootName);
-              if (!root) return null;
-              return root;
-            } catch (e) {
-              console.warn('tryBuildTreeData failed:', e);
-              return null;
-            }
-          }
-
-          const treeRoot = tryBuildTreeData(nodes, links);
-
-          if (treeRoot) {
-            const option = {
-              backgroundColor: 'transparent',
-              tooltip: { show: false },
-              series: [{
-                type: 'tree',
-                layout: 'orthogonal',
-                data: [treeRoot],
-                top: 15,
-                bottom: 15,
-                left: 15,
-                right: 15,
-                orient: 'TB',
-                expandAndCollapse: false,
-                initialTreeDepth: -1,
-                symbol: 'roundRect',
-                // Compact spacing for chatbot panel
-                nodeGap: 22,
-                // Disable interactions to prevent chart breaking on click
-                emphasis: {
-                  focus: 'none',
-                  disabled: true
-                },
-                select: {
-                  disabled: true
-                },
-                silent: true, // Disable all mouse events
-                lineStyle: {
-                  color: '#495057',
-                  width: 2,
-                  opacity: 0.95,
-                  curveness: 0
-                },
-                label: {
-                  show: true,
-                  position: 'inside',
-                  color: '#fff',
-                  fontSize: 8,
-                  lineHeight: 11,
-                  formatter: (p) => p?.data?.labelText || p?.data?.name || ''
-                },
-                leaves: {
-                  label: {
-                    show: true,
-                    position: 'inside',
-                    color: '#fff'
-                  }
-                }
-              }]
-            };
-
-            chart.setOption(option, false); // Use merge mode to preserve chart state
-            
-            // Disable click interactions to prevent chart breaking
-            chart.off('click');
-            
-            // Debounce resize to prevent rapid-fire calls that can break the chart
-            // CRITICAL: Block resize during layout transitions (ECharts breaks on invalid dimensions)
-            let resizeTimer = null;
-            const resizeHandler = () => {
-              // 🔴 HARD-BLOCK during layout settling (prevents resize during CSS transition)
-              if (layoutSettling) return;
-              
-              if (resizeTimer) clearTimeout(resizeTimer);
-              resizeTimer = setTimeout(() => {
-                try {
-                  if (!chart || chart.isDisposed()) return;
-                  if (!container) return;
-                  
-                  const w = container.clientWidth;
-                  const h = container.clientHeight;
-                  
-                  // Extra safety margin: ECharts treats <80px as invalid and can corrupt internally
-                  // Even 1-5px during CSS transition will break the chart permanently
-                  if (w < 80 || h < 80) {
-                    console.warn('Chart resize skipped: container dimensions too small', { w, h });
-                    return;
-                  }
-                  
-                  chart.resize();
-                } catch (e) {
-                  console.warn('Chart resize error (ignored):', e);
-                }
-              }, 100);
-            };
-            
-            // ✅ Force ONE safe resize AFTER layout fully settles (on mouseup completion)
-            const safeResizeAfterSettle = () => {
-              if (!chart || chart.isDisposed()) return;
-              if (!container) return;
-              
-              const w = container.clientWidth;
-              const h = container.clientHeight;
-              
-              if (w > 80 && h > 80) {
-                try {
-                  chart.resize();
-                } catch (e) {
-                  console.warn('Chart safe resize error (ignored):', e);
-                }
-              }
-            };
-            
-            document.addEventListener('chatbot:layout-settled', safeResizeAfterSettle);
-            
-            window.addEventListener('resize', resizeHandler);
-            if (!container._resizeObserver && typeof ResizeObserver !== 'undefined') {
-              container._resizeObserver = new ResizeObserver(() => {
-                resizeHandler();
-              });
-              container._resizeObserver.observe(container);
-            }
-            
-            container._resizeHandler = resizeHandler;
-            container._echartsInstance = chart;
-            container._resizeTimer = resizeTimer;
-            container._safeResizeHandler = safeResizeAfterSettle;
-            return chart;
-          }
-
-          const option = {
-            backgroundColor: 'transparent',
-            tooltip: {
-              show: true,
-              trigger: 'item',
-              formatter: function(params) {
-                if (params.dataType === 'node') {
-                  const nodeLabel = params.data.label?.formatter || params.data.name || 'Node';
-                  return `<div style="padding: 4px;">${nodeLabel}</div>`;
-                }
-                return '';
-              }
-            },
-            animation: true,
-            animationDuration: 1000,
-            series: [{
-              type: 'graph',
-              layout: hasFixedPositions ? 'none' : 'force',
-              ...(hasFixedPositions ? {} : {
-                force: {
-                  initLayout: 'circular',
-                  repulsion: 400,
-                  gravity: 0.25,
-                  edgeLength: [150, 250],
-                  layoutAnimation: true,
-                  friction: 0.8
-                }
-              }),
-              // For "flow" diagrams in a narrow chatbot panel, keep interaction minimal and stable.
-              roam: false, // Disable zoom/pan to prevent chart breaking
-              draggable: false, // Disable drag to prevent chart breaking
-              focusNodeAdjacency: false,
-              silent: true, // Disable all mouse events to prevent click issues
-              edgeSymbol: ['none', 'arrow'],
-              edgeSymbolSize: 10,
-              top: 10,
-              bottom: 10,
-              left: 10,
-              right: 10,
-              label: {
-                show: true,
-                position: 'inside',
-                fontSize: 10,
-                fontWeight: 'normal',
-                color: '#fff',
-                textStyle: {
-                  color: '#fff',
-                  fontSize: 10
-                }
-              },
-              edgeLabel: {
-                // Default OFF (too noisy). Individual links can still enable labels via link.label.show=true
-                show: false,
-                fontSize: 9,
-                color: '#666',
-                formatter: function(params) {
-                  return params.data.label?.formatter || '';
-                }
-              },
-              data: nodes,
-              links: links,
-              lineStyle: {
-                color: '#999',
-                width: 2,
-                // Curves look like "sine waves" in vertical flows; keep straight for fixed-position flowcharts.
-                curveness: hasFixedPositions ? 0 : 0.05,
-                opacity: 0.7
-              },
-              emphasis: {
-                focus: 'adjacency',
-                lineStyle: {
-                  width: 3,
-                  color: '#2A7BE4'
-                },
-                itemStyle: {
-                  shadowBlur: 15,
-                  shadowColor: 'rgba(42, 123, 228, 0.5)',
-                  borderWidth: 3
-                },
-                label: {
-                  fontSize: 12,
-                  fontWeight: 'bold'
-                }
-              }
-            }]
-          };
-
-          console.log('Setting ECharts option with', nodes.length, 'nodes and', links.length, 'links');
-          chart.setOption(option, false); // Use merge mode to preserve chart state
-          
-          // Disable click interactions to prevent chart breaking
-          chart.off('click');
-          
-          // Debounce resize to prevent rapid-fire calls that can break the chart
-          // CRITICAL: Block resize during layout transitions (ECharts breaks on invalid dimensions)
-          let resizeTimer = null;
-          const resizeHandler = () => {
-            // 🔴 HARD-BLOCK during layout settling (prevents resize during CSS transition)
-            if (layoutSettling) return;
-            
-            if (resizeTimer) clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-              try {
-                if (!chart || chart.isDisposed()) return;
-                if (!container) return;
-                
-                const w = container.clientWidth;
-                const h = container.clientHeight;
-                
-                // Extra safety margin: ECharts treats <80px as invalid and can corrupt internally
-                // Even 1-5px during CSS transition will break the chart permanently
-                if (w < 80 || h < 80) {
-                  console.warn('Chart resize skipped: container dimensions too small', { w, h });
-                  return;
-                }
-                
-                chart.resize();
-              } catch (e) {
-                console.warn('Chart resize error (ignored):', e);
-              }
-            }, 100);
-          };
-          
-          // ✅ Force ONE safe resize AFTER layout fully settles (on mouseup completion)
-          const safeResizeAfterSettle = () => {
-            if (!chart || chart.isDisposed()) return;
-            if (!container) return;
-            
-            const w = container.clientWidth;
-            const h = container.clientHeight;
-            
-            if (w > 80 && h > 80) {
-              try {
-                chart.resize();
-              } catch (e) {
-                console.warn('Chart safe resize error (ignored):', e);
-              }
-            }
-          };
-          
-          document.addEventListener('chatbot:layout-settled', safeResizeAfterSettle);
-          
-          window.addEventListener('resize', resizeHandler);
-
-          // Also handle container resize (chatbot width drag, tab layout changes).
-          // Use the debounced handler to prevent conflicts and chart breaking
-          if (!container._resizeObserver && typeof ResizeObserver !== 'undefined') {
-            container._resizeObserver = new ResizeObserver(() => {
-              resizeHandler(); // Use the debounced handler instead of direct calls
-            });
-            container._resizeObserver.observe(container);
-          }
-
-          // Store cleanup hooks on container
-          container._resizeHandler = resizeHandler;
-          container._echartsInstance = chart;
-          container._resizeTimer = resizeTimer;
-          container._safeResizeHandler = safeResizeAfterSettle;
-
-          return chart;
-        } catch (e) {
-          console.error('Failed to render flow diagram:', e);
-          console.error('Error stack:', e.stack);
-        }
-      }
+      // ECharts rendering removed. Mermaid will render diagrams on DONE only.
 
       function replaceAssistantPending(pendingId, text, isError = false) {
         const node = messagesEl.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
@@ -1441,58 +1137,246 @@
         // Ensure styling hook exists for markdown CSS
         bubble.classList.add('markdown-content');
 
-        // Check if message contains flow diagram and extract it BEFORE markdown parsing
-        const flowStartMarker = '<!-- FLOW_DIAGRAM_START -->';
-        const flowEndMarker = '<!-- FLOW_DIAGRAM_END -->';
-        const hasFlow = msg.includes(flowStartMarker) && msg.includes(flowEndMarker);
-        
-        let flowDiagramData = null;
-        let flowContainerId = null;
-        let msgWithoutFlow = msg;
-        
-        if (hasFlow) {
-          // Extract flow diagram HTML section and parse the data
-          const startIdx = msg.indexOf(flowStartMarker);
-          const endIdx = msg.indexOf(flowEndMarker) + flowEndMarker.length;
-          const flowDiagramHtml = msg.substring(startIdx, endIdx);
-          
-          // Extract container ID and data from the HTML
-          const containerMatch = flowDiagramHtml.match(/id="flow-container-([^"]+)"/);
-          const dataB64Match = flowDiagramHtml.match(/data-flow-data-b64="([^"]+)"/);
-          const dataMatch = flowDiagramHtml.match(/data-flow-data="([^"]+)"/);
-          
-          if (containerMatch) {
-            flowContainerId = 'flow-container-' + containerMatch[1];
-            
-            // Try to decode the data
-            if (dataB64Match) {
-              try {
-                const decodedJson = atob(dataB64Match[1]);
-                flowDiagramData = JSON.parse(decodedJson);
-                console.log('Extracted flow diagram data from base64');
-              } catch (e) {
-                console.error('Failed to decode base64 flow data:', e);
+        // ChatGPT-style flow blocks: extract completed ```flow ... ``` blocks on DONE only.
+        // Replace each extracted block with a stable placeholder <div> at the same position.
+        function extractMermaidBlocks(markdownText) {
+          // Mermaid support removed; keep text unchanged.
+          const src = String(markdownText || '');
+          return { markdown: src, diagrams: [] };
+          // (legacy Mermaid extraction code removed)
+          const diagrams = [];
+
+          const safePendingId = String(pendingId || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+          let out = '';
+          let i = 0;
+          let n = 0;
+
+          while (true) {
+            const start = src.indexOf('```mermaid', i);
+            if (start === -1) break;
+
+            out += src.slice(i, start);
+
+            const lineEnd = src.indexOf('\n', start);
+            if (lineEnd === -1) {
+              // Incomplete fence line; keep as-is
+              out += src.slice(start);
+              i = src.length;
+              break;
+            }
+
+            // Find a closing fence that starts a line.
+            let close = src.indexOf('\n```', lineEnd + 1);
+            while (close !== -1) {
+              const after = close + 4; // "\n```" length
+              if (after >= src.length) break;
+              const ch = src[after];
+              if (ch === '\n') break;
+              if (ch === '\r' && src[after + 1] === '\n') break;
+              // Not a real closing fence; keep searching
+              close = src.indexOf('\n```', close + 1);
+            }
+
+            if (close === -1) {
+              // Incomplete flow block; keep as-is (we only extract completed blocks on done)
+              out += src.slice(start);
+              i = src.length;
+              break;
+            }
+
+            const payloadText = src.slice(lineEnd + 1, close).trim();
+
+            // Advance i past the closing fence line
+            let nextIdx = close + 4;
+            if (src[nextIdx] === '\r' && src[nextIdx + 1] === '\n') nextIdx += 2;
+            else if (src[nextIdx] === '\n') nextIdx += 1;
+
+            const containerId = `mermaid-${safePendingId}-${n++}`;
+            diagrams.push({ containerId, mermaidText: payloadText });
+
+            // Insert Mermaid container (frontend-only HTML injection, backend stays text-only).
+            // Mermaid will replace this div contents after DONE.
+            const safeText = escapeHtml(payloadText);
+            const safeB64 = (() => {
+              try { return btoa(unescape(encodeURIComponent(payloadText))); } catch (_) { return ''; }
+            })();
+            out +=
+              '\n\n' +
+              `<div id="${containerId}" class="mermaid flow-diagram-placeholder" data-mermaid-src-b64="${safeB64}" ` +
+              `style="width: 100%; min-height: 360px; margin-top: 1rem; margin-bottom: 1rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem; padding: 0.5rem;">` +
+              `${safeText}` +
+              `</div>` +
+              '\n\n';
+
+            i = nextIdx;
+          }
+
+          out += src.slice(i);
+          return { markdown: out, diagrams };
+        }
+
+        const extracted = extractMermaidBlocks(msg);
+        const msgWithoutFlow = extracted.markdown;
+        const mermaidDiagrams = [];
+
+        // n8n-style preview animation (UI-only)
+        function startMermaidPreviewAnimationForBubble(bubbleEl) {
+          try {
+            const debugMermaid = (() => {
+              try { return localStorage.getItem('chatbot_mermaid_debug') === 'true'; } catch (_) { return false; }
+            })();
+            const dbg = (...args) => { if (debugMermaid) console.log('[mermaid-preview]', ...args); };
+
+            const mermaidDivs = Array.from(bubbleEl.querySelectorAll?.('.mermaid') || []);
+            if (!mermaidDivs.length) {
+              dbg('no .mermaid divs in bubble');
+              return;
+            }
+
+            // If Mermaid hasn't inserted SVG yet, retry shortly (don't mark started).
+            const hasAnySvg = mermaidDivs.some(d => d.querySelector('svg'));
+            if (!hasAnySvg) {
+              dbg('svg not present yet; scheduling retry');
+              if (!bubbleEl._mermaidPreviewRetryTimer) {
+                bubbleEl._mermaidPreviewRetryTimer = setTimeout(() => {
+                  bubbleEl._mermaidPreviewRetryTimer = null;
+                  startMermaidPreviewAnimationForBubble(bubbleEl);
+                }, 120);
               }
-            } else if (dataMatch) {
-              try {
-                flowDiagramData = JSON.parse(dataMatch[1]);
-                console.log('Extracted flow diagram data from data attribute');
-              } catch (e) {
-                console.error('Failed to parse flow data:', e);
+              return;
+            }
+
+            // Start once per rendered message bubble (after SVG exists)
+            if (bubbleEl._mermaidPreviewStarted) {
+              dbg('already started; skipping');
+              return;
+            }
+            bubbleEl._mermaidPreviewStarted = true;
+
+            bubbleEl.classList.add('mermaid-preview-running');
+            // Also tag the diagram containers for selector robustness
+            mermaidDivs.forEach(d => d.classList.add('mermaid-preview-running'));
+            dbg('started; mermaidDivs=', mermaidDivs.length);
+
+            // Parse an ordered list of node IDs from mermaid source (first diagram only).
+            // This is a preview loop; it does not represent real execution.
+            function decodeMermaidSrc(div) {
+              const b64 = div?.dataset?.mermaidSrcB64 || '';
+              if (!b64) return (div?.textContent || '');
+              try { return decodeURIComponent(escape(atob(b64))); } catch (_) { return (div?.textContent || ''); }
+            }
+
+            function parseMermaidGraph(src) {
+              const srcNorm = String(src || '').replace(/\r\n/g, '\n');
+              const lines = srcNorm.split('\n').map(l => l.trim()).filter(Boolean);
+              const nodeOrder = [];
+              const seen = new Set();
+              const edges = []; // {src, dst}
+
+              // Use RegExp(...) to avoid HTML/JS parser edge cases in some editors
+              const edgeRe = new RegExp('^([A-Za-z0-9_]+)\\\\s*(?:--\\\\s*\".*?\"\\\\s*)?-->\\\\s*([A-Za-z0-9_]+)');
+              const edgeRe2 = new RegExp('^([A-Za-z0-9_]+)\\\\s*-->\\\\s*([A-Za-z0-9_]+)');
+              const nodeRe = new RegExp('^([A-Za-z0-9_]+)\\\\s*(?:\\\\[\\\\s*\".*?\"\\\\s*\\\\]|\\\\{\\\\s*\".*?\"\\\\s*\\\\})');
+
+              for (const line of lines) {
+                let m = line.match(edgeRe) || line.match(edgeRe2);
+                if (m) {
+                  const a = m[1], b = m[2];
+                  edges.push({ src: a, dst: b });
+                  if (!seen.has(a)) { seen.add(a); nodeOrder.push(a); }
+                  if (!seen.has(b)) { seen.add(b); nodeOrder.push(b); }
+                  continue;
+                }
+                m = line.match(nodeRe);
+                if (m) {
+                  const a = m[1];
+                  if (!seen.has(a)) { seen.add(a); nodeOrder.push(a); }
+                }
+              }
+
+              // Fallback to any ids found
+              return { nodeOrder, edges };
+            }
+
+            // Build one combined preview loop per bubble (across all diagrams)
+            const diagrams = mermaidDivs
+              .map(div => {
+                const src = decodeMermaidSrc(div);
+                const parsed = parseMermaidGraph(src);
+                return { div, ...parsed };
+              })
+              .filter(d => d.nodeOrder.length);
+
+            if (!diagrams.length) {
+              dbg('no diagrams with nodeOrder found (parse failed?)');
+              return;
+            }
+            dbg('parsed diagrams=', diagrams.length, 'first nodeOrder len=', diagrams[0]?.nodeOrder?.length, 'edges=', diagrams[0]?.edges?.length);
+
+            function findNodeEl(svg, nodeId) {
+              if (!svg || !nodeId) return null;
+              const esc = (window.CSS && CSS.escape) ? CSS.escape(nodeId) : nodeId.replace(/[^\w-]/g, '_');
+              // Mermaid ids vary by version; match substring.
+              return svg.querySelector(`g.node[id*="${esc}"]`) || svg.querySelector(`g.node [id*="${esc}"]`)?.closest?.('g.node') || null;
+            }
+
+            function findOutgoingEdgeGroups(svg, nodeId, edges) {
+              const esc = (window.CSS && CSS.escape) ? CSS.escape(nodeId) : nodeId.replace(/[^\w-]/g, '_');
+              const outgoing = edges.filter(e => e.src === nodeId);
+              if (!outgoing.length) return [];
+              const groups = [];
+              for (const e of outgoing) {
+                const dstEsc = (window.CSS && CSS.escape) ? CSS.escape(e.dst) : String(e.dst).replace(/[^\w-]/g, '_');
+                // edgePath ids usually include both src and dst; match both.
+                const g = svg.querySelector(`g.edgePath[id*="${esc}"][id*="${dstEsc}"]`);
+                if (g) groups.push(g);
+              }
+              return groups;
+            }
+
+            // Main loop: highlight next node every 650ms
+            const intervalMs = 650;
+            let idx = 0;
+
+            function clearActive() {
+              for (const d of diagrams) {
+                const svg = d.div.querySelector('svg');
+                if (!svg) continue;
+                svg.querySelectorAll('g.node.preview-node-active').forEach(el => el.classList.remove('preview-node-active'));
+                svg.querySelectorAll('g.edgePath.preview-edge-active').forEach(el => el.classList.remove('preview-edge-active'));
               }
             }
+
+            function step() {
+              clearActive();
+              for (const d of diagrams) {
+                const svg = d.div.querySelector('svg');
+                if (!svg) continue;
+                const nodeId = d.nodeOrder[idx % d.nodeOrder.length];
+                const nodeEl = findNodeEl(svg, nodeId);
+                if (nodeEl) nodeEl.classList.add('preview-node-active');
+                const outEdges = findOutgoingEdgeGroups(svg, nodeId, d.edges);
+                outEdges.forEach(g => g.classList.add('preview-edge-active'));
+              }
+              idx += 1;
+            }
+
+            // Start only after at least one svg exists
+            const hasSvg = diagrams.some(d => d.div.querySelector('svg'));
+            if (!hasSvg) return;
+
+            step();
+            bubbleEl._mermaidPreviewTimer = setInterval(step, intervalMs);
+            dbg('interval started every', intervalMs, 'ms');
+          } catch (_) {
+            // ignore preview failures
           }
-          
-          // Remove flow diagram HTML from message for markdown parsing (keep placeholder)
-          msgWithoutFlow = msg.substring(0, startIdx) + 
-            `\n\n<div id="${flowContainerId}" class="flow-diagram-placeholder" style="width: 100%; height: 500px; margin-top: 1rem; margin-bottom: 1rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;"></div>\n\n` +
-            msg.substring(endIdx);
         }
 
         // Render markdown if deps available; else fall back to plain text
         try {
           if (window.marked && window.DOMPurify) {
-            // Update allowed tags to include script and div for flow diagrams
+            // Allow div (placeholders). Do NOT allow script.
             const allowedTags = [
               'p', 'br', 'strong', 'em', 'u', 's',
               'code', 'pre',
@@ -1500,7 +1384,7 @@
               'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
               'blockquote', 'a', 'hr',
               'table', 'thead', 'tbody', 'tr', 'th', 'td',
-              'script', 'div'
+              'div'
             ];
             
             // Parse markdown (marked.js preserves HTML tags by default)
@@ -1522,12 +1406,12 @@
             }
             const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
               ALLOWED_TAGS: allowedTags,
-              ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'id', 'style', 'type', 'class', 'data-flow-data', 'data-flow-data-b64'],
+              ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'id', 'style', 'type', 'class'],
               KEEP_CONTENT: true,  // Preserve content
               ADD_ATTR: ['id', 'style', 'class']  // Ensure these attributes are kept
             });
             
-            // Set the HTML (flow diagram placeholder is already in cleanHtml if hasFlow is true)
+            // Set the HTML atomically (placeholders already included)
             bubble.innerHTML = cleanHtml;
             
             // Best-effort: ensure safe link behavior
@@ -1536,83 +1420,7 @@
               a.setAttribute('rel', 'noopener noreferrer');
             });
 
-            // Render flow diagram if present
-            if (hasFlow && flowDiagramData && flowContainerId) {
-              // Wait a bit for DOM to be ready, then render
-              setTimeout(() => {
-                let flowContainer = bubble.querySelector(`#${flowContainerId}`) || 
-                                    bubble.querySelector('.flow-diagram-placeholder');
-                
-                // If container not found, create it manually
-                if (!flowContainer) {
-                  console.warn('Flow diagram container not found, creating manually');
-                  flowContainer = document.createElement('div');
-                  flowContainer.id = flowContainerId;
-                  flowContainer.className = 'flow-diagram-placeholder';
-                  flowContainer.style.cssText = 'width: 100%; height: 500px; margin-top: 1rem; margin-bottom: 1rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;';
-                  
-                  // Try to find where to insert it (after the last paragraph or before the italicized text)
-                  const lastP = bubble.querySelector('p:last-of-type');
-                  const italicText = Array.from(bubble.querySelectorAll('em, i')).find(el => 
-                    el.textContent && el.textContent.includes('processing pipeline')
-                  );
-                  
-                  if (italicText && italicText.parentElement) {
-                    italicText.parentElement.insertBefore(flowContainer, italicText);
-                  } else if (lastP && lastP.nextSibling) {
-                    lastP.parentElement.insertBefore(flowContainer, lastP.nextSibling);
-                  } else {
-                    bubble.appendChild(flowContainer);
-                  }
-                  
-                  console.log('Manually created flow container');
-                }
-                
-                // Update container ID if it was a placeholder
-                if (flowContainer.id !== flowContainerId) {
-                  flowContainer.id = flowContainerId;
-                }
-                
-                // Ensure container has proper dimensions and is visible
-                flowContainer.style.display = 'block';
-                flowContainer.style.width = '100%';
-                flowContainer.style.height = '500px';
-                flowContainer.style.minHeight = '500px';
-                flowContainer.style.position = 'relative';
-                flowContainer.style.backgroundColor = '#f8f9fa';
-                flowContainer.style.border = '1px solid #dee2e6';
-                flowContainer.style.borderRadius = '0.5rem';
-                
-                console.log('Container found, dimensions:', {
-                  width: flowContainer.offsetWidth,
-                  height: flowContainer.offsetHeight,
-                  id: flowContainer.id,
-                  dataNodes: flowDiagramData.nodes?.length,
-                  dataLinks: flowDiagramData.links?.length
-                });
-                
-                // Render immediately if ECharts is loaded, otherwise load and retry
-                if (window.echarts) {
-                  setTimeout(() => {
-                    renderFlowDiagram(flowContainer.id, flowDiagramData);
-                  }, 300);
-                } else {
-                  ensureECharts().then(() => {
-                    setTimeout(() => {
-                      renderFlowDiagram(flowContainer.id, flowDiagramData);
-                    }, 500);
-                  }).catch(err => {
-                    console.error('Failed to load ECharts:', err);
-                  });
-                }
-              }, 600); // Wait for DOM and markdown rendering to complete
-            } else if (hasFlow) {
-              console.warn('Flow diagram markers found but data extraction failed:', {
-                hasFlow,
-                hasData: !!flowDiagramData,
-                hasContainerId: !!flowContainerId
-              });
-            }
+            // Mermaid rendering removed.
           } else {
             bubble.textContent = msg;
           }
@@ -1620,6 +1428,204 @@
           console.warn('Markdown render failed:', e);
           bubble.textContent = msg;
         }
+      }
+
+      // -----------------------------
+      // Streaming Markdown Rendering (ChatGPT-style)
+      // -----------------------------
+      function safeMarkdownForStreaming(text) {
+        let t = String(text || '');
+
+        // Diagrams: treat ```flow blocks as unstable during streaming.
+        // Do NOT render diagrams; replace with a stable placeholder and never initialize ECharts here.
+        (function suppressMermaidBlocks() {
+          const placeholder =
+            '\n\n' +
+            '<div class="flow-diagram-placeholder" ' +
+            'style="width:100%;height:360px;margin-top:1rem;margin-bottom:1rem;' +
+            'background:#f8f9fa;border:1px solid #dee2e6;border-radius:0.5rem;' +
+            'display:flex;align-items:center;justify-content:center;color:#6c757d;font-size:0.95rem;">' +
+            'Rendering diagram…' +
+            '</div>\n\n';
+
+          let src = t;
+          let out = '';
+          let i = 0;
+          while (true) {
+            const start = src.indexOf('```mermaid', i);
+            if (start === -1) break;
+
+            out += src.slice(i, start);
+
+            const lineEnd = src.indexOf('\n', start);
+            if (lineEnd === -1) {
+              // Incomplete fence start; replace tail with placeholder
+              out += placeholder;
+              i = src.length;
+              break;
+            }
+
+            // Find closing fence line (starts a line).
+            let close = src.indexOf('\n```', lineEnd + 1);
+            while (close !== -1) {
+              const after = close + 4;
+              if (after >= src.length) break;
+              const ch = src[after];
+              if (ch === '\n') break;
+              if (ch === '\r' && src[after + 1] === '\n') break;
+              close = src.indexOf('\n```', close + 1);
+            }
+
+            if (close === -1) {
+              // Incomplete flow block; replace tail with placeholder
+              out += placeholder;
+              i = src.length;
+              break;
+            }
+
+            // Skip the entire flow block (closed) and insert placeholder
+            out += placeholder;
+
+            // Advance past closing fence line
+            i = close + 4;
+            if (src[i] === '\r' && src[i + 1] === '\n') i += 2;
+            else if (src[i] === '\n') i += 1;
+          }
+
+          out += src.slice(i);
+          t = out;
+        })();
+
+        // Fenced code blocks: don't render until closed.
+        // If fence count is odd, break the last fence so it is treated as plain text.
+        const fence = '```';
+        const fenceCount = (t.match(/```/g) || []).length;
+        if (fenceCount % 2 === 1) {
+          const last = t.lastIndexOf(fence);
+          if (last !== -1) {
+            // Insert a zero-width space inside the fence to prevent markdown parsing,
+            // while keeping it visually identical to ``` for the user.
+            const brokenFence = '``\u200b`';
+            t = t.slice(0, last) + brokenFence + t.slice(last + fence.length);
+          }
+        }
+
+        // Tables: treat as unstable until a blank line appears after the last row.
+        // We suppress a trailing (still-growing) table by escaping pipes in the trailing table region.
+        try {
+          const lines = t.split('\n');
+          const sepRe = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/; // markdown table separator
+          const rowRe = /^\s*\|.*\|\s*$/; // simple row heuristic
+          let sepLineIdx = -1;
+          for (let i = lines.length - 1; i >= 0; i--) {
+            if (sepRe.test(lines[i] || '')) { sepLineIdx = i; break; }
+          }
+          if (sepLineIdx !== -1) {
+            // Find table start: walk upward from header/separator through contiguous table-like lines
+            let tableStart = Math.max(0, sepLineIdx - 1);
+            while (tableStart > 0) {
+              const prev = lines[tableStart - 1] || '';
+              if (prev.trim() === '') break;
+              // allow header rows, separator, and pipe rows
+              if (rowRe.test(prev) || sepRe.test(prev)) {
+                tableStart -= 1;
+                continue;
+              }
+              break;
+            }
+
+            // Find table end: walk downward through contiguous table-like lines
+            let tableEnd = sepLineIdx;
+            while (tableEnd + 1 < lines.length) {
+              const nxt = lines[tableEnd + 1] || '';
+              if (nxt.trim() === '') break;
+              if (rowRe.test(nxt) || sepRe.test(nxt)) {
+                tableEnd += 1;
+                continue;
+              }
+              break;
+            }
+
+            const terminatorLine = lines[tableEnd + 1] || '';
+            const hasTerminator = (terminatorLine.trim() === '') || (!!terminatorLine && !(rowRe.test(terminatorLine) || sepRe.test(terminatorLine)));
+
+            // If the table touches the end of the current streamed text and has no terminator yet,
+            // keep it as plain text to avoid half-rendered tables.
+            if (!hasTerminator && tableEnd >= lines.length - 1) {
+              for (let j = tableStart; j < lines.length; j++) {
+                lines[j] = (lines[j] || '').replaceAll('|', '&#124;');
+              }
+              t = lines.join('\n');
+            }
+          }
+        } catch (_) {}
+
+        return t;
+      }
+
+      function updateAssistantPendingText(pendingId, text) {
+        const node = messagesEl.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+        if (!node) return;
+        const bubble = node.querySelector?.('div');
+        if (!bubble) return;
+
+        // Store latest accumulated text and batch DOM updates
+        bubble._streamAccumulatedText = String(text || '');
+        if (bubble._streamRaf) return;
+
+        bubble._streamRaf = requestAnimationFrame(() => {
+          bubble._streamRaf = null;
+
+          const msg = bubble._streamAccumulatedText || '';
+          const safe = safeMarkdownForStreaming(msg);
+          if (safe === bubble._lastStreamSafeText) return;
+          bubble._lastStreamSafeText = safe;
+
+          // Keep it in normal (non-error) style while streaming
+          bubble.classList.remove('bg-danger', 'text-white');
+          bubble.classList.add('bg-body-secondary');
+          bubble.classList.add('markdown-content');
+
+          try {
+            if (window.marked && window.DOMPurify && typeof window.marked.parse === 'function') {
+              // Stable-only tags during streaming (no script; diagrams are placeholders only)
+              const allowedTags = [
+                'p', 'br', 'strong', 'em', 'u', 's',
+                'code',
+                'ul', 'ol', 'li',
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                'blockquote', 'a', 'hr',
+                'div'
+              ];
+
+              let rawHtml = '';
+              try {
+                rawHtml = window.marked.parse(safe);
+              } catch (_) {
+                rawHtml = escapeHtml(safe).replace(/\n/g, '<br>');
+              }
+
+              const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
+                ALLOWED_TAGS: allowedTags,
+                ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'style'],
+                KEEP_CONTENT: true
+              });
+
+              bubble.innerHTML = cleanHtml;
+
+              // Safe link behavior
+              bubble.querySelectorAll?.('a[href]')?.forEach(a => {
+                a.setAttribute('target', '_blank');
+                a.setAttribute('rel', 'noopener noreferrer');
+              });
+            } else {
+              // Deps not ready: still avoid raw token phase; render as escaped HTML with <br>
+              bubble.innerHTML = escapeHtml(safe).replace(/\n/g, '<br>');
+            }
+          } catch (_) {
+            bubble.innerHTML = escapeHtml(safe).replace(/\n/g, '<br>');
+          }
+        });
       }
 
       async function sendTextMessage(text) {
@@ -1655,14 +1661,14 @@
           // Commands:
           // - "demo on"  → enable demo mode
           // - "demo off" → disable demo mode
-          // - "chart"    → render a dummy flow diagram message
+          // - (chart demo removed)
           // ------------------------------------------------------------
           const DEMO_KEY = 'chatbot_demo_mode';
           const lower = trimmed.toLowerCase();
 
           if (lower === 'demo on' || lower === '/demo on') {
             localStorage.setItem(DEMO_KEY, 'true');
-            replaceAssistantPending(pendingId, '**Demo mode enabled** (backend calls are disabled). Type `chart` to render a sample flow diagram, or `demo off` to exit.');
+            replaceAssistantPending(pendingId, '**Demo mode enabled** (backend calls are disabled). Type `demo off` to exit.');
             state.html = messagesEl.innerHTML;
             messagesEl.scrollTop = messagesEl.scrollHeight;
             return;
@@ -1677,67 +1683,8 @@
 
           const demoEnabled = localStorage.getItem(DEMO_KEY) === 'true';
           if (demoEnabled) {
-            // Ensure ECharts is available (in demo we still need the library)
-            await ensureECharts();
-            if (!window.echarts) {
-              replaceAssistantPending(
-                pendingId,
-                '**Demo mode error**: ECharts is not loaded, so the chart cannot render.\n\n' +
-                  '- Check `vendors/echarts/echarts.min.js` exists and is reachable from the current page.\n' +
-                  '- Then reload and try `demo on` → `chart` again.',
-                true
-              );
-              state.html = messagesEl.innerHTML;
-              messagesEl.scrollTop = messagesEl.scrollHeight;
-              return;
-            }
-
-            // Dummy top→bottom flow data (fixed x/y; renderer will auto-fit on resize)
-            const flowData = {
-              nodes: [
-                { name: 'camera_stream', x: 250, y: 0,   symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#DC3545', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Camera\\nCAM-XXXXX...', color: '#fff', position: 'inside', fontSize: 8 } },
-                { name: 'frame_extraction', x: 250, y: 75, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#2A7BE4', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Frame Extraction\\n1 FPS', color: '#fff', position: 'inside', fontSize: 8 } },
-                { name: 'ai_model', x: 250, y: 150, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#2A7BE4', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'AI Model\\nYOLOv8', color: '#fff', position: 'inside', fontSize: 8 } },
-                { name: 'object_detection', x: 250, y: 225, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#2A7BE4', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Object\\nDetection', color: '#fff', position: 'inside', fontSize: 8 } },
-                { name: 'rule_engine', x: 250, y: 300, symbol: 'diamond', symbolSize: [100, 65], itemStyle: { color: '#6E7891', borderColor: '#1A5BBE', borderWidth: 2 }, label: { show: true, formatter: 'Rule\\nEngine', color: '#fff', position: 'inside', fontSize: 8 } },
-                { name: 'rules', x: 250, y: 400, symbol: 'diamond', symbolSize: [100, 65], itemStyle: { color: '#6E7891', borderColor: '#1A5BBE', borderWidth: 2 }, label: { show: true, formatter: 'Rules\\nClass Presence', color: '#fff', position: 'inside', fontSize: 8 } },
-                { name: 'run_mode', x: 250, y: 500, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#DC3545', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Continuous', color: '#fff', position: 'inside', fontSize: 8 } },
-                { name: 'event_generation', x: 250, y: 575, symbol: 'roundRect', symbolSize: [130, 35], itemStyle: { color: '#28A745', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 8 }, label: { show: true, formatter: 'Event\\nGeneration', color: '#fff', position: 'inside', fontSize: 8 } },
-                { name: 'database', x: 250, y: 880, symbol: 'roundRect', symbolSize: [170, 60], itemStyle: { color: '#28A745', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 10 }, label: { show: true, formatter: 'MongoDB', color: '#fff', position: 'inside' } },
-                { name: 'notification', x: 250, y: 990, symbol: 'roundRect', symbolSize: [170, 60], itemStyle: { color: '#28A745', borderColor: '#1A5BBE', borderWidth: 2, borderRadius: 10 }, label: { show: true, formatter: 'WebSocket\\nNotify', color: '#fff', position: 'inside' } },
-              ],
-              links: [
-                { source: 'camera_stream', target: 'frame_extraction' },
-                { source: 'frame_extraction', target: 'ai_model' },
-                { source: 'ai_model', target: 'object_detection' },
-                { source: 'object_detection', target: 'rule_engine' },
-                { source: 'rule_engine', target: 'rules' },
-                { source: 'rules', target: 'run_mode', label: { show: true, formatter: 'MATCH' } },
-                { source: 'run_mode', target: 'event_generation' },
-                { source: 'event_generation', target: 'database' },
-                { source: 'database', target: 'notification' }
-              ]
-            };
-
-            if (lower === 'chart' || lower === '/chart') {
-              const b64 = btoa(JSON.stringify(flowData));
-              const fakeId = `demo_${Date.now()}`;
-              const answer =
-                `## Demo Processing Flow Diagram\n\n` +
-                `This is a **dummy** flow diagram rendered locally (no backend).\n\n` +
-                `<!-- FLOW_DIAGRAM_START -->\n` +
-                `<div id="flow-container-${fakeId}" data-flow-data-b64="${b64}" style="width: 100%; height: 500px; margin-top: 1rem; margin-bottom: 1rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;"></div>\n` +
-                `<!-- FLOW_DIAGRAM_END -->\n\n` +
-                `Try resizing the chatbot width now — the diagram should stay visible and auto-fit.`;
-
-              replaceAssistantPending(pendingId, answer);
-              state.html = messagesEl.innerHTML;
-              messagesEl.scrollTop = messagesEl.scrollHeight;
-              return;
-            }
-
-            // Default demo response for other messages
-            replaceAssistantPending(pendingId, `**Demo mode** is ON. Type \`chart\` to render the dummy flow diagram, or \`demo off\` to enable backend again.\n\nYou said: \`${escapeHtml(trimmed)}\``);
+            // Demo mode kept for quick backend-off testing; Mermaid demo removed.
+            replaceAssistantPending(pendingId, `**Demo mode** is ON. Backend calls are disabled.\n\nYou said: \`${escapeHtml(trimmed)}\``);
             state.html = messagesEl.innerHTML;
             messagesEl.scrollTop = messagesEl.scrollHeight;
             return;
@@ -1747,21 +1694,91 @@
             throw new Error('Please login first.');
           }
 
-          let resp;
-          if (mode === 'agent') {
-            resp = await window.visionAPI.chatWithAgent(trimmed, state.sessionId);
-          } else {
-            resp = await window.visionAPI.generalChat(trimmed, state.sessionId);
+          // Cancel any in-flight stream for this tab+mode
+          try { state._abortController?.abort?.(); } catch (_) {}
+          state._abortController = new AbortController();
+
+          let acc = '';
+          let finalPayload = null;
+          let sawError = false;
+
+          const stream = (mode === 'agent')
+            ? window.visionAPI.chatWithAgentStream(trimmed, state.sessionId, null, null, state._abortController.signal)
+            : window.visionAPI.generalChatStream(trimmed, state.sessionId, state._abortController.signal);
+
+          for await (const evt of stream) {
+            const evName = evt?.event || 'message';
+            const data = evt?.data;
+
+            if (evName === 'meta') {
+              const sid = data?.session_id || null;
+              if (sid) state.sessionId = sid;
+              continue;
+            }
+
+            if (evName === 'token') {
+              const delta = data?.delta != null ? String(data.delta) : '';
+              if (delta) {
+                acc += delta;
+                // ChatGPT-style micro-batching:
+                // Only trigger a render on meaningful boundaries, plus a periodic flush.
+                const boundary = /[\s.,!?;:\n]/.test(delta);
+                const now = Date.now();
+                const last = state._lastStreamUiFlushTs || 0;
+                const shouldFlush = boundary || (now - last) > 200;
+                if (shouldFlush) {
+                  state._lastStreamUiFlushTs = now;
+
+                  // Scroll anchoring: only auto-scroll if user is already near bottom
+                  const distanceFromBottom = messagesEl.scrollHeight - (messagesEl.scrollTop + messagesEl.clientHeight);
+                  const shouldAutoScroll = distanceFromBottom < 60;
+
+                  updateAssistantPendingText(pendingId, acc);
+                  state.html = messagesEl.innerHTML;
+                  if (shouldAutoScroll) {
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                  }
+                }
+              }
+              continue;
+            }
+
+            if (evName === 'error') {
+              sawError = true;
+              // keep streaming; final "done" will close out
+              continue;
+            }
+
+            if (evName === 'done') {
+              finalPayload = data;
+              break;
+            }
           }
 
-          const answer = resp?.response ?? '';
-          const nextSessionId = resp?.session_id ?? null;
+          // Ensure we flush any remaining text even if last deltas had no boundaries
+          if (acc) {
+            updateAssistantPendingText(pendingId, acc);
+          }
+
+          const answer = finalPayload?.response ?? acc ?? '';
+          const nextSessionId = finalPayload?.session_id ?? null;
           if (nextSessionId) state.sessionId = nextSessionId;
 
-          replaceAssistantPending(pendingId, answer || '(empty response)');
+          const isError = (finalPayload?.status === 'error') || sawError;
+          replaceAssistantPending(pendingId, answer || '(empty response)', isError);
+
+          // Render flow diagram AFTER replacing so markdown is final
+          if (!isError && finalPayload?.flow_diagram_data) {
+            await renderFlowDiagram(pendingId, finalPayload.flow_diagram_data);
+          }
+          
           state.html = messagesEl.innerHTML;
           messagesEl.scrollTop = messagesEl.scrollHeight;
         } catch (err) {
+          if (err && (err.name === 'AbortError' || String(err).includes('AbortError'))) {
+            // Expected when a newer message cancels an in-flight stream
+            return;
+          }
           const msg = err?.message ? String(err.message) : 'Chat request failed.';
           replaceAssistantPending(pendingId, msg, true);
           state.html = messagesEl.innerHTML;

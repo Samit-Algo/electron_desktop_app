@@ -160,6 +160,32 @@
                             <div class="d-flex mb-6" id="event-statistics"></div>
                         </div>
 
+                        <!-- Evidence Video Section -->
+                        <div id="evidence-video-section" style="display: none;" class="mb-6">
+                            <h3 class="mb-3 fw-bold text-body-highlight fs-7 fs-xxl-6">Evidence Video:</h3>
+                            <div class="card">
+                                <div class="card-body p-0">
+                                    <video 
+                                        id="evidence-video" 
+                                        controls 
+                                        class="w-100" 
+                                        style="display: none; max-height: 600px; background: #000;"
+                                        preload="metadata">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                    <div id="video-loading" class="text-center p-5" style="display: none;">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading video...</span>
+                                        </div>
+                                        <p class="mt-3 text-body-secondary">Loading evidence video...</p>
+                                    </div>
+                                    <div id="video-error" class="text-center p-5" style="display: none;">
+                                        <p class="text-danger">Failed to load evidence video</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Full Size Image at Bottom -->
                         <div id="full-image-section" style="display: none;" class="mb-6">
                             <h3 class="mb-3 fw-bold text-body-highlight fs-7 fs-xxl-6">Full Image:</h3>
@@ -451,6 +477,124 @@
                             imgEl.style.display = 'block';
                         } catch (err) {
                             console.warn('Event detail: Failed to load event image:', err);
+                        }
+                    }
+
+                    // Evidence Video - check metadata for video_path
+                    const videoSection = document.getElementById('evidence-video-section');
+                    const videoEl = document.getElementById('evidence-video');
+                    const videoLoading = document.getElementById('video-loading');
+                    const videoError = document.getElementById('video-error');
+                    
+                    if (videoSection && videoEl && ev?.metadata) {
+                        // Check for video_path in metadata (primary) or video_paths array (fallback)
+                        const videoPath = ev.metadata.video_path || 
+                                        (Array.isArray(ev.metadata.video_paths) && ev.metadata.video_paths.length > 0 
+                                         ? ev.metadata.video_paths[0] : null);
+                        
+                        console.log('Event detail: Checking for video path:', videoPath);
+                        
+                        if (videoPath && typeof window.visionAPI.fetchEventVideoObjectUrl === 'function') {
+                            try {
+                                // Show loading state
+                                videoSection.style.display = 'block';
+                                videoLoading.style.display = 'block';
+                                videoEl.style.display = 'none';
+                                videoError.style.display = 'none';
+                                
+                                console.log('Event detail: Loading video from path:', videoPath);
+                                
+                                // Load video from local file system
+                                const videoObjectUrl = await window.visionAPI.fetchEventVideoObjectUrl(videoPath);
+                                
+                                console.log('Event detail: Video object URL created:', videoObjectUrl.substring(0, 50) + '...');
+                                
+                                // Set up error handler BEFORE setting src
+                                videoEl.onerror = (err) => {
+                                    console.error('Event detail: Video element error:', err);
+                                    console.error('Event detail: Video error details:', {
+                                        error: videoEl.error,
+                                        networkState: videoEl.networkState,
+                                        readyState: videoEl.readyState,
+                                        src: videoEl.src.substring(0, 100)
+                                    });
+                                    
+                                    let errorMessage = 'Failed to load evidence video';
+                                    let errorDetails = '';
+                                    
+                                    if (videoEl.error) {
+                                        const errorCode = videoEl.error.code;
+                                        const errorMsg = videoEl.error.message || '';
+                                        
+                                        // Check for codec-related errors
+                                        if (errorMsg.includes('DEMUXER_ERROR') || errorMsg.includes('no supported streams')) {
+                                            errorMessage = 'Video codec not supported by browser';
+                                            errorDetails = 'The video file uses a codec that is not supported. The backend should use H.264 codec for browser compatibility.';
+                                        } else {
+                                            switch (errorCode) {
+                                                case videoEl.error.MEDIA_ERR_ABORTED:
+                                                    errorMessage = 'Video loading was aborted';
+                                                    break;
+                                                case videoEl.error.MEDIA_ERR_NETWORK:
+                                                    errorMessage = 'Network error while loading video';
+                                                    break;
+                                                case videoEl.error.MEDIA_ERR_DECODE:
+                                                    errorMessage = 'Video decoding error';
+                                                    errorDetails = 'The video file may be corrupted or use an unsupported codec.';
+                                                    break;
+                                                case videoEl.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                                                    errorMessage = 'Video format not supported';
+                                                    errorDetails = 'The video format is not supported by your browser.';
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                    
+                                    videoEl.style.display = 'none';
+                                    videoLoading.style.display = 'none';
+                                    videoError.style.display = 'block';
+                                    let errorHtml = `<p class="text-danger mb-2"><strong>${errorMessage}</strong></p>`;
+                                    if (errorDetails) {
+                                        errorHtml += `<p class="text-body-secondary fs-9 mb-0">${errorDetails}</p>`;
+                                    }
+                                    videoError.innerHTML = errorHtml;
+                                };
+                                
+                                // Handle successful load
+                                videoEl.onloadedmetadata = () => {
+                                    console.log('Event detail: Video metadata loaded successfully');
+                                    console.log('Event detail: Video duration:', videoEl.duration, 'seconds');
+                                    console.log('Event detail: Video dimensions:', videoEl.videoWidth, 'x', videoEl.videoHeight);
+                                };
+                                
+                                videoEl.oncanplay = () => {
+                                    console.log('Event detail: Video can start playing');
+                                    videoLoading.style.display = 'none';
+                                    videoEl.style.display = 'block';
+                                };
+                                
+                                // Set video source
+                                videoEl.src = videoObjectUrl;
+                                
+                                // Clean up object URL when page unloads
+                                window.addEventListener('beforeunload', () => {
+                                    if (videoObjectUrl) {
+                                        URL.revokeObjectURL(videoObjectUrl);
+                                    }
+                                });
+                                
+                            } catch (err) {
+                                console.error('Event detail: Exception loading evidence video:', err);
+                                videoEl.style.display = 'none';
+                                videoLoading.style.display = 'none';
+                                videoError.style.display = 'block';
+                                videoError.innerHTML = `<p class="text-danger">Failed to load video: ${err.message}</p>`;
+                                videoSection.style.display = 'block'; // Still show section with error message
+                            }
+                        } else {
+                            // No video path available
+                            console.log('Event detail: No video path found in metadata');
+                            videoSection.style.display = 'none';
                         }
                     }
 

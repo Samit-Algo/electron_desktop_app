@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const express = require('express');
 const http = require('http');
@@ -34,6 +34,70 @@ function startLocalServer() {
     expressApp.get('/favicon.ico', (req, res) => {
       const faviconPath = path.join(appPath, 'assets', 'img', 'favicons', 'favicon.ico');
       res.sendFile(faviconPath);
+    });
+
+    // Serve event video files from local filesystem
+    // This allows the Electron app to serve videos from the backend's event_videos directory
+    expressApp.get('/api/v1/videos/:filename(*)', (req, res) => {
+      try {
+        const filename = req.params.filename;
+        // Security: Only allow video files
+        if (!filename.match(/\.(mp4|webm|ogg)$/i)) {
+          return res.status(400).json({ error: 'Invalid file type' });
+        }
+        
+        // Decode the file path (it may contain encoded path separators)
+        const decodedPath = decodeURIComponent(filename);
+        
+        // Normalize the path to prevent directory traversal
+        const normalizedPath = path.normalize(decodedPath);
+        
+        // Check if file exists
+        if (!fs.existsSync(normalizedPath)) {
+          console.log('[Server] Video file not found:', normalizedPath);
+          return res.status(404).json({ error: 'Video file not found' });
+        }
+        
+        // Get file stats
+        const stats = fs.statSync(normalizedPath);
+        if (!stats.isFile()) {
+          return res.status(400).json({ error: 'Not a file' });
+        }
+        
+        // Set appropriate headers for video streaming
+        const ext = path.extname(normalizedPath).toLowerCase();
+        const mimeTypes = {
+          '.mp4': 'video/mp4',
+          '.webm': 'video/webm',
+          '.ogg': 'video/ogg'
+        };
+        const contentType = mimeTypes[ext] || 'video/mp4';
+        
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', stats.size);
+        res.setHeader('Accept-Ranges', 'bytes');
+        
+        // Support range requests for video seeking
+        const range = req.headers.range;
+        if (range) {
+          const parts = range.replace(/bytes=/, '').split('-');
+          const start = parseInt(parts[0], 10);
+          const end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
+          const chunksize = (end - start) + 1;
+          const file = fs.createReadStream(normalizedPath, { start, end });
+          
+          res.status(206);
+          res.setHeader('Content-Range', `bytes ${start}-${end}/${stats.size}`);
+          res.setHeader('Content-Length', chunksize);
+          file.pipe(res);
+        } else {
+          // Send entire file
+          res.sendFile(normalizedPath);
+        }
+      } catch (error) {
+        console.error('[Server] Error serving video:', error);
+        res.status(500).json({ error: 'Error serving video file' });
+      }
     });
 
     // Serve static files from the app directory
@@ -87,6 +151,7 @@ function startLocalServer() {
 function getServerPort() {
   return server ? server.address().port : PORT;
 }
+
 
 /**
  * Create the main browser window
@@ -152,6 +217,62 @@ function createWindow() {
   });
 }
 
+// IPC handler to read local video file and return as buffer
+ipcMain.handle('read-video-file', async (event, filePath) => {
+  try {
+    console.log('[IPC] Reading video file:', filePath);
+    
+    // Normalize path and check if it exists
+    const normalizedPath = path.normalize(filePath);
+    console.log('[IPC] Normalized path:', normalizedPath);
+    
+    // Check if file exists
+    if (!fs.existsSync(normalizedPath)) {
+      console.error('[IPC] Video file not found:', normalizedPath);
+      return {
+        success: false,
+        error: `Video file not found: ${normalizedPath}`
+      };
+    }
+    
+    // Get file stats for validation
+    const stats = fs.statSync(normalizedPath);
+    console.log('[IPC] File size:', stats.size, 'bytes');
+    
+    if (stats.size === 0) {
+      console.error('[IPC] Video file is empty');
+      return {
+        success: false,
+        error: 'Video file is empty'
+      };
+    }
+    
+    // Read file as buffer
+    const fileBuffer = fs.readFileSync(normalizedPath);
+    console.log('[IPC] File read successfully, buffer length:', fileBuffer.length);
+    
+    // Convert Node.js Buffer to ArrayBuffer for IPC (Electron serializes this correctly)
+    // Buffer.buffer is the underlying ArrayBuffer
+    const arrayBuffer = fileBuffer.buffer.slice(
+      fileBuffer.byteOffset,
+      fileBuffer.byteOffset + fileBuffer.byteLength
+    );
+    
+    return {
+      success: true,
+      buffer: arrayBuffer,  // Send ArrayBuffer instead of Node.js Buffer
+      mimeType: 'video/mp4',
+      size: fileBuffer.length
+    };
+  } catch (error) {
+    console.error('[IPC] Error reading video file:', error);
+    return {
+      success: false,
+      error: error.message || 'Unknown error reading video file'
+    };
+  }
+});
+
 /**
  * Initialize the application
  */
@@ -179,7 +300,7 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
   // Close server when all windows are closed
   if (server) {
     server.close();
@@ -190,7 +311,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   // Close server before quitting
   if (server) {
     server.close();

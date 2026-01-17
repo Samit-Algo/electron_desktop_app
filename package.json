@@ -23,7 +23,8 @@
     "electron-builder": "^24.9.1"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "vis-timeline": "^8.5.0"
   },
   "build": {
     "appId": "com.phoenix.desktop",
@@ -52,4 +53,3 @@
     }
   }
 }
-
