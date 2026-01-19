@@ -353,6 +353,36 @@ class VisionAPIService {
   }
 
   /**
+   * Fetch a single JPEG snapshot for a camera (for zone drawing UI).
+   *
+   * Returns: Blob (image/jpeg)
+   */
+  async getCameraSnapshot(cameraId) {
+    if (!this.token) throw new Error('Not authenticated');
+    const url = `${this.baseURL}/api/v1/streams/${encodeURIComponent(cameraId)}/snapshot.jpg`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Cache-Control': 'no-cache',
+      },
+    });
+
+    if (!response.ok) {
+      let msg = 'Failed to fetch snapshot';
+      try {
+        const data = await response.json();
+        msg = data?.detail || msg;
+      } catch (_) {
+        // ignore (non-json)
+      }
+      throw new Error(msg);
+    }
+
+    return await response.blob();
+  }
+
+  /**
    * Build live WS URL for fMP4 streaming.
    * Backend expects token in query string: ?token=...
    *

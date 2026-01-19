@@ -740,6 +740,13 @@
                         
                         // Store camId for use by initCamera
                         currentCameraId = camId;
+                        // Expose camera context to chatbot (for agent chat / zone drawing)
+                        try {
+                            window.__visionaiActiveCameraId = camId;
+                            localStorage.setItem('vision_active_camera_id', camId);
+                        } catch (_) {
+                            // ignore
+                        }
                         
                         // Now initialize camera
                         await initCamera();

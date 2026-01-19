@@ -17,6 +17,7 @@ try {
 
 let mainWindow = null;
 let server = null;
+let actualServerPort = 3000;
 const PORT = 3000;
 
 /**
@@ -26,7 +27,7 @@ const PORT = 3000;
 function startLocalServer() {
   return new Promise((resolve, reject) => {
     const expressApp = express();
-    const appPath = app.isPackaged 
+    const appPath = app.isPackaged
       ? path.join(process.resourcesPath, 'app')
       : __dirname;
 
@@ -45,25 +46,25 @@ function startLocalServer() {
         if (!filename.match(/\.(mp4|webm|ogg)$/i)) {
           return res.status(400).json({ error: 'Invalid file type' });
         }
-        
+
         // Decode the file path (it may contain encoded path separators)
         const decodedPath = decodeURIComponent(filename);
-        
+
         // Normalize the path to prevent directory traversal
         const normalizedPath = path.normalize(decodedPath);
-        
+
         // Check if file exists
         if (!fs.existsSync(normalizedPath)) {
           console.log('[Server] Video file not found:', normalizedPath);
           return res.status(404).json({ error: 'Video file not found' });
         }
-        
+
         // Get file stats
         const stats = fs.statSync(normalizedPath);
         if (!stats.isFile()) {
           return res.status(400).json({ error: 'Not a file' });
         }
-        
+
         // Set appropriate headers for video streaming
         const ext = path.extname(normalizedPath).toLowerCase();
         const mimeTypes = {
@@ -72,11 +73,11 @@ function startLocalServer() {
           '.ogg': 'video/ogg'
         };
         const contentType = mimeTypes[ext] || 'video/mp4';
-        
+
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Length', stats.size);
         res.setHeader('Accept-Ranges', 'bytes');
-        
+
         // Support range requests for video seeking
         const range = req.headers.range;
         if (range) {
@@ -85,7 +86,7 @@ function startLocalServer() {
           const end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
           const chunksize = (end - start) + 1;
           const file = fs.createReadStream(normalizedPath, { start, end });
-          
+
           res.status(206);
           res.setHeader('Content-Range', `bytes ${start}-${end}/${stats.size}`);
           res.setHeader('Content-Length', chunksize);
@@ -123,9 +124,10 @@ function startLocalServer() {
     });
 
     server = http.createServer(expressApp);
-    
+
     server.listen(PORT, '127.0.0.1', () => {
-      console.log(`Local server started on http://127.0.0.1:${PORT}`);
+      actualServerPort = server.address().port;
+      console.log(`Local server started on http://127.0.0.1:${actualServerPort}`);
       resolve();
     });
 
@@ -134,8 +136,8 @@ function startLocalServer() {
         console.log(`Port ${PORT} already in use, trying next port...`);
         // Try next port
         server.listen(0, '127.0.0.1', () => {
-          const actualPort = server.address().port;
-          console.log(`Local server started on http://127.0.0.1:${actualPort}`);
+          actualServerPort = server.address().port;
+          console.log(`Local server started on http://127.0.0.1:${actualServerPort}`);
           resolve();
         });
       } else {
@@ -149,7 +151,10 @@ function startLocalServer() {
  * Get the actual server port
  */
 function getServerPort() {
-  return server ? server.address().port : PORT;
+  if (server && server.listening) {
+    return server.address().port;
+  }
+  return actualServerPort;
 }
 
 
@@ -180,6 +185,12 @@ function createWindow() {
     height: 900,
     minWidth: 1200,
     minHeight: 700,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#00000000', // Transparent
+      symbolColor: '#7a8195', // Grey symbols matching Phoenix theme
+      height: 40 // Match our new compact navbar height
+    },
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -207,13 +218,45 @@ function createWindow() {
     // }
   });
 
-  // Load the dashboard page via local server
-  const serverPort = getServerPort();
-  mainWindow.loadURL(`http://127.0.0.1:${serverPort}/pages/dashboard.html`);
+  // Wait for server to be ready before loading URL
+  const loadWindowURL = () => {
+    if (server && server.listening) {
+      const serverPort = getServerPort();
+      const url = `http://127.0.0.1:${serverPort}/pages/dashboard.html`;
+      console.log(`Loading window URL: ${url}`);
+      mainWindow.loadURL(url).catch((err) => {
+        console.error('Failed to load URL:', err);
+        // Retry after a short delay
+        setTimeout(() => {
+          mainWindow.loadURL(url).catch((retryErr) => {
+            console.error('Retry failed:', retryErr);
+          });
+        }, 500);
+      });
+    } else {
+      // Server not ready yet, wait a bit and retry
+      setTimeout(loadWindowURL, 100);
+    }
+  };
+
+  // Start loading after a brief delay to ensure server is ready
+  setTimeout(loadWindowURL, 100);
 
   // Handle window closed
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Handle load errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error(`Failed to load ${validatedURL}: ${errorCode} - ${errorDescription}`);
+    // Retry loading after a delay
+    if (errorCode !== -3) { // -3 is ERR_ABORTED, which is normal for navigation
+      setTimeout(() => {
+        const serverPort = getServerPort();
+        mainWindow.loadURL(`http://127.0.0.1:${serverPort}/pages/dashboard.html`);
+      }, 1000);
+    }
   });
 }
 
@@ -221,11 +264,11 @@ function createWindow() {
 ipcMain.handle('read-video-file', async (event, filePath) => {
   try {
     console.log('[IPC] Reading video file:', filePath);
-    
+
     // Normalize path and check if it exists
     const normalizedPath = path.normalize(filePath);
     console.log('[IPC] Normalized path:', normalizedPath);
-    
+
     // Check if file exists
     if (!fs.existsSync(normalizedPath)) {
       console.error('[IPC] Video file not found:', normalizedPath);
@@ -234,11 +277,11 @@ ipcMain.handle('read-video-file', async (event, filePath) => {
         error: `Video file not found: ${normalizedPath}`
       };
     }
-    
+
     // Get file stats for validation
     const stats = fs.statSync(normalizedPath);
     console.log('[IPC] File size:', stats.size, 'bytes');
-    
+
     if (stats.size === 0) {
       console.error('[IPC] Video file is empty');
       return {
@@ -246,18 +289,18 @@ ipcMain.handle('read-video-file', async (event, filePath) => {
         error: 'Video file is empty'
       };
     }
-    
+
     // Read file as buffer
     const fileBuffer = fs.readFileSync(normalizedPath);
     console.log('[IPC] File read successfully, buffer length:', fileBuffer.length);
-    
+
     // Convert Node.js Buffer to ArrayBuffer for IPC (Electron serializes this correctly)
     // Buffer.buffer is the underlying ArrayBuffer
     const arrayBuffer = fileBuffer.buffer.slice(
       fileBuffer.byteOffset,
       fileBuffer.byteOffset + fileBuffer.byteLength
     );
-    
+
     return {
       success: true,
       buffer: arrayBuffer,  // Send ArrayBuffer instead of Node.js Buffer
@@ -278,9 +321,17 @@ ipcMain.handle('read-video-file', async (event, filePath) => {
  */
 async function initializeApp() {
   try {
-    // Start local server first
+    // Start local server first and wait for it to be fully ready
     await startLocalServer();
-    
+
+    // Verify server is actually listening
+    if (!server || !server.listening) {
+      throw new Error('Server failed to start properly');
+    }
+
+    // Small delay to ensure server is fully ready to accept connections
+    await new Promise(resolve => setTimeout(resolve, 200));
+
     // Then create the window
     createWindow();
   } catch (error) {
@@ -303,9 +354,12 @@ app.whenReady().then(() => {
 app.on('window-all-closed', async () => {
   // Close server when all windows are closed
   if (server) {
-    server.close();
+    server.close(() => {
+      console.log('Server closed');
+    });
+    server = null;
   }
-  
+
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -314,7 +368,10 @@ app.on('window-all-closed', async () => {
 app.on('before-quit', async () => {
   // Close server before quitting
   if (server) {
-    server.close();
+    server.close(() => {
+      console.log('Server closed');
+    });
+    server = null;
   }
 });
 

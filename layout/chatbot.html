@@ -1,59 +1,93 @@
 <!-- Chatbot Styles -->
 <style>
-  /* Chatbot Grid Layout States */
-  body.chatbot-open {
-    grid-template-columns: 
-      var(--phoenix-navbar-vertical-width, 280px)
-      1fr
-      var(--chatbot-width, 400px);
+  /* Global Viewport Constraints - Body is now neutral */
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
   }
-  
-  body.chatbot-expanded {
-    grid-template-columns: 
-      var(--phoenix-navbar-vertical-width, 280px)
-      1fr
-      var(--chatbot-width, 400px);
+
+  body {
+    overflow: hidden;
+    /* Body is just a container, no layout */
   }
-  
+
+  /* Chatbot Grid Layout States - Applied to #app-root */
+  #app-root.chatbot-open {
+    display: grid !important;
+    /* Force grid layout */
+    grid-template-columns:
+      var(--phoenix-navbar-vertical-width, 280px) 1fr var(--chatbot-width, 400px);
+    /* Ensure rows don't blow up */
+    grid-template-rows: auto 1fr;
+    /* If row 2 is 1fr, it takes remaining space. */
+  }
+
+  #app-root.chatbot-expanded {
+    display: grid !important;
+    grid-template-columns:
+      var(--phoenix-navbar-vertical-width, 280px) 1fr var(--chatbot-width, 400px);
+    grid-template-rows: auto 1fr;
+  }
+
   /* When chatbot is expanded (>400px), keep content width as if chatbot were 400px.
      The viewport (middle column) is narrower, so horizontal scroll reveals the
      "extra hidden" area without creating empty margin space. */
   .viewport-scrolls.chatbot-expanded .content {
     min-width: calc(100% + var(--chatbot-excess, 0px));
   }
-  
-  /* Chatbot panel - Column 3 */
-  #chatbot-offcanvas {
+
+  /* Chatbot container - THE ACTUAL GRID ITEM */
+  #chatbot-container {
     grid-column: 3;
     grid-row: 2;
+    /* CRITICAL: Only span content row (row 2), NOT navbar row (row 1) */
+    /* This is the constrained grid child that prevents overflow */
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+  }
+
+  /* Chatbot panel - Flex child of container, NOT a grid item */
+  #chatbot-offcanvas {
+    /* REMOVED: grid-column, grid-row (not a grid item anymore) */
     position: relative !important;
     transform: none !important;
     visibility: visible !important;
-    background-color: var(--phoenix-body-bg, #fff);
-    border-left: 1px solid var(--phoenix-border-color, #e9ecef);
-    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    background-color: var(--phoenix-body-highlight-bg);
+    border-left: 1px solid var(--phoenix-border-color);
+    box-shadow: var(--phoenix-box-shadow);
     z-index: 1045;
     min-width: 300px;
     max-width: 1200px;
     transition: width 0.2s ease;
     display: none;
-    height: 100%;
-    min-height: 0;
+
+    /* STERN HEIGHT CONSTRAINTS */
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    /* CRITICAL for Flex Item shrinking */
+
     /* IMPORTANT: prevent the entire panel from scrolling.
        Only the messages area should scroll so the input stays pinned. */
     overflow: hidden;
     display: flex;
     flex-direction: column;
   }
-  
+
   #chatbot-offcanvas.show {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column;
   }
 
   /* Make header/body/footer a proper fixed layout inside the offcanvas */
   #chatbot-offcanvas .offcanvas-header {
     flex: 0 0 auto;
   }
+
   #chatbot-offcanvas .offcanvas-body {
     flex: 1 1 auto;
     min-height: 0;
@@ -62,50 +96,55 @@
     flex-direction: column;
     padding: 0 !important;
   }
+
   #chatbot-offcanvas .chat {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
   }
+
   #chatbot-offcanvas .chat-messages {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
   }
+
   #chatbot-offcanvas .card-footer {
     flex: 0 0 auto;
     /* Let the flex layout pin the footer; avoids sticky reflow issues when textarea height changes */
     position: relative;
-    background: var(--phoenix-body-bg, #fff);
+    background: var(--phoenix-body-highlight-bg);
     z-index: 2;
   }
-  
+
   [dir="rtl"] #chatbot-offcanvas {
     border-left: none;
     border-right: 1px solid var(--phoenix-border-color, #e9ecef);
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
   }
-  
+
   /* Hide Bootstrap offcanvas backdrop */
   .offcanvas-backdrop {
     display: none !important;
   }
-  
+
   /* Chatbot input (textarea) */
   #chatbot-input {
     resize: none;
-    overflow-y: auto; /* scroll after max lines */
+    overflow-y: auto;
+    /* scroll after max lines */
     line-height: 1.4;
-    max-height: 96px; /* ~4 lines (JS autosize also enforces) */
+    max-height: 96px;
+    /* ~4 lines (JS autosize also enforces) */
   }
-  
+
   /* Viewport horizontal scroll when chatbot expanded */
   .viewport-scrolls.chatbot-expanded {
     overflow-x: auto;
   }
-  
+
   /* Chatbot Resize Handle */
   .chatbot-resize-handle {
     position: absolute;
@@ -123,40 +162,52 @@
     user-select: none;
     -webkit-user-select: none;
   }
-  
+
   [dir="rtl"] .chatbot-resize-handle {
     left: auto;
     right: 0;
   }
-  
+
   body.chatbot-resizing {
     cursor: col-resize !important;
     user-select: none !important;
   }
-  
+
   body.chatbot-resizing * {
     cursor: col-resize !important;
   }
 
-  /* Disable layout transitions while resizing to prevent "shaking" */
-  body.chatbot-resizing {
-    transition: none !important; /* stops grid-template-columns animation on body */
+  /* Disable ALL layout transitions while resizing to prevent "shaking" */
+  /* VS Code pattern: Never animate layout during drag, only on release */
+  body.chatbot-resizing #app-root {
+    transition: none !important;
+    /* CRITICAL: Disable grid-template-columns animation during resize */
   }
 
-  body.chatbot-resizing #chatbot-offcanvas,
+  body.chatbot-resizing #chatbot-container {
+    transition: none !important;
+    /* Disable container transitions */
+  }
+
+  body.chatbot-resizing #chatbot-offcanvas {
+    transition: none !important;
+    /* CRITICAL: Disable width animation during resize */
+  }
+
   body.chatbot-resizing .viewport-scrolls,
   body.chatbot-resizing .content {
-    transition: none !important; /* stops width/min-width animations while dragging */
+    transition: none !important;
+    /* Disable content width/min-width animations while dragging */
   }
-  
+
   .chatbot-resize-handle:hover {
     background-color: rgba(0, 0, 0, 0.05);
   }
-  
+
   .chatbot-resize-handle:active {
     background-color: rgba(0, 0, 0, 0.1);
   }
-  
+
   .resize-handle-line {
     width: 2px;
     height: 40px;
@@ -164,11 +215,11 @@
     border-radius: 2px;
     transition: background-color 0.2s ease;
   }
-  
+
   .chatbot-resize-handle:hover .resize-handle-line {
     background-color: var(--phoenix-primary, #2A7BE4);
   }
-  
+
   /* Ensure body doesn't get overflow hidden from Bootstrap */
   body.modal-open:has(#chatbot-offcanvas.show) {
     overflow: hidden !important;
@@ -183,17 +234,21 @@
     white-space: nowrap;
     scrollbar-width: thin;
   }
+
   #chatbot-offcanvas .chatbot-tabs .nav-link {
     display: inline-flex;
     align-items: center;
   }
+
   #chatbot-offcanvas .chatbot-tab-name {
     max-width: 180px;
   }
+
   #chatbot-offcanvas .chatbot-tab-close {
     opacity: 0;
     pointer-events: none;
   }
+
   #chatbot-offcanvas .nav-item:hover .chatbot-tab-close {
     opacity: 1;
     pointer-events: auto;
@@ -203,26 +258,306 @@
   #chatbot-offcanvas .card-body.chat {
     min-height: 0;
   }
+
   .setting-toggle {
     margin-top: -120px;
   }
+
   .chatbot-toggle-icon {
     height: 34px;
     width: 28px;
   }
 
-  /* Bottom composer: rectangular single container */
-  #chatbot-offcanvas .chatbot-composer {
-    border-radius: var(--phoenix-border-radius, 0.375rem);
+  /* -----------------------------
+     Modern Chatbot Input UI
+     ----------------------------- */
+  #chatbot-offcanvas .chatbot-input-container {
+    background-color: var(--phoenix-emphasis-bg);
+    border: 1px solid var(--phoenix-border-color);
+    border-radius: 1.25rem;
+    padding: 0.75rem 1rem;
+    position: relative;
+    /* Context for absolute controls */
+    display: block;
+    min-height: 84px;
+    /* Sufficient height for textarea + controls */
+    transition: background-color 0.2s, border-color 0.2s;
   }
-  #chatbot-offcanvas .chatbot-composer textarea.form-control {
-    background: transparent;
+
+  [data-bs-theme="dark"] #chatbot-offcanvas .chatbot-input-container {
+    border-color: var(--phoenix-border-color);
   }
-  /* When composer is flex-column-reverse, textarea grows upward and controls stay pinned */
-  #chatbot-offcanvas .chatbot-composer {
+
+  /* Textarea styling */
+  #chatbot-offcanvas #chatbot-input {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0;
+    resize: none;
+    min-height: 24px;
+    max-height: 200px;
+    width: 100%;
+    /* Reserve space for the absolute position controls below */
+    margin-bottom: 2.75rem;
+  }
+
+  #chatbot-offcanvas #chatbot-input:focus {
+    outline: none !important;
+  }
+
+  /* Controls Area - Pinned Absolute Bottom */
+  .chatbot-controls-area {
+    position: absolute;
+    bottom: 0.5rem;
+    left: 1rem;
+    right: 1rem;
     display: flex;
-    flex-direction: column-reverse;
+    align-items: center;
+    justify-content: space-between;
+    height: 32px;
+    /* Fixed height for stability */
+  }
+
+  .chatbot-btn-group {
+    display: flex;
+    align-items: center;
     gap: 0.5rem;
+  }
+
+  /* Dropdown Toggles (Agent, Auto) */
+  .chatbot-pill-btn {
+    border-radius: 50rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--phoenix-body-color);
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s;
+  }
+
+  .chatbot-pill-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  [data-bs-theme="dark"] .chatbot-pill-btn {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #eee;
+  }
+
+  [data-bs-theme="dark"] .chatbot-pill-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  /* Right Side Icons */
+  .chatbot-action-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--phoenix-body-color-tertiary);
+    transition: all 0.2s;
+  }
+
+  .chatbot-action-icon:hover {
+    color: var(--phoenix-primary);
+    background-color: rgba(var(--phoenix-primary-rgb), 0.1);
+  }
+
+  /* Send Button / Voice Assistant Button (Dynamic) */
+  .chatbot-send-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--phoenix-body-color);
+    /* Adaptive black/white */
+    color: var(--phoenix-body-bg);
+    transition: transform 0.1s, background-color 0.2s, color 0.2s;
+  }
+
+  .chatbot-send-btn:hover {
+    transform: scale(1.05);
+  }
+
+  .chatbot-send-btn:active {
+    transform: scale(0.95);
+  }
+
+  [data-bs-theme="dark"] .chatbot-send-btn {
+    background-color: #fff;
+    color: #000;
+  }
+
+  /* Voice Assistant State (when textarea is empty) */
+  .chatbot-send-btn.voice-assistant-state {
+    background-color: #fff;
+    color: #000;
+  }
+
+  [data-bs-theme="dark"] .chatbot-send-btn.voice-assistant-state {
+    background-color: #fff;
+    color: #000;
+  }
+
+  /* Recording state */
+  .chatbot-send-btn.recording {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+    animation: pulse-recording 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-recording {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  /* Audio wave icon styling */
+  .chatbot-send-btn .voice-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  /* Send icon styling */
+  .chatbot-send-btn .send-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chatbot-send-btn .voice-icon-bar {
+    width: 3px;
+    background-color: currentColor;
+    border-radius: 2px;
+    transition: height 0.2s;
+  }
+
+  .chatbot-send-btn .voice-icon-bar:nth-child(1) {
+    height: 8px;
+  }
+
+  .chatbot-send-btn .voice-icon-bar:nth-child(2) {
+    height: 12px;
+  }
+
+  .chatbot-send-btn .voice-icon-bar:nth-child(3) {
+    height: 10px;
+  }
+
+  /* -----------------------------
+     Chat Message Bubbles (Phoenix UI Style)
+     ----------------------------- */
+  /* User message bubbles - subtle background */
+  /* User message bubbles - subtle background */
+  #chatbot-offcanvas .chat-messages .user-message {
+    background: var(--phoenix-emphasis-bg);
+    border-radius: 0.6rem;
+    padding: 0.75rem 1rem;
+    width: fit-content;
+  }
+
+  /* Wrapper handles the max-width and structural layout */
+  #chatbot-offcanvas .chat-messages .user-message-wrapper {
+    max-width: 75%;
+    width: fit-content;
+  }
+
+  [data-bs-theme="dark"] #chatbot-offcanvas .chat-messages .user-message {
+    border-color: var(--phoenix-border-color);
+  }
+
+  /* AI message bubbles - transparent background, text only */
+  #chatbot-offcanvas .chat-messages .ai-message-transparent {
+    background: transparent !important;
+    padding: 0.5rem 0;
+    max-width: 85%;
+  }
+
+  /* AI message action buttons */
+  #chatbot-offcanvas .chat-messages .ai-message-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    opacity: 0.7;
+  }
+
+  #chatbot-offcanvas .chat-messages .ai-message-actions button {
+    background: transparent;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    color: var(--phoenix-body-color-tertiary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  #chatbot-offcanvas .chat-messages .ai-message-actions button:hover {
+    background: var(--phoenix-body-highlight-bg, rgba(0, 0, 0, 0.05));
+    color: var(--phoenix-body-color);
+  }
+
+  [data-bs-theme="dark"] #chatbot-offcanvas .chat-messages .ai-message-actions button:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* User message action buttons - hidden by default, shown on hover */
+  #chatbot-offcanvas .chat-messages .user-message-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  #chatbot-offcanvas .chat-messages .user-message-wrapper:hover .user-message-actions {
+    opacity: 0.7;
+  }
+
+  #chatbot-offcanvas .chat-messages .user-message-actions button {
+    background: transparent;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    color: var(--phoenix-body-color-tertiary);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  #chatbot-offcanvas .chat-messages .user-message-actions button:hover {
+    background: var(--phoenix-body-highlight-bg, rgba(0, 0, 0, 0.05));
+    color: var(--phoenix-body-color);
+  }
+
+  [data-bs-theme="dark"] #chatbot-offcanvas .chat-messages .user-message-actions button:hover {
+    background: rgba(255, 255, 255, 0.08);
   }
 
   /* -----------------------------
@@ -232,12 +567,19 @@
     /* allow markdown HTML to wrap nicely */
     word-break: break-word;
   }
+
   #chatbot-offcanvas .chat-messages .markdown-content p {
     margin: 0.5rem 0;
     line-height: 1.5;
   }
-  #chatbot-offcanvas .chat-messages .markdown-content p:first-child { margin-top: 0; }
-  #chatbot-offcanvas .chat-messages .markdown-content p:last-child { margin-bottom: 0; }
+
+  #chatbot-offcanvas .chat-messages .markdown-content p:first-child {
+    margin-top: 0;
+  }
+
+  #chatbot-offcanvas .chat-messages .markdown-content p:last-child {
+    margin-bottom: 0;
+  }
 
   #chatbot-offcanvas .chat-messages .markdown-content code {
     background-color: rgba(0, 0, 0, 0.08);
@@ -246,6 +588,7 @@
     font-size: 0.92em;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }
+
   #chatbot-offcanvas .chat-messages .markdown-content pre {
     background-color: rgba(0, 0, 0, 0.05);
     padding: 0.75rem;
@@ -255,6 +598,7 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 0.9em;
   }
+
   #chatbot-offcanvas .chat-messages .markdown-content pre code {
     background: transparent;
     padding: 0;
@@ -265,6 +609,7 @@
     margin: 0.5rem 0;
     padding-left: 1.25rem;
   }
+
   #chatbot-offcanvas .chat-messages .markdown-content li {
     margin: 0.2rem 0;
     line-height: 1.5;
@@ -282,6 +627,7 @@
     color: var(--phoenix-primary, #2A7BE4);
     text-decoration: underline;
   }
+
   #chatbot-offcanvas .chat-messages .markdown-content a:hover {
     text-decoration: none;
   }
@@ -298,6 +644,7 @@
     margin: 0.5rem 0;
     font-size: 0.92em;
   }
+
   #chatbot-offcanvas .chat-messages .markdown-content th,
   #chatbot-offcanvas .chat-messages .markdown-content td {
     border: 1px solid rgba(0, 0, 0, 0.12);
@@ -305,11 +652,12 @@
     text-align: left;
     vertical-align: top;
   }
+
   #chatbot-offcanvas .chat-messages .markdown-content th {
     background: rgba(0, 0, 0, 0.04);
     font-weight: 600;
   }
-  
+
   /* (Mermaid removed) */
 
   /* -----------------------------
@@ -381,8 +729,13 @@
   }
 
   @keyframes flowConnectionDash {
-    from { stroke-dashoffset: 0; }
-    to { stroke-dashoffset: -28; }
+    from {
+      stroke-dashoffset: 0;
+    }
+
+    to {
+      stroke-dashoffset: -28;
+    }
   }
 
   /* Connection labels */
@@ -402,37 +755,117 @@
     .flow-diagram-container {
       margin: 12px 0;
     }
-    
+
     .flow-node .node-label {
       font-size: 9px !important;
     }
-    
+
     .connection-label {
       font-size: 8px !important;
     }
   }
+
+  /* -----------------------------
+     Zone drawing (snapshot + polygon)
+     ----------------------------- */
+  .zone-editor {
+    margin-top: 0.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: var(--phoenix-body-bg, #fff);
+  }
+
+  .zone-editor__header {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .zone-editor__title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--phoenix-body-color, #212529);
+  }
+
+  .zone-editor__body {
+    padding: 0.75rem;
+  }
+
+  .zone-editor__canvas-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 0.6rem;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .zone-editor__img {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+    /* all interactions go to overlay canvas */
+  }
+
+  .zone-editor__canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+  }
+
+  .zone-editor__hint {
+    color: rgba(0, 0, 0, 0.65);
+    font-size: 0.82rem;
+    margin-top: 0.6rem;
+  }
+
+  .zone-editor__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.6rem;
+  }
+
+  .zone-editor__actions .btn {
+    font-size: 0.82rem;
+  }
 </style>
 
 <!-- Chatbot Offcanvas - Pushes main content instead of overlaying -->
-<div class="offcanvas offcanvas-end chatbot-panel border-0" id="chatbot-offcanvas" tabindex="-1" aria-labelledby="chatbot-offcanvas" data-bs-backdrop="false" data-bs-scroll="true">
+<div class="offcanvas offcanvas-end chatbot-panel border-0" id="chatbot-offcanvas" tabindex="-1"
+  aria-labelledby="chatbot-offcanvas" data-bs-backdrop="false" data-bs-scroll="true">
   <!-- Resize Handle -->
   <div class="chatbot-resize-handle" id="chatbot-resize-handle" title="Drag to resize">
     <div class="resize-handle-line"></div>
   </div>
-  <div class="offcanvas-header border-bottom border-translucent px-3 py-2 d-flex align-items-center justify-content-between gap-2">
+  <div
+    class="offcanvas-header border-bottom border-translucent px-3 py-2 d-flex align-items-center justify-content-between gap-2">
     <!-- Left: Chat tabs -->
-    <ul class="nav nav-underline fs-9 flex-nowrap overflow-x-auto chatbot-tabs me-2" id="chatbot-tabs" role="tablist" aria-label="Chat tabs">
+    <ul class="nav nav-underline fs-9 flex-nowrap overflow-x-auto chatbot-tabs me-2" id="chatbot-tabs" role="tablist"
+      aria-label="Chat tabs">
       <!-- Tabs injected by JS -->
     </ul>
 
     <!-- Right: Actions -->
     <div class="d-flex align-items-center gap-2 flex-shrink-0">
-      <button class="btn btn-link p-0 d-flex align-items-center" type="button" id="chatbot-new-tab" aria-label="New chat tab" title="New chat">
+      <button class="btn btn-link p-0 d-flex align-items-center" type="button" id="chatbot-new-tab"
+        aria-label="New chat tab" title="New chat">
         <span class="fas fa-plus text-body"></span>
       </button>
 
       <div class="dropdown">
-        <button class="btn btn-link p-0 dropdown-toggle dropdown-caret-none transition-none d-flex align-items-center" type="button" id="chatbot-history-dropdown" data-bs-toggle="dropdown" data-boundary="window" aria-haspopup="true" aria-expanded="false" aria-label="Chat history" title="Chat history">
+        <button class="btn btn-link p-0 dropdown-toggle dropdown-caret-none transition-none d-flex align-items-center"
+          type="button" id="chatbot-history-dropdown" data-bs-toggle="dropdown" data-boundary="window"
+          aria-haspopup="true" aria-expanded="false" aria-label="Chat history" title="Chat history">
           <span class="far fa-clock text-body"></span>
         </button>
         <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="chatbot-history-dropdown">
@@ -446,7 +879,9 @@
       </div>
 
       <div class="btn-reveal-trigger">
-        <button class="btn btn-link p-0 dropdown-toggle dropdown-caret-none transition-none d-flex align-items-center" type="button" id="chatbot-dropdown" data-bs-toggle="dropdown" data-boundary="window" aria-haspopup="true" aria-expanded="false" data-bs-reference="parent" aria-label="More options" title="More options">
+        <button class="btn btn-link p-0 dropdown-toggle dropdown-caret-none transition-none d-flex align-items-center"
+          type="button" id="chatbot-dropdown" data-bs-toggle="dropdown" data-boundary="window" aria-haspopup="true"
+          aria-expanded="false" data-bs-reference="parent" aria-label="More options" title="More options">
           <span class="fas fa-ellipsis-h text-body"></span>
         </button>
         <div class="dropdown-menu dropdown-menu-end py-2" aria-labelledby="chatbot-dropdown">
@@ -468,32 +903,76 @@
         <!-- Intentionally blank: we don't show any welcome/suggestion content -->
       </div>
     </div>
-    <div class="card-footer border-top border-translucent px-3 py-3">
-      <div class="border border-translucent px-2 py-2 chatbot-composer">
-        <!-- Controls row (visually bottom; stays pinned when textarea grows) -->
-        <div class="d-flex align-items-center justify-content-between gap-2">
-          <div class="dropdown">
-            <button class="btn btn-link p-0 dropdown-toggle dropdown-caret-none transition-none d-flex align-items-center text-body-tertiary fs-9" type="button" id="chatbot-mode-dropdown" data-bs-toggle="dropdown" aria-expanded="false">
-              <span id="chatbot-mode-label">General</span>
+    <div class="card-footer px-3 py-3" style="background: transparent;">
+      <!-- Modern Chatbot Input Container -->
+      <div class="chatbot-input-container">
+
+        <!-- Top: Text Input -->
+        <!-- Note: Rows=1 but JS autosize handles expansion -->
+        <textarea class="form-control fs-9" placeholder="Message Agent..." id="chatbot-input" rows="1"></textarea>
+
+        <!-- Bottom: Controls -->
+        <div class="chatbot-controls-area">
+
+          <!-- Left Actions -->
+          <div class="chatbot-btn-group">
+            <!-- Agent Dropdown -->
+            <div class="dropdown">
+              <button class="btn chatbot-pill-btn dropdown-toggle dropdown-caret-none" type="button"
+                id="chatbot-mode-dropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="fas fa-infinity fs-10"></span>
+                <span id="chatbot-mode-label">Agent</span>
+                <span class="fas fa-chevron-down fs-11 opacity-50"></span>
+              </button>
+              <ul class="dropdown-menu" aria-labelledby="chatbot-mode-dropdown">
+                <li><a class="dropdown-item" href="#!" data-chatbot-mode="general">General</a></li>
+                <li><a class="dropdown-item" href="#!" data-chatbot-mode="agent">Agent</a></li>
+              </ul>
+            </div>
+
+            <!-- Auto Toggle (Placeholder/Mockup for now) -->
+            <button class="btn chatbot-pill-btn" type="button">
+              <span>Auto</span>
+              <span class="fas fa-chevron-down fs-11 opacity-50"></span>
             </button>
-            <ul class="dropdown-menu" aria-labelledby="chatbot-mode-dropdown">
-              <li><a class="dropdown-item" href="#!" data-chatbot-mode="general">General</a></li>
-              <li><a class="dropdown-item" href="#!" data-chatbot-mode="agent">Agent</a></li>
-            </ul>
           </div>
 
-          <div class="d-flex align-items-center gap-3">
-            <button class="btn btn-link p-0 text-body-tertiary d-flex align-items-center" type="button" id="chatbot-voice-btn" aria-label="Voice assistant" title="Voice assistant">
-              <span class="fa-solid fa-microphone fs-8"></span>
+          <!-- Right Actions -->
+          <div class="chatbot-btn-group ms-auto">
+            <!-- Loading/Processing Indicator (Static for now) -->
+            <button class="chatbot-action-icon" title="Processing">
+              <span class="fas fa-circle-notch fa-spin fs-10 opacity-50"></span>
             </button>
-            <button class="btn btn-link p-0 text-body-tertiary d-flex align-items-center send-btn" type="button" aria-label="Send" title="Send">
-              <span class="fa-solid fa-paper-plane fs-8"></span>
+
+            <button class="chatbot-action-icon" title="Mention (@)">
+              <span class="fas fa-at fs-9"></span>
+            </button>
+
+            <button class="chatbot-action-icon" title="Search Web">
+              <span class="fas fa-globe fs-9"></span>
+            </button>
+
+            <button class="chatbot-action-icon" title="Upload Image">
+              <span class="far fa-image fs-9"></span>
+            </button>
+
+            <!-- Send Button / Voice Assistant Button (Dynamic) -->
+            <button class="chatbot-send-btn send-btn ms-2 voice-assistant-state" type="button"
+              aria-label="Voice Assistant" title="Voice Assistant">
+              <!-- Voice Assistant Icon (shown when textarea is empty) -->
+              <span class="voice-icon">
+                <span class="voice-icon-bar"></span>
+                <span class="voice-icon-bar"></span>
+                <span class="voice-icon-bar"></span>
+              </span>
+              <!-- Send Icon (shown when textarea has text) -->
+              <span class="send-icon" style="display: none;">
+                <span class="fas fa-arrow-up fs-9"></span>
+              </span>
             </button>
           </div>
+
         </div>
-
-        <!-- Textarea (visually top; grows upward only because of column-reverse) -->
-        <textarea class="form-control border-0 shadow-none w-100 fs-9" placeholder="Write message" id="chatbot-input" rows="1"></textarea>
       </div>
     </div>
   </div>
@@ -503,17 +982,21 @@
 <a class="card setting-toggle" href="#chatbot-offcanvas" data-bs-toggle="offcanvas" aria-controls="chatbot-offcanvas">
   <div class="card-body d-flex align-items-center px-3 py-2">
     <div class="position-relative rounded-start chatbot-toggle-icon">
-      <div class="settings-popover"><span class="ripple"><span class="fa-spin position-absolute all-0 d-flex flex-center"><span class="icon-spin position-absolute all-0 d-flex flex-center">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="#ffffff" xmlns="http://www.w3.org/2000/svg">
-          <path d="M10 2C5.58 2 2 5.58 2 10c0 1.54.36 2.98 1 4.28L1 19l4.72-1c1.3.64 2.74 1 4.28 1 4.42 0 8-3.58 8-8s-3.58-8-8-8zm0 14.5c-1.19 0-2.38-.31-3.34-.84l-.24-.12-2.5.65.65-2.5-.12-.24C4.31 12.38 4 11.19 4 10c0-3.31 2.69-6 6-6s6 2.69 6 6-2.69 6-6 6z" fill="#2A7BE4"></path>
-        </svg></span></span></span></div>
+      <div class="settings-popover"><span class="ripple"><span
+            class="fa-spin position-absolute all-0 d-flex flex-center"><span
+              class="icon-spin position-absolute all-0 d-flex flex-center">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="#ffffff" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M10 2C5.58 2 2 5.58 2 10c0 1.54.36 2.98 1 4.28L1 19l4.72-1c1.3.64 2.74 1 4.28 1 4.42 0 8-3.58 8-8s-3.58-8-8-8zm0 14.5c-1.19 0-2.38-.31-3.34-.84l-.24-.12-2.5.65.65-2.5-.12-.24C4.31 12.38 4 11.19 4 10c0-3.31 2.69-6 6-6s6 2.69 6 6-2.69 6-6 6z"
+                  fill="#2A7BE4"></path>
+              </svg></span></span></span></div>
     </div><small class="text-uppercase text-body-tertiary fw-bold py-2 pe-2 ps-1 rounded-end">chat</small>
   </div>
 </a>
 
 <!-- Custom JavaScript for Chatbot Push Behavior -->
 <script>
-  (function() {
+  (function () {
     'use strict';
 
     // -----------------------------
@@ -562,21 +1045,21 @@
     // Load Rete.js-style flow renderer (custom, no external deps)
     function ensureReteFlowRenderer() {
       if (window.reteFlowRenderer && window.flowTransforms) return Promise.resolve();
-      
+
       // Load transformation utilities first
       const transformsSrc = (() => {
         const path = String(window.location.pathname || '').replace(/\\/g, '/');
         const customJsRel = path.includes('/pages/') ? '../custom_js/' : 'custom_js/';
         return new URL(customJsRel + 'flow-transforms.js', window.location.href).toString();
       })();
-      
+
       // Load renderer
       const rendererSrc = (() => {
         const path = String(window.location.pathname || '').replace(/\\/g, '/');
         const customJsRel = path.includes('/pages/') ? '../custom_js/' : 'custom_js/';
         return new URL(customJsRel + 'rete-flow-renderer.js', window.location.href).toString();
       })();
-      
+
       return loadScriptOnce(transformsSrc)
         .then(() => loadScriptOnce(rendererSrc))
         .then(() => {
@@ -588,32 +1071,25 @@
     }
 
     // (Mermaid removed)
-    
+
     // Global flag to block heavy layout work during transitions
     let layoutSettling = false;
-    
+
     function initChatbotPush() {
       const chatbotOffcanvas = document.getElementById('chatbot-offcanvas');
       const viewportElement = document.querySelector('.viewport-scrolls');
       const contentElement = document.querySelector('.content');
-      const bodyElement = document.body;
-      
-      if (!chatbotOffcanvas) return;
+      const appRootElement = document.getElementById('app-root');
+
+      if (!chatbotOffcanvas || !appRootElement) return;
 
       // Hoist the top navbar into its own grid row (so it doesn't shrink/scroll with content)
       // This avoids rewriting the large navbar HTML; we just move the existing DOM node once.
-      (function hoistTopNavbar() {
-        const existing = document.querySelector('.viewport-scrolls > .navbar-top');
-        const main = document.querySelector('main.main');
-        if (!existing || !main) return;
-        if (existing.dataset.hoisted === 'true') return;
-        existing.dataset.hoisted = 'true';
-        // Move navbar to be the first element before main content shell
-        document.body.insertBefore(existing, main);
-      })();
-      
+      // Top navbar is now permanently hoisted in side_navbar.html structure.
+      // Legacy hoisting logic removed.
+
       const DEFAULT_CHATBOT_WIDTH = 400;
-      const MIN_CHATBOT_WIDTH = 300;
+      const MIN_CHATBOT_WIDTH = 400;
       const MAX_CHATBOT_WIDTH = 1200;
 
       // Prevent flip-flopping around the default width while dragging.
@@ -621,30 +1097,30 @@
       const EXPAND_AT = 420;
       const COLLAPSE_AT = 380;
       let expandedState = false;
-      
+
       // Get saved width or use default
       function getChatbotWidth() {
         const saved = localStorage.getItem('chatbotWidth');
         return saved ? parseInt(saved, 10) : DEFAULT_CHATBOT_WIDTH;
       }
-      
+
       // Save width to localStorage
       function saveChatbotWidth(width) {
         localStorage.setItem('chatbotWidth', width.toString());
       }
-      
+
       // Update chatbot width and grid column
       function setChatbotWidth(width) {
         width = Math.max(MIN_CHATBOT_WIDTH, Math.min(MAX_CHATBOT_WIDTH, width));
         chatbotOffcanvas.style.width = width + 'px';
-        bodyElement.style.setProperty('--chatbot-width', width + 'px');
+        appRootElement.style.setProperty('--chatbot-width', width + 'px');
         // Amount beyond the default 400px. Used to keep content width stable in expanded mode.
         const excess = Math.max(0, width - DEFAULT_CHATBOT_WIDTH);
-        bodyElement.style.setProperty('--chatbot-excess', excess + 'px');
+        appRootElement.style.setProperty('--chatbot-excess', excess + 'px');
         saveChatbotWidth(width);
         updateLayoutBehavior(width);
       }
-      
+
       // Update layout behavior based on chatbot width
       function updateLayoutBehavior(chatbotWidth) {
         if (!contentElement) return;
@@ -658,15 +1134,15 @@
 
         if (expandedState) {
           // EXPANDED: viewport gets horizontal scroll; content width stays as-if chatbot=400px
-          bodyElement.classList.add('chatbot-open', 'chatbot-expanded');
+          appRootElement.classList.add('chatbot-open', 'chatbot-expanded');
           if (viewportElement) {
             viewportElement.classList.add('chatbot-expanded');
           }
           contentElement.classList.add('chatbot-expanded');
         } else {
           // DEFAULT (≤400px): Grid handles sizing, NO margin needed
-          bodyElement.classList.add('chatbot-open');
-          bodyElement.classList.remove('chatbot-expanded');
+          appRootElement.classList.add('chatbot-open');
+          appRootElement.classList.remove('chatbot-expanded');
           if (viewportElement) {
             viewportElement.classList.remove('chatbot-expanded');
           }
@@ -675,7 +1151,7 @@
           contentElement.classList.remove('chatbot-expanded');
         }
       }
-      
+
       function updateLayoutState(isOpen) {
         if (isOpen) {
           const currentWidth = getChatbotWidth();
@@ -684,9 +1160,9 @@
           setChatbotWidth(currentWidth); // This will also update layout
         } else {
           expandedState = false;
-          bodyElement.classList.remove('chatbot-open', 'chatbot-expanded');
-          bodyElement.style.setProperty('--chatbot-width', '0px');
-          bodyElement.style.setProperty('--chatbot-excess', '0px');
+          appRootElement.classList.remove('chatbot-open', 'chatbot-expanded');
+          appRootElement.style.setProperty('--chatbot-width', '0px');
+          appRootElement.style.setProperty('--chatbot-excess', '0px');
           if (viewportElement) {
             viewportElement.classList.remove('chatbot-expanded');
           }
@@ -696,69 +1172,95 @@
           }
         }
       }
-      
+
       // Initialize resize functionality
       function initChatbotResize() {
         const resizeHandle = document.getElementById('chatbot-resize-handle');
         if (!resizeHandle || !chatbotOffcanvas) return;
-        
+
         let isResizing = false;
         let startX = 0;
         let startWidth = 0;
-        
+
         function getIsRTL() {
           return document.documentElement.getAttribute('dir') === 'rtl';
         }
-        
-        resizeHandle.addEventListener('mousedown', function(e) {
+
+        resizeHandle.addEventListener('mousedown', function (e) {
           if (!chatbotOffcanvas.classList.contains('show')) return;
-          
+
           isResizing = true;
           startX = e.clientX;
           startWidth = parseInt(window.getComputedStyle(chatbotOffcanvas).width, 10);
-          
+
           document.body.classList.add('chatbot-resizing');
           document.body.style.cursor = 'col-resize';
           document.body.style.userSelect = 'none';
-          
+
           e.preventDefault();
           e.stopPropagation();
         });
-        
-        document.addEventListener('mousemove', function(e) {
+
+        document.addEventListener('mousemove', function (e) {
           if (!isResizing) return;
-          
+
           const isRTL = getIsRTL();
           // For right-side offcanvas (offcanvas-end):
           // - Dragging LEFT (negative deltaX) should INCREASE width (handle moves left, chatbot expands)
           // - Dragging RIGHT (positive deltaX) should DECREASE width (handle moves right, chatbot shrinks)
           // So we need to INVERT the deltaX
           let deltaX = isRTL ? (e.clientX - startX) : (startX - e.clientX);
-          const newWidth = startWidth + deltaX;
-          
-          setChatbotWidth(newWidth);
-          
+
+          // Raw calculated width based on cursor position
+          let rawWidth = startWidth + deltaX;
+
+          // 1. SNAP CLOSE LOGIC:
+          // If cursor moves significantly past the minimum width (e.g. < 250px), close the panel.
+          // This gives a "resistance" feel before closing.
+          const CLOSE_THRESHOLD = 250;
+
+          if (rawWidth < CLOSE_THRESHOLD) {
+            isResizing = false;
+            document.body.classList.remove('chatbot-resizing');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+
+            const bsOffcanvas = bootstrap.Offcanvas.getInstance(chatbotOffcanvas);
+            if (bsOffcanvas) bsOffcanvas.hide();
+            return;
+          }
+
+          // 2. VISUAL CLAMP LOCAL:
+          // If width is between CLOSE_THRESHOLD (250) and MIN_CHATBOT_WIDTH (400),
+          // just render it at MIN_CHATBOT_WIDTH (400) to create the "stop" effect.
+          if (rawWidth < MIN_CHATBOT_WIDTH) {
+            rawWidth = MIN_CHATBOT_WIDTH;
+          }
+
+          // 3. Normal resize (clamped to max)
+          setChatbotWidth(rawWidth);
+
           e.preventDefault();
         });
-        
-        document.addEventListener('mouseup', function() {
+
+        document.addEventListener('mouseup', function () {
           if (isResizing) {
             isResizing = false;
             document.body.classList.remove('chatbot-resizing');
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
-            
+
             // 🔒 Block chart resize temporarily during CSS transition
             // ECharts will permanently break if resize() is called with invalid dimensions (0×0 or 1-5px)
             layoutSettling = true;
-            
+
             // Wait for CSS grid + transitions to fully settle (3 RAF frames = ~50ms at 60fps)
             // This ensures container has stable, valid dimensions before any ResizeObserver fires
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                   layoutSettling = false;
-                  
+
                   // 🔥 NOW it is safe to resize charts - dispatch custom event for chart instances
                   document.dispatchEvent(new Event('chatbot:layout-settled'));
                 });
@@ -766,55 +1268,55 @@
             });
           }
         });
-        
+
         // Prevent text selection while resizing
-        resizeHandle.addEventListener('selectstart', function(e) {
+        resizeHandle.addEventListener('selectstart', function (e) {
           e.preventDefault();
           return false;
         });
-        
-        resizeHandle.addEventListener('dragstart', function(e) {
+
+        resizeHandle.addEventListener('dragstart', function (e) {
           e.preventDefault();
           return false;
         });
       }
-      
+
       // Initialize width immediately (before any show events)
       // This ensures the correct width is set even on first open
       const initialWidth = getChatbotWidth();
       chatbotOffcanvas.style.width = initialWidth + 'px';
-      bodyElement.style.setProperty('--chatbot-width', initialWidth + 'px');
+      appRootElement.style.setProperty('--chatbot-width', initialWidth + 'px');
       const excess = Math.max(0, initialWidth - DEFAULT_CHATBOT_WIDTH);
-      bodyElement.style.setProperty('--chatbot-excess', excess + 'px');
-      
+      appRootElement.style.setProperty('--chatbot-excess', excess + 'px');
+
       // Handle chatbot show/hide with grid layout
-      chatbotOffcanvas.addEventListener('show.bs.offcanvas', function(e) {
+      chatbotOffcanvas.addEventListener('show.bs.offcanvas', function (e) {
         // Set width BEFORE animation starts so it opens with correct width
         const savedWidth = getChatbotWidth();
         setChatbotWidth(savedWidth);
         updateLayoutState(true);
         localStorage.setItem('chatbotOpen', 'true');
       });
-      
-      chatbotOffcanvas.addEventListener('shown.bs.offcanvas', function() {
+
+      chatbotOffcanvas.addEventListener('shown.bs.offcanvas', function () {
         // Ensure width is still correct after animation
         const savedWidth = getChatbotWidth();
         setChatbotWidth(savedWidth);
         localStorage.setItem('chatbotOpen', 'true');
       });
-      
+
       // Handle offcanvas hide event
-      chatbotOffcanvas.addEventListener('hide.bs.offcanvas', function() {
+      chatbotOffcanvas.addEventListener('hide.bs.offcanvas', function () {
         updateLayoutState(false);
         localStorage.setItem('chatbotOpen', 'false');
       });
-      
+
       // Handle offcanvas hidden event (after animation completes)
-      chatbotOffcanvas.addEventListener('hidden.bs.offcanvas', function() {
+      chatbotOffcanvas.addEventListener('hidden.bs.offcanvas', function () {
         updateLayoutState(false);
         localStorage.setItem('chatbotOpen', 'false');
       });
-      
+
       // Also handle when offcanvas is already shown on page load
       if (chatbotOffcanvas.classList.contains('show')) {
         const savedWidth = getChatbotWidth();
@@ -822,7 +1324,7 @@
         updateLayoutBehavior(savedWidth);
         updateLayoutState(true);
       }
-      
+
       // Initialize resize functionality
       initChatbotResize();
     }
@@ -845,16 +1347,47 @@
         textarea.style.height = next + 'px';
       }
 
-      textarea.addEventListener('input', autosize);
+      // Toggle button state between voice assistant and send
+      function updateButtonState() {
+        if (!sendBtn) return;
+        const hasText = textarea.value.trim().length > 0;
+        const voiceIcon = sendBtn.querySelector('.voice-icon');
+        const sendIcon = sendBtn.querySelector('.send-icon');
+
+        if (hasText) {
+          // Show send button
+          sendBtn.classList.remove('voice-assistant-state');
+          sendBtn.setAttribute('aria-label', 'Send Message');
+          sendBtn.setAttribute('title', 'Send');
+          if (voiceIcon) voiceIcon.style.display = 'none';
+          if (sendIcon) sendIcon.style.display = 'flex';
+        } else {
+          // Show voice assistant button
+          sendBtn.classList.add('voice-assistant-state');
+          sendBtn.setAttribute('aria-label', 'Voice Assistant');
+          sendBtn.setAttribute('title', 'Voice Assistant');
+          if (voiceIcon) voiceIcon.style.display = 'flex';
+          if (sendIcon) sendIcon.style.display = 'none';
+        }
+      }
+
+      textarea.addEventListener('input', function () {
+        autosize();
+        updateButtonState();
+      });
       autosize();
+      updateButtonState(); // Initial state
 
       // Enter = send, Shift+Enter = newline
-      textarea.addEventListener('keydown', function(e) {
+      textarea.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter') return;
         if (e.shiftKey) return; // allow newline
 
         e.preventDefault();
-        if (sendBtn) sendBtn.click();
+        // Only send if there's text
+        if (textarea.value.trim().length > 0 && sendBtn) {
+          sendBtn.click();
+        }
       });
     }
 
@@ -1023,9 +1556,19 @@
         messagesEl.insertAdjacentHTML(
           'beforeend',
           `
-            <div class="d-flex justify-content-end mt-2">
-              <div class="bg-primary text-white rounded-2 px-3 py-2 fs-9 text-break">
-                ${escapeHtml(trimmed)}
+            <div class="d-flex justify-content-end mt-3">
+              <div class="user-message-wrapper d-flex flex-column align-items-end">
+                <div class="user-message fs-9 text-body-emphasis">
+                  ${escapeHtml(trimmed)}
+                </div>
+                <div class="user-message-actions">
+                  <button type="button" title="Edit" onclick="console.log('Edit clicked')">
+                    <span class="far fa-edit"></span>
+                  </button>
+                  <button type="button" title="Copy" onclick="navigator.clipboard.writeText(this.closest('.user-message-wrapper').querySelector('.user-message').textContent.trim()).then(() => console.log('Copied'))">
+                    <span class="far fa-copy"></span>
+                  </button>
+                </div>
               </div>
             </div>
           `
@@ -1057,7 +1600,7 @@
 
           // Create a unique container ID for this diagram
           const diagramId = `flow-diagram-${pendingId}`;
-          
+
           // Check if container already exists (avoid duplicates)
           if (document.getElementById(diagramId)) {
             console.warn('[chatbot] Flow diagram already rendered for:', pendingId);
@@ -1073,7 +1616,7 @@
 
           // Ensure Rete renderer is loaded
           await ensureReteFlowRenderer();
-          
+
           if (!window.reteFlowRenderer) {
             throw new Error('Rete flow renderer not available');
           }
@@ -1108,8 +1651,8 @@
         messagesEl.insertAdjacentHTML(
           'beforeend',
           `
-            <div class="d-flex justify-content-start mt-2" data-chatbot-pending="${id}">
-              <div class="bg-body-secondary rounded-2 px-3 py-2 fs-9 text-body-emphasis text-break markdown-content">
+            <div class="d-flex flex-column align-items-start mt-3" data-chatbot-pending="${id}">
+              <div class="ai-message-transparent fs-9 text-body-emphasis markdown-content">
                 ...
               </div>
             </div>
@@ -1386,7 +1929,7 @@
               'table', 'thead', 'tbody', 'tr', 'th', 'td',
               'div'
             ];
-            
+
             // Parse markdown (marked.js preserves HTML tags by default)
             let rawHtml;
             try {
@@ -1410,15 +1953,33 @@
               KEEP_CONTENT: true,  // Preserve content
               ADD_ATTR: ['id', 'style', 'class']  // Ensure these attributes are kept
             });
-            
+
             // Set the HTML atomically (placeholders already included)
             bubble.innerHTML = cleanHtml;
-            
+
             // Best-effort: ensure safe link behavior
             bubble.querySelectorAll?.('a[href]')?.forEach(a => {
               a.setAttribute('target', '_blank');
               a.setAttribute('rel', 'noopener noreferrer');
             });
+
+            // Add action buttons after the message content
+            const actionsHtml = `
+              <div class="ai-message-actions">
+                <button type="button" title="Like" onclick="console.log('Like clicked')">
+                  <span class="far fa-thumbs-up"></span>
+                </button>
+                <button type="button" title="Dislike" onclick="console.log('Dislike clicked')">
+                  <span class="far fa-thumbs-down"></span>
+                </button>
+                <button type="button" title="Copy" onclick="navigator.clipboard.writeText(this.closest('.d-flex').querySelector('.ai-message-transparent').textContent.trim()).then(() => console.log('Copied'))">
+                  <span class="far fa-copy"></span>
+                </button>
+              </div>
+            `;
+
+            // Insert action buttons after the message content
+            node.insertAdjacentHTML('beforeend', actionsHtml);
 
             // Mermaid rendering removed.
           } else {
@@ -1558,7 +2119,7 @@
               t = lines.join('\n');
             }
           }
-        } catch (_) {}
+        } catch (_) { }
 
         return t;
       }
@@ -1628,7 +2189,218 @@
         });
       }
 
-      async function sendTextMessage(text) {
+      // NOTE: Do NOT auto-detect camera_id from UI context.
+      // The agent will ask the user which camera they want, then store it in agent_state.
+      // UI only uses camera_id returned by backend in ChatMessageResponse.
+
+      function getAssistantBubbleEl(pendingId) {
+        const node = messagesEl.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+        const bubble = node?.querySelector?.('div');
+        return { node, bubble };
+      }
+
+      async function openZoneEditorInBubble(pendingId, cameraId) {
+        const { bubble } = getAssistantBubbleEl(pendingId);
+        if (!bubble) return;
+
+        // Avoid duplicating editor for same message
+        const existing = bubble.querySelector?.(`[data-zone-editor="${pendingId}"]`);
+        if (existing) return;
+
+        const host = document.createElement('div');
+        host.className = 'zone-editor';
+        host.setAttribute('data-zone-editor', pendingId);
+        host.innerHTML = `
+          <div class="zone-editor__header">
+            <div class="zone-editor__title">Draw monitoring zone</div>
+            <div class="text-body-tertiary fs-10">Camera: <span class="font-monospace">${escapeHtml(cameraId || '—')}</span></div>
+          </div>
+          <div class="zone-editor__body">
+            <div class="text-body-tertiary fs-9" data-zone-status>Loading snapshot…</div>
+          </div>
+        `;
+        bubble.appendChild(host);
+
+        const statusEl = host.querySelector('[data-zone-status]');
+        const bodyEl = host.querySelector('.zone-editor__body');
+
+        if (!cameraId) {
+          if (statusEl) statusEl.textContent = 'Camera is not selected yet. Please provide a camera first.';
+          return;
+        }
+
+        let blob = null;
+        try {
+          blob = await window.visionAPI.getCameraSnapshot(cameraId);
+        } catch (e) {
+          if (statusEl) statusEl.textContent = e?.message ? String(e.message) : 'Failed to load snapshot.';
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+
+        // Editor UI
+        bodyEl.innerHTML = `
+          <div class="zone-editor__canvas-wrap">
+            <img class="zone-editor__img" alt="Camera snapshot" />
+            <canvas class="zone-editor__canvas"></canvas>
+          </div>
+          <div class="zone-editor__hint">Click to add polygon points. Use “Undo” to remove last point. Save needs at least 3 points.</div>
+          <div class="zone-editor__actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-zone-undo>Undo</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-zone-clear>Clear</button>
+            <button type="button" class="btn btn-sm btn-primary" data-zone-save>Save zone</button>
+          </div>
+        `;
+
+        const imgEl = bodyEl.querySelector('.zone-editor__img');
+        const canvasEl = bodyEl.querySelector('.zone-editor__canvas');
+        const btnUndo = bodyEl.querySelector('[data-zone-undo]');
+        const btnClear = bodyEl.querySelector('[data-zone-clear]');
+        const btnSave = bodyEl.querySelector('[data-zone-save]');
+
+        /** @type {{x:number,y:number}[]} */
+        const points = [];
+
+        function resizeCanvasToImage() {
+          if (!imgEl || !canvasEl) return;
+          // Wait for image to have natural dimensions
+          if (!imgEl.naturalWidth || !imgEl.naturalHeight) return;
+          const rect = imgEl.getBoundingClientRect();
+          const w = Math.max(1, Math.round(rect.width));
+          const h = Math.max(1, Math.round(rect.height));
+          if (w <= 0 || h <= 0) return; // Skip if container not laid out yet
+          if (canvasEl.width !== w) canvasEl.width = w;
+          if (canvasEl.height !== h) canvasEl.height = h;
+          // Force a redraw after resize
+          draw();
+        }
+
+        function draw() {
+          if (!canvasEl) return;
+          const ctx = canvasEl.getContext('2d');
+          if (!ctx) return;
+          ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+          // Polygon fill
+          if (points.length >= 2) {
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(42, 123, 228, 0.20)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(42, 123, 228, 0.95)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+
+          // Points
+          ctx.fillStyle = 'rgba(42, 123, 228, 1)';
+          for (const p of points) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        function getClickPoint(ev) {
+          const rect = canvasEl.getBoundingClientRect();
+          const x = ev.clientX - rect.left;
+          const y = ev.clientY - rect.top;
+          return { x: Math.max(0, Math.min(rect.width, x)), y: Math.max(0, Math.min(rect.height, y)) };
+        }
+
+        function disableEditor(disabled) {
+          [btnUndo, btnClear, btnSave].forEach(b => {
+            if (!b) return;
+            b.disabled = !!disabled;
+          });
+          if (canvasEl) canvasEl.style.pointerEvents = disabled ? 'none' : 'auto';
+        }
+
+        function pointsToImageCoords() {
+          const rect = imgEl.getBoundingClientRect();
+          const imgW = imgEl.naturalWidth || 0;
+          const imgH = imgEl.naturalHeight || 0;
+          if (!imgW || !imgH || !rect.width || !rect.height) return null;
+          const sx = imgW / rect.width;
+          const sy = imgH / rect.height;
+          return points.map(p => [Math.round(p.x * sx), Math.round(p.y * sy)]);
+        }
+
+        canvasEl.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (!canvasEl) return;
+          points.push(getClickPoint(ev));
+          draw();
+        });
+
+        btnUndo?.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          points.pop();
+          draw();
+        });
+
+        btnClear?.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          points.length = 0;
+          draw();
+        });
+
+        btnSave?.addEventListener('click', async () => {
+          if (points.length < 3) return;
+          const coords = pointsToImageCoords();
+          if (!coords) return;
+          const zoneData = {
+            zone: {
+              type: 'polygon',
+              coordinates: coords,
+            },
+            image: {
+              width: imgEl.naturalWidth || null,
+              height: imgEl.naturalHeight || null,
+            },
+            camera_id: cameraId,
+          };
+
+          disableEditor(true);
+          try {
+            // NOTE: Do NOT pass cameraIdOverride. Agent already has camera_id in state (extracted from user earlier).
+            // zone_data contains camera_id as metadata only, not as a separate field to update state.
+            await sendTextMessage('Zone selected. Please continue.', { zoneData });
+            // Safe cleanup: revoke snapshot URL after zone is submitted.
+            // (Revoking on img "load" can cause the image to disappear on some Chromium/Electron repaints.)
+            try { URL.revokeObjectURL(url); } catch (_) { }
+          } finally {
+            // Keep UI disabled; user can draw again only after assistant asks again
+          }
+        });
+
+        imgEl.addEventListener('load', () => {
+          // Use requestAnimationFrame to ensure layout is complete before sizing canvas
+          requestAnimationFrame(() => {
+            resizeCanvasToImage();
+            // Second RAF to catch any delayed layout changes
+            requestAnimationFrame(resizeCanvasToImage);
+          });
+          // NOTE: Do NOT revoke the blob URL here; it can make the image disappear
+          // later (e.g., after clicking) in some Chromium/Electron environments.
+        }, { once: true });
+
+        imgEl.src = url;
+        // Best-effort: keep canvas in sync on window resize
+        const resizeHandler = () => requestAnimationFrame(resizeCanvasToImage);
+        window.addEventListener('resize', resizeHandler, { passive: true });
+        // Initial size attempts (in case image is cached and loads instantly)
+        setTimeout(() => requestAnimationFrame(resizeCanvasToImage), 0);
+        setTimeout(() => requestAnimationFrame(resizeCanvasToImage), 100);
+      }
+
+      async function sendTextMessage(text, options = {}) {
         const trimmed = (text || '').trim();
         if (!trimmed) return;
 
@@ -1695,15 +2467,18 @@
           }
 
           // Cancel any in-flight stream for this tab+mode
-          try { state._abortController?.abort?.(); } catch (_) {}
+          try { state._abortController?.abort?.(); } catch (_) { }
           state._abortController = new AbortController();
 
           let acc = '';
           let finalPayload = null;
           let sawError = false;
 
+          const zoneData = options?.zoneData || null;
+          // NOTE: Do NOT send camera_id from UI. Agent asks user, extracts it via LLM tool, stores in agent_state.
+          // UI only uses camera_id returned by backend in ChatMessageResponse (for snapshot fetch).
           const stream = (mode === 'agent')
-            ? window.visionAPI.chatWithAgentStream(trimmed, state.sessionId, null, null, state._abortController.signal)
+            ? window.visionAPI.chatWithAgentStream(trimmed, state.sessionId, null, zoneData, state._abortController.signal)
             : window.visionAPI.generalChatStream(trimmed, state.sessionId, state._abortController.signal);
 
           for await (const evt of stream) {
@@ -1771,7 +2546,26 @@
           if (!isError && finalPayload?.flow_diagram_data) {
             await renderFlowDiagram(pendingId, finalPayload.flow_diagram_data);
           }
-          
+
+          // Use camera_id resolved by backend (agent extracted it from user's message and stored in state)
+          if (!isError && mode === 'agent') {
+            const resolvedCameraId = finalPayload?.camera_id || null;
+            if (resolvedCameraId) {
+              state.cameraId = resolvedCameraId;
+            }
+
+            const needsZoneUi = !!(finalPayload?.awaiting_zone_input || finalPayload?.zone_required);
+            if (needsZoneUi) {
+              // Only use camera_id from backend response (agent already extracted it from user)
+              if (resolvedCameraId) {
+                await openZoneEditorInBubble(pendingId, resolvedCameraId);
+              } else {
+                // Camera not selected yet - agent will ask for it first
+                console.log('[zone-editor] Waiting for agent to extract camera_id from user');
+              }
+            }
+          }
+
           state.html = messagesEl.innerHTML;
           messagesEl.scrollTop = messagesEl.scrollHeight;
         } catch (err) {
@@ -1805,12 +2599,127 @@
 
       newTabBtn?.addEventListener('click', () => createTab());
 
-      sendBtn?.addEventListener('click', () => {
+      // Shared voice recording state (used by both send button and voice button if exists)
+      let voiceRecorder = null;
+      let voiceChunks = [];
+      let isVoiceRecording = false;
+
+      // Voice recording functions (shared)
+      async function startVoiceRecording() {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('Microphone not supported.');
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        voiceChunks = [];
+        voiceRecorder = new MediaRecorder(stream);
+        voiceRecorder.ondataavailable = (ev) => {
+          if (ev.data && ev.data.size > 0) voiceChunks.push(ev.data);
+        };
+        voiceRecorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+        };
+        voiceRecorder.start();
+        isVoiceRecording = true;
+        // Update button appearance when recording
+        if (sendBtn) sendBtn.classList.add('recording');
+      }
+
+      async function stopVoiceRecordingAndSend() {
+        if (!voiceRecorder) return;
+        const active = getActive();
+        if (!active) return;
+        if (!window.visionAPI?.isAuthenticated?.()) throw new Error('Please login first.');
+        if (getMode() !== 'general') throw new Error('Voice is available in General mode only.');
+
+        const state = active.mode.general;
+
+        // On first voice use per tab+general, remove welcome/suggestions
+        if (!state.started) {
+          state.started = true;
+          messagesEl.innerHTML = '';
+        }
+
+        const stopped = new Promise(resolve => {
+          voiceRecorder.addEventListener('stop', resolve, { once: true });
+        });
+        voiceRecorder.stop();
+        await stopped;
+
+        isVoiceRecording = false;
+        if (sendBtn) sendBtn.classList.remove('recording');
+
+        const blob = new Blob(voiceChunks, { type: 'audio/webm' });
+        const file = new File([blob], 'voice.webm', { type: 'audio/webm' });
+
+        // Render placeholders
+        appendUserBubble('[Voice message]');
+        const pendingId = appendAssistantPending();
+        saveActiveHtml();
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        const result = await window.visionAPI.voiceChat(file, state.sessionId);
+        if (result?.sessionId) state.sessionId = result.sessionId;
+        const textResp = result?.textResponse || '(voice response)';
+        replaceAssistantPending(pendingId, textResp);
+        state.html = messagesEl.innerHTML;
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        // Play audio (best-effort)
+        try {
+          if (result?.audioBlob) {
+            const url = URL.createObjectURL(result.audioBlob);
+            const audio = new Audio(url);
+            audio.play().catch(() => { });
+            audio.onended = () => URL.revokeObjectURL(url);
+          }
+        } catch { }
+      }
+
+      sendBtn?.addEventListener('click', async () => {
         if (!textarea) return;
-        const text = textarea.value;
-        textarea.value = '';
-        textarea.dispatchEvent(new Event('input'));
-        sendTextMessage(text);
+
+        // Check if button is in voice assistant mode (textarea is empty)
+        const hasText = textarea.value.trim().length > 0;
+
+        if (!hasText) {
+          // Voice assistant mode - handle voice recording
+          try {
+            if (getMode() !== 'general') {
+              // Show message that voice is only available in General mode
+              return;
+            }
+
+            if (!isVoiceRecording) {
+              await startVoiceRecording();
+            } else {
+              await stopVoiceRecordingAndSend();
+            }
+          } catch (err) {
+            isVoiceRecording = false;
+            if (sendBtn) sendBtn.classList.remove('recording');
+            const active = getActive();
+            if (active) {
+              appendAssistantPending();
+              const lastPending = messagesEl.querySelector?.('[data-chatbot-pending]');
+              if (lastPending) {
+                const bubble = lastPending.querySelector?.('div');
+                if (bubble) {
+                  bubble.textContent = err?.message ? String(err.message) : 'Voice failed.';
+                  bubble.classList.remove('bg-body-secondary');
+                  bubble.classList.add('bg-danger', 'text-white');
+                }
+              }
+              active.mode.general.html = messagesEl.innerHTML;
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+          }
+        } else {
+          // Send mode - send text message
+          const text = textarea.value;
+          textarea.value = '';
+          textarea.dispatchEvent(new Event('input'));
+          sendTextMessage(text);
+        }
       });
 
       document.addEventListener('click', (e) => {
@@ -1864,7 +2773,7 @@
           if (!recorder) return;
           const active = getActive();
           if (!active) return;
-          if (!window.visionAPI?.isAuthenticated?.() ) throw new Error('Please login first.');
+          if (!window.visionAPI?.isAuthenticated?.()) throw new Error('Please login first.');
           if (getMode() !== 'general') throw new Error('Voice is available in General mode only.');
 
           const state = active.mode.general;
@@ -1905,10 +2814,10 @@
             if (result?.audioBlob) {
               const url = URL.createObjectURL(result.audioBlob);
               const audio = new Audio(url);
-              audio.play().catch(() => {});
+              audio.play().catch(() => { });
               audio.onended = () => URL.revokeObjectURL(url);
             }
-          } catch {}
+          } catch { }
         }
 
         voiceBtn.addEventListener('click', async () => {
@@ -1953,17 +2862,17 @@
 
     function initChatbotKeyboardShortcut() {
       // Ctrl+L (or Cmd+L on Mac) to toggle chatbot
-      document.addEventListener('keydown', function(e) {
+      document.addEventListener('keydown', function (e) {
         // Check for Ctrl+L (Windows/Linux) or Cmd+L (Mac)
         if ((e.ctrlKey || e.metaKey) && e.key === 'l' && !e.shiftKey && !e.altKey) {
           // Prevent default browser behavior (focus address bar)
           e.preventDefault();
-          
+
           const chatbotOffcanvas = document.getElementById('chatbot-offcanvas');
           if (!chatbotOffcanvas || typeof bootstrap === 'undefined') return;
-          
+
           const offcanvasInstance = bootstrap.Offcanvas.getInstance(chatbotOffcanvas);
-          
+
           if (offcanvasInstance) {
             // Toggle: if open, close it; if closed, open it
             offcanvasInstance.toggle();
@@ -1975,10 +2884,10 @@
         }
       });
     }
-    
+
     // Wait for DOM and Bootstrap to be ready
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', function () {
         // Wait for Bootstrap to be available
         if (typeof bootstrap !== 'undefined') {
           initChatbotPush();
@@ -1987,7 +2896,7 @@
           initChatbotKeyboardShortcut();
         } else {
           // Wait a bit more for Bootstrap to load
-          setTimeout(function() {
+          setTimeout(function () {
             if (typeof bootstrap !== 'undefined') {
               initChatbotPush();
               initChatbotComposer();
@@ -2005,7 +2914,7 @@
         initChatbotTabs();
         initChatbotKeyboardShortcut();
       } else {
-        setTimeout(function() {
+        setTimeout(function () {
           if (typeof bootstrap !== 'undefined') {
             initChatbotPush();
             initChatbotComposer();
@@ -2017,4 +2926,3 @@
     }
   })();
 </script>
-
