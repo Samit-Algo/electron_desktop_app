@@ -243,19 +243,21 @@
   
       async function ensureGridStack() {
         if (window.GridStack) return;
-  
+
         // GridStack v10+ (plain JS, draggable + resizable included)
-        // Use local vendored assets for reliability (desktop/offline) and consistent resize-handle CSS.
-        const css = '../vendors/gridstack/gridstack.min.css';
-        const js = '../vendors/gridstack/gridstack-all.js';
-  
+        // Use local vendored assets from a root-relative path so it
+        // works regardless of which /pages/* shell is hosting this layout.
+        const css = '/vendors/gridstack/gridstack.min.css';
+        const js = '/vendors/gridstack/gridstack-all.js';
+
         loadCssOnce(css);
         await loadScriptOnce(js);
       }
 
       async function ensureWsFmp4Player() {
         if (window.createWsFmp4Player) return;
-        const js = '../custom_js/ws-fmp4-player.js';
+        // Root-relative path so it resolves correctly from any /pages/* shell
+        const js = '/custom_js/ws-fmp4-player.js';
         await loadScriptOnce(js);
       }
   
