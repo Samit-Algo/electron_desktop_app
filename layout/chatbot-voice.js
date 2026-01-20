@@ -1,9 +1,9 @@
-// ChatGPT-style voice assistant module for the chatbot.
-// Extracted from chatbot.html without behavior changes.
+// ChatGPT-style voice assistant module - handles voice recording, playback, and UI animations
 
 (function () {
   'use strict';
 
+  // Voice assistant state machine
   const VOICE_STATE = {
     IDLE: 'idle',
     LISTENING: 'listening',
@@ -12,31 +12,31 @@
     ERROR: 'error'
   };
 
-  // Core voice state (owned only here)
+  // Core voice state variables
   let voiceState = VOICE_STATE.IDLE;
   let lastSpeakingEndedAt = 0;
 
+  // Silence detection state for auto-stop during listening
   let listeningHasHeardSpeech = false;
   let utteranceSilenceMs = 0;
   let lastUserVoiceActivityTs = 0;
 
+  // Recording state
   let isVoiceRecording = false;
   let isTextStreaming = false;
-
   let voiceRecorder = null;
   let voiceChunks = [];
   let voiceStream = null;
 
-  // Orb / audio-reactive state
+  // Audio-reactive orb animation state
   let audioCtx = null;
   let analyser = null;
   let analyserData = null;
   let analyserRaf = null;
 
-  // Assistant speaking / barge-in
+  // Assistant speaking audio and barge-in detection
   let speakingAudio = null;
   const SPEAKING_COOLDOWN_MS = 250;
-
   let bargeStream = null;
   let bargeCtx = null;
   let bargeAnalyser = null;
@@ -44,7 +44,7 @@
   let bargeRaf = null;
   let bargeSpeechMs = 0;
 
-  // Injected dependencies from chatbot.html
+  // Module dependencies injected from chatbot-core.js
   let getActive = null;
   let getMode = null;
   let messagesEl = null;
@@ -56,6 +56,7 @@
   let sendBtn = null;
   let voiceBtn = null;
 
+  // Update voice status label text based on current state
   function updateVoiceStatusLabel(state) {
     const labelEl = document.getElementById('voice-status-label');
     if (!labelEl) return;
@@ -68,10 +69,12 @@
     labelEl.style.opacity = text ? '1' : '0';
   }
 
+  // Check if voice assistant is currently active (not idle)
   function isVoiceAssistantActive() {
     return voiceState !== VOICE_STATE.IDLE;
   }
 
+  // Sync send button visual state based on text input, voice state, and streaming state
   function syncSendButtonVisual() {
     const textareaEl = document.getElementById('chatbot-input');
     const btn = sendBtn || document.querySelector('#chatbot-offcanvas .send-btn');
@@ -86,6 +89,7 @@
 
     const voiceActive = isVoiceAssistantActive();
 
+    // Priority 1: Show stop button if text is streaming
     if (isTextStreaming) {
       btn.classList.remove('voice-assistant-state');
       btn.classList.add('streaming');
@@ -97,6 +101,7 @@
       return;
     }
 
+    // Priority 2: Show recording state if voice is active
     if (voiceActive) {
       btn.classList.add('recording');
       btn.classList.remove('voice-assistant-state');
@@ -108,6 +113,7 @@
       return;
     }
 
+    // Priority 3: Show send button if textarea has text, otherwise show voice button
     const showSend = hasText;
     if (showSend) {
       btn.classList.remove('voice-assistant-state');
@@ -126,24 +132,19 @@
     }
   }
 
+  // Show voice UI overlay with animated orb
   function showVoiceUI() {
-    console.log('[ChatbotVoice] showVoiceUI() called', { messagesEl: !!messagesEl, chatbotOffcanvas: !!chatbotOffcanvas });
-    if (!messagesEl) {
-      console.warn('[ChatbotVoice] showVoiceUI: messagesEl is null/undefined');
-      return;
-    }
+    if (!messagesEl) return;
     const overlay = chatbotOffcanvas?.querySelector?.('#voice-ui-overlay');
     const wrap = messagesEl.closest?.('.chat-messages-wrap');
-    console.log('[ChatbotVoice] showVoiceUI elements', { overlay: !!overlay, wrap: !!wrap });
     if (wrap) wrap.classList.add('voice-ui-active');
     if (overlay) {
       overlay.classList.remove('d-none');
       overlay.setAttribute('aria-hidden', 'false');
-    } else {
-      console.warn('[ChatbotVoice] showVoiceUI: overlay element #voice-ui-overlay not found');
     }
   }
 
+  // Hide voice UI overlay
   function hideVoiceUI() {
     if (!messagesEl) return;
     const overlay = chatbotOffcanvas?.querySelector?.('#voice-ui-overlay');
@@ -153,27 +154,31 @@
     overlay?.setAttribute?.('aria-hidden', 'true');
   }
 
+  // Update voice state and trigger UI updates
   function setVoiceState(next) {
     if (!Object.values(VOICE_STATE).includes(next)) return;
     if (voiceState === next) return;
 
     const prev = voiceState;
     voiceState = next;
-    console.log('[ChatbotVoice] setVoiceState:', prev, '→', next);
 
+    // Show/hide UI overlay based on state
     if (next === VOICE_STATE.IDLE) hideVoiceUI();
     else showVoiceUI();
 
+    // Reset silence detection when leaving listening state
     if (prev === VOICE_STATE.LISTENING && next !== VOICE_STATE.LISTENING) {
       listeningHasHeardSpeech = false;
       utteranceSilenceMs = 0;
       lastUserVoiceActivityTs = 0;
     }
 
+    // Track when speaking ends for cooldown period
     if (prev === VOICE_STATE.SPEAKING && next === VOICE_STATE.IDLE) {
       lastSpeakingEndedAt = performance.now();
     }
 
+    // Start/stop barge-in detector when entering/leaving speaking state
     if (prev !== VOICE_STATE.SPEAKING && next === VOICE_STATE.SPEAKING) {
       startBargeInDetector();
     } else if (prev === VOICE_STATE.SPEAKING && next !== VOICE_STATE.SPEAKING) {
@@ -184,6 +189,7 @@
     syncSendButtonVisual();
   }
 
+  // Start audio-reactive orb animation from microphone stream
   function startOrbAudioReactive(stream) {
     try {
       stopOrbAudioReactive();
@@ -191,6 +197,7 @@
       const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextCtor) return;
 
+      // Create audio context and analyser for real-time audio analysis
       audioCtx = new AudioContextCtor();
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 1024;
@@ -208,6 +215,7 @@
       let rot = 0;
       let lastTs = performance.now();
 
+      // Animation frame loop: analyze audio and update orb visual properties
       function frame() {
         if (!analyser || !analyserData) return;
         const nowTs = performance.now();
@@ -215,6 +223,7 @@
         lastTs = nowTs;
         analyser.getByteTimeDomainData(analyserData);
 
+        // Calculate RMS (root mean square) for audio energy
         let sumSq = 0;
         for (let i = 0; i < analyserData.length; i++) {
           const v = (analyserData[i] - 128) / 128;
@@ -222,11 +231,13 @@
         }
         const rms = Math.sqrt(sumSq / analyserData.length);
 
+        // Normalize audio level to 0-1 range with gate and span
         const gate = 0.015;
         const span = 0.14;
         const raw = Math.max(0, Math.min(1, (rms - gate) / span));
         const n = Math.pow(raw, 0.25);
 
+        // Update orb scale, glow, and rotation based on audio level
         const s = baseScale + (n * maxExtraScale);
         if (orbContainer?.style) {
           orbContainer.style.transform = `scale(${s.toFixed(3)})`;
@@ -241,18 +252,22 @@
           orbContainer.style.setProperty('--auraRot', `${rot.toFixed(1)}deg`);
         }
 
+        // During listening: detect speech and silence for auto-stop
         if (voiceState === VOICE_STATE.LISTENING) {
           const speechThreshold = 0.18;
           const nowMs = nowTs;
 
           if (n > speechThreshold) {
+            // Speech detected: reset silence timer
             listeningHasHeardSpeech = true;
             utteranceSilenceMs = 0;
             lastUserVoiceActivityTs = nowMs;
           } else if (listeningHasHeardSpeech) {
+            // Silence after speech: accumulate silence time
             utteranceSilenceMs += dt;
             const UTTERANCE_SILENCE_LIMIT_MS = 1200;
             if (utteranceSilenceMs >= UTTERANCE_SILENCE_LIMIT_MS) {
+              // Auto-stop after 1.2s of silence
               listeningHasHeardSpeech = false;
               utteranceSilenceMs = 0;
               if (voiceState === VOICE_STATE.LISTENING) {
@@ -261,6 +276,7 @@
             }
           }
 
+          // Auto-stop if no activity for 30 seconds
           if (lastUserVoiceActivityTs) {
             const SESSION_IDLE_LIMIT_MS = 30000;
             if ((nowMs - lastUserVoiceActivityTs) >= SESSION_IDLE_LIMIT_MS) {
@@ -283,6 +299,7 @@
     }
   }
 
+  // Start audio-reactive orb animation from audio element (for assistant speaking)
   function startOrbAudioReactiveFromAudioElement(audioElement) {
     try {
       stopOrbAudioReactive();
@@ -308,12 +325,14 @@
       let rot = 0;
       let lastTs = performance.now();
 
+      // Animation frame loop: analyze audio and update orb visual properties
       function frame() {
         if (!analyser || !analyserData) return;
         const nowTs = performance.now();
         lastTs = nowTs;
         analyser.getByteTimeDomainData(analyserData);
 
+        // Calculate RMS for audio energy
         let sumSq = 0;
         for (let i = 0; i < analyserData.length; i++) {
           const v = (analyserData[i] - 128) / 128;
@@ -321,11 +340,13 @@
         }
         const rms = Math.sqrt(sumSq / analyserData.length);
 
+        // Normalize audio level
         const gate = 0.015;
         const span = 0.14;
         const raw = Math.max(0, Math.min(1, (rms - gate) / span));
         const n = Math.pow(raw, 0.25);
 
+        // Update orb visual properties
         const s = baseScale + (n * maxExtraScale);
         if (orbContainer?.style) {
           orbContainer.style.transform = `scale(${s.toFixed(3)})`;
@@ -340,6 +361,7 @@
           orbContainer.style.setProperty('--auraRot', `${rot.toFixed(1)}deg`);
         }
 
+        // Continue animation only while speaking
         if (voiceState === VOICE_STATE.SPEAKING) {
           analyserRaf = requestAnimationFrame(frame);
         }
@@ -351,6 +373,7 @@
     }
   }
 
+  // Stop audio-reactive orb animation and clean up audio context
   function stopOrbAudioReactive() {
     try {
       if (analyserRaf) cancelAnimationFrame(analyserRaf);
@@ -359,6 +382,7 @@
     analyserData = null;
     analyser = null;
 
+    // Reset orb visual properties
     try {
       const orbEl = document.getElementById('voice-orb');
       const orbContainer = orbEl?.closest?.('.orb-container') || orbEl;
@@ -368,12 +392,14 @@
       }
     } catch (_) { }
 
+    // Close audio context
     try {
       audioCtx?.close?.();
     } catch (_) { }
     audioCtx = null;
   }
 
+  // Start barge-in detector to allow user to interrupt assistant speaking
   function startBargeInDetector() {
     if (!navigator.mediaDevices?.getUserMedia) return;
     if (bargeRaf || bargeCtx || bargeStream) return;
@@ -391,6 +417,7 @@
       bargeSpeechMs = 0;
       let lastTs = performance.now();
 
+      // Monitor microphone for sustained speech to trigger barge-in
       function frame() {
         if (!bargeAnalyser || !bargeData) return;
         if (voiceState !== VOICE_STATE.SPEAKING) return;
@@ -407,10 +434,12 @@
         const dt = nowTs - lastTs;
         lastTs = nowTs;
 
+        // Accumulate speech duration if above threshold
         const gate = 0.03;
         if (rms > gate) bargeSpeechMs += dt;
         else bargeSpeechMs = 0;
 
+        // Trigger barge-in if speech detected for 230ms
         const BARGE_IN_MS = 230;
         if (bargeSpeechMs >= BARGE_IN_MS) {
           try {
@@ -433,6 +462,7 @@
     }).catch(() => { });
   }
 
+  // Stop barge-in detector and clean up resources
   function stopBargeInDetector() {
     try {
       if (bargeRaf) cancelAnimationFrame(bargeRaf);
@@ -451,6 +481,7 @@
     bargeSpeechMs = 0;
   }
 
+  // Completely stop voice assistant and clean up all resources
   async function stopVoiceAssistantCompletely() {
     try {
       if (voiceRecorder) {
@@ -465,6 +496,7 @@
     voiceChunks = [];
     isVoiceRecording = false;
 
+    // Stop microphone stream
     if (voiceStream) {
       try { voiceStream.getTracks().forEach(t => t.stop()); } catch (_) { }
     }
@@ -472,6 +504,7 @@
 
     stopOrbAudioReactive();
 
+    // Stop speaking audio if playing
     try {
       if (speakingAudio) {
         speakingAudio.pause();
@@ -485,12 +518,11 @@
     setVoiceState(VOICE_STATE.IDLE);
   }
 
+  // Start voice recording with microphone access
   async function startVoiceRecording() {
-    console.log('[ChatbotVoice] startVoiceRecording() called');
-    // Short cooldown after speaking to avoid accidental retriggers
+    // Cooldown period after speaking to prevent accidental retriggers
     const now = performance.now();
     if (now - lastSpeakingEndedAt < SPEAKING_COOLDOWN_MS) {
-      console.log('[ChatbotVoice] startVoiceRecording: cooldown active, skipping');
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -515,20 +547,23 @@
     startOrbAudioReactive(stream);
   }
 
+  // Stop recording and send audio to backend for processing
   async function stopVoiceRecordingAndSend() {
     if (!voiceRecorder || !getActive || !getMode || !messagesEl || !appendUserBubble || !appendAssistantPending || !saveActiveHtml) return;
     const active = getActive();
     if (!active) return;
     if (!window.visionAPI?.isAuthenticated?.()) throw new Error('Please login first.');
-    if (getMode() !== 'general') throw new Error('Voice is available in General mode only.');
 
-    const state = active.mode.general;
+    const mode = getMode();
+    const state = active.mode[mode];
 
+    // Clear initial template on first message
     if (!state.started) {
       state.started = true;
       messagesEl.innerHTML = '';
     }
 
+    // Stop recorder and wait for stop event
     const stopped = new Promise(resolve => {
       voiceRecorder.addEventListener('stop', resolve, { once: true });
     });
@@ -540,14 +575,17 @@
     isVoiceRecording = false;
     voiceStream = null;
 
+    // Create audio file from recorded chunks
     const blob = new Blob(voiceChunks, { type: 'audio/webm' });
     const file = new File([blob], 'voice.webm', { type: 'audio/webm' });
 
+    // Add user message bubble and pending assistant response
     appendUserBubble('[Voice message]');
     const pendingId = appendAssistantPending();
     saveActiveHtml();
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
+    // Send audio to backend and get response
     const result = await window.visionAPI.voiceChat(file, state.sessionId);
     if (result?.sessionId) state.sessionId = result.sessionId;
     const textResp = result?.textResponse || '(voice response)';
@@ -555,6 +593,7 @@
     state.html = messagesEl.innerHTML;
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
+    // Play audio response if available, then auto-start listening again
     try {
       if (result?.audioBlob) {
         const url = URL.createObjectURL(result.audioBlob);
@@ -573,6 +612,7 @@
           speakingAudio = null;
           stopOrbAudioReactive();
           setVoiceState(VOICE_STATE.IDLE);
+          // Auto-start listening for next user input
           startVoiceRecording().catch(() => { });
         };
       } else {
@@ -584,13 +624,14 @@
     syncSendButtonVisual();
   }
 
-  // Legacy small mic button (voiceBtn) wiring, unchanged behavior
+  // Legacy voice button handler (small mic button) - simpler implementation
   function initLegacyVoiceBtn() {
     if (!voiceBtn || !getActive || !getMode || !messagesEl || !appendUserBubble || !appendAssistantPending || !saveActiveHtml) return;
     let recorder = null;
     let chunks = [];
     let recording = false;
 
+    // Start recording with legacy button
     async function start() {
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error('Microphone not supported.');
@@ -609,14 +650,15 @@
       voiceBtn.classList.add('text-danger');
     }
 
+    // Stop recording and send audio
     async function stopAndSend() {
       if (!recorder) return;
       const active = getActive();
       if (!active) return;
       if (!window.visionAPI?.isAuthenticated?.()) throw new Error('Please login first.');
-      if (getMode() !== 'general') throw new Error('Voice is available in General mode only.');
 
-      const state = active.mode.general;
+      const mode = getMode();
+      const state = active.mode[mode];
       if (!state.started) {
         state.started = true;
         messagesEl.innerHTML = '';
@@ -646,6 +688,7 @@
       state.html = messagesEl.innerHTML;
       messagesEl.scrollTop = messagesEl.scrollHeight;
 
+      // Play audio response if available
       try {
         if (result?.audioBlob) {
           const url = URL.createObjectURL(result.audioBlob);
@@ -656,9 +699,9 @@
       } catch { }
     }
 
+    // Toggle recording on button click
     voiceBtn.addEventListener('click', async () => {
       try {
-        if (getMode() !== 'general') return;
         if (!recording) await start();
         else await stopAndSend();
       } catch (err) {
@@ -683,19 +726,8 @@
     });
   }
 
+  // Initialize module with dependencies from chatbot-core.js
   function init(deps) {
-    console.log('[ChatbotVoice] init() called with deps:', {
-      getActive: !!deps.getActive,
-      getMode: !!deps.getMode,
-      messagesEl: !!deps.messagesEl,
-      appendUserBubble: !!deps.appendUserBubble,
-      appendAssistantPending: !!deps.appendAssistantPending,
-      replaceAssistantPending: !!deps.replaceAssistantPending,
-      saveActiveHtml: !!deps.saveActiveHtml,
-      chatbotOffcanvas: !!deps.chatbotOffcanvas,
-      sendBtn: !!deps.sendBtn,
-      voiceBtn: !!deps.voiceBtn
-    });
     getActive = deps.getActive;
     getMode = deps.getMode;
     messagesEl = deps.messagesEl;
@@ -707,10 +739,11 @@
     sendBtn = deps.sendBtn;
     voiceBtn = deps.voiceBtn;
 
+    // Initialize legacy voice button if present
     if (voiceBtn) initLegacyVoiceBtn();
-    console.log('[ChatbotVoice] init() complete');
   }
 
+  // Expose public API
   window.ChatbotVoice = {
     init,
     isVoiceAssistantActive,
@@ -723,14 +756,13 @@
     getVoiceState: () => voiceState
   };
 
-  // If deps were provided before this script loaded, initialize now.
+  // Auto-initialize if dependencies were stashed before module loaded
   if (window.ChatbotVoicePendingDeps) {
     try {
       init(window.ChatbotVoicePendingDeps);
     } catch (e) {
-      console.warn('[ChatbotVoice] init from pending deps failed:', e);
+      console.warn('[ChatbotVoice] Init failed:', e);
     }
     window.ChatbotVoicePendingDeps = null;
   }
 })();
-

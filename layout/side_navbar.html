@@ -6,16 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-
-  <!-- ===============================================-->
-  <!--    Document Title-->
-  <!-- ===============================================-->
+  <!-- Document Title -->
   <title>Phoenix</title>
 
-
-  <!-- ===============================================-->
-  <!--    Favicons-->
-  <!-- ===============================================-->
+  <!-- Favicons -->
   <link rel="apple-touch-icon" sizes="180x180" href="../assets/img/favicons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicons/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicons/favicon-16x16.png">
@@ -23,23 +17,31 @@
   <link rel="manifest" href="../assets/img/favicons/manifest.json">
   <meta name="msapplication-TileImage" content="../assets/img/favicons/mstile-150x150.png">
   <meta name="theme-color" content="#ffffff">
+
+  <!-- Core JavaScript Libraries (loaded early) -->
   <script src="../vendors/simplebar/simplebar.min.js"></script>
   <script src="../assets/js/config.js"></script>
 
-
-  <!-- ===============================================-->
-  <!--    Stylesheets-->
-  <!-- ===============================================-->
+  <!-- External Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800;900&amp;display=swap"
     rel="stylesheet">
+
+  <!-- Vendor Stylesheets -->
   <link href="../vendors/simplebar/simplebar.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.8/css/line.css">
+  <link href="../vendors/leaflet/leaflet.css" rel="stylesheet">
+  <link href="../vendors/leaflet.markercluster/MarkerCluster.css" rel="stylesheet">
+  <link href="../vendors/leaflet.markercluster/MarkerCluster.Default.css" rel="stylesheet">
+
+  <!-- Theme Stylesheets (RTL and LTR) -->
   <link href="../assets/css/theme-rtl.min.css" type="text/css" rel="stylesheet" id="style-rtl">
   <link href="../assets/css/theme.min.css" type="text/css" rel="stylesheet" id="style-default">
   <link href="../assets/css/user-rtl.min.css" type="text/css" rel="stylesheet" id="user-style-rtl">
   <link href="../assets/css/user.min.css" type="text/css" rel="stylesheet" id="user-style-default">
+
+  <!-- RTL/LTR Direction Handler - Disables unused stylesheet based on config -->
   <script>
     var phoenixIsRTL = window.config.config.phoenixIsRTL;
     if (phoenixIsRTL) {
@@ -55,13 +57,10 @@
       userLinkRTL.setAttribute('disabled', true);
     }
   </script>
-  <link href="../vendors/leaflet/leaflet.css" rel="stylesheet">
-  <link href="../vendors/leaflet.markercluster/MarkerCluster.css" rel="stylesheet">
-  <link href="../vendors/leaflet.markercluster/MarkerCluster.Default.css" rel="stylesheet">
 
   <!-- IDE-Style Layout: CSS Grid for Sidebar | Viewport | Chatbot -->
   <style>
-    /* Make body neutral - no layout responsibility */
+    /* Reset body and html to neutral state - no layout responsibility */
     html,
     body {
       height: 100%;
@@ -71,45 +70,34 @@
 
     body {
       overflow: hidden;
-      /* Body is just a container, no grid */
     }
 
-    /* App Root - THE ONLY layout owner */
+    /* App Root - Main grid container managing sidebar, viewport, and chatbot layout */
     #app-root {
       display: grid;
       grid-template-columns:
-        var(--phoenix-navbar-vertical-width, 280px)
-        /* Column 1: Sidebar */
-        1fr
-        /* Column 2: Viewport (scrolls) */
-        0px;
-      /* Column 3: Chatbot (0 when closed) */
-      grid-template-rows: auto 1fr;
-      /* Row 1: Topbar, Row 2: Content shell */
+        var(--phoenix-navbar-vertical-width, 280px) /* Column 1: Sidebar */
+        1fr                                        /* Column 2: Viewport (scrolls) */
+        0px;                                       /* Column 3: Chatbot (0 when closed, expands when open) */
+      grid-template-rows: auto 1fr;                /* Row 1: Topbar, Row 2: Content shell */
       height: 100vh;
       overflow: hidden;
       margin: 0;
-      transition: grid-template-columns 0.3s ease;
-      /* Smooth animation when chatbot opens/closes, but disabled during resize */
+      transition: grid-template-columns 0.3s ease; /* Smooth animation when chatbot opens/closes */
     }
 
-    /* Top navbar is its own layer (spans all columns, does NOT scroll/shrink) */
+    /* Top navbar spans all columns, positioned outside scroll container */
     .navbar-top {
       grid-column: 1 / -1;
       grid-row: 1;
       position: relative;
-      /* no fixed/sticky; it's outside the scroll container */
       z-index: 1030;
       height: 50px !important;
-      /* Compact height for titlebar */
       min-height: 50px !important;
-      -webkit-app-region: drag;
-      /* Make entire bar draggable */
-      padding-right: 140px;
-      /* Space for Window Controls */
+      -webkit-app-region: drag;                    /* Make entire bar draggable for Electron */
+      padding-right: 140px;                         /* Space for Window Controls */
       padding-left: 10px;
       background-color: var(--phoenix-body-bg);
-      /* Match theme background */
     }
 
     /* Make interactive elements clickable (not draggable) */
@@ -123,7 +111,7 @@
       -webkit-app-region: no-drag;
     }
 
-    /* Adjust logo/brand alignment for 40px height */
+    /* Adjust logo/brand alignment for compact 50px height */
     .navbar-top .navbar-brand {
       margin-right: 1rem;
       padding-top: 0;
@@ -136,7 +124,7 @@
       height: 100%;
     }
 
-    /* Main container - spans columns 1-2 on row 2 */
+    /* Main container - spans columns 1-2 on row 2, contains sidebar and viewport */
     main.main {
       grid-column: 1 / 3;
       grid-row: 2;
@@ -148,7 +136,7 @@
       overflow: hidden;
     }
 
-    /* Viewport container - Column 2 (scrollable) */
+    /* Viewport container - Column 2 (scrollable content area) */
     .viewport-scrolls {
       grid-column: 2;
       display: flex;
@@ -160,25 +148,19 @@
       position: relative;
     }
 
-    /* Content area */
+    /* Content area - flex child of viewport-scrolls */
     .content {
       flex: 1;
       min-width: 0;
       overflow: visible;
-      /* NOTE: we avoid using margins for expanded-mode horizontal scroll because
-           margins create "blank space" at scroll end. Instead we widen content
-           via min-width using --chatbot-excess. */
       transition: min-width 0.2s ease;
+      /* Note: margins create blank space at scroll end, so we use min-width with --chatbot-excess instead */
     }
 
-    /* Phoenix default assumes a fixed top navbar and adds:
-         .content { padding-top: calc(var(--phoenix-navbar-top-height) + 2rem); }
-         Since our topbar is now a real grid row, that becomes an unwanted gap.
-         Override with the same padding but WITHOUT the navbar height. */
+    /* Override Phoenix default padding (removes navbar-top-height since topbar is now a grid row) */
     .viewport-scrolls>.content {
       min-height: auto !important;
       padding: 1rem 1.5rem 6rem 1.5rem !important;
-      /* Reduced top padding */
       padding-bottom: 6rem !important;
     }
 
@@ -187,344 +169,344 @@
         padding-bottom: 4rem !important;
       }
     }
-
   </style>
 </head>
 
-
 <body>
-
-  <!-- ===============================================-->
-  <!--    Main Content-->
-  <!-- ===============================================-->
-
+  <!-- Main Application Root - CSS Grid Container -->
   <div id="app-root">
-    <!-- Top Navbar / Title Bar (Moved outside main) -->
+    <!-- Top Navbar / Title Bar - Spans all columns, positioned outside scroll container -->
     <nav class="navbar navbar-top navbar-expand" id="navbarDefault">
-    <div class="collapse navbar-collapse justify-content-between">
-      <div class="navbar-logo">
-
-        <button class="btn navbar-toggler navbar-toggler-humburger-icon hover-bg-transparent" type="button"
-          data-bs-toggle="collapse" data-bs-target="#navbarVerticalCollapse" aria-controls="navbarVerticalCollapse"
-          aria-expanded="false" aria-label="Toggle Navigation"><span class="navbar-toggle-icon"><span
-              class="toggle-line"></span></span></button>
-        <a class="navbar-brand me-1 me-sm-3" href="../index.html">
-          <div class="d-flex align-items-center">
-            <div class="d-flex align-items-center"><img src="../assets/img/icons/logo.png" alt="phoenix" width="27" />
-              <h5 class="logo-text ms-2 d-none d-sm-block">phoenix</h5>
-            </div>
-          </div>
-        </a>
-      </div>
-      <div class="search-box navbar-top-search-box d-none d-lg-block" data-list='{"valueNames":["title"]}'
-        style="width:25rem;">
-        <form class="position-relative" data-bs-toggle="search" data-bs-display="static">
-          <input class="form-control search-input fuzzy-search rounded-pill form-control-sm" type="search"
-            placeholder="Search..." aria-label="Search" />
-          <span class="fas fa-search search-box-icon"></span>
-
-        </form>
-
-      </div>
-      <ul class="navbar-nav navbar-nav-icons flex-row">
-        <li class="nav-item">
-          <div class="theme-control-toggle fa-icon-wait px-2">
-            <input class="form-check-input ms-0 theme-control-toggle-input" type="checkbox"
-              data-theme-control="phoenixTheme" value="dark" id="themeControlToggle" />
-            <label class="mb-0 theme-control-toggle-label theme-control-toggle-light" for="themeControlToggle"
-              data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Switch theme"
-              style="height:32px;width:32px;"><span class="icon" data-feather="moon"></span></label>
-            <label class="mb-0 theme-control-toggle-label theme-control-toggle-dark" for="themeControlToggle"
-              data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Switch theme"
-              style="height:32px;width:32px;"><span class="icon" data-feather="sun"></span></label>
-          </div>
-        </li>
-        <li class="nav-item">
-          <button class="btn btn-link nav-link p-2" id="reload-cameras-btn" data-bs-toggle="tooltip"
-            data-bs-placement="left" data-bs-title="Reload cameras" style="height:32px;width:32px;" type="button">
-            <span class="icon" data-feather="refresh-cw"></span>
+      <div class="collapse navbar-collapse justify-content-between">
+        <!-- Left: Logo and Sidebar Toggle -->
+        <div class="navbar-logo">
+          <button class="btn navbar-toggler navbar-toggler-humburger-icon hover-bg-transparent" type="button"
+            data-bs-toggle="collapse" data-bs-target="#navbarVerticalCollapse" aria-controls="navbarVerticalCollapse"
+            aria-expanded="false" aria-label="Toggle Navigation">
+            <span class="navbar-toggle-icon"><span class="toggle-line"></span></span>
           </button>
-        </li>
-        <li class="nav-item d-lg-none"><a class="nav-link" href="#" data-bs-toggle="modal"
-            data-bs-target="#searchBoxModal"><span data-feather="search"
-              style="height:19px;width:19px;margin-bottom: 2px;"></span></a></li>
-        <li class="nav-item dropdown">
-          <a class="nav-link position-relative" id="vision-notif-bell" href="#" style="min-width: 2.25rem" role="button"
-            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-bs-auto-close="outside">
-            <span class="d-block" style="height:20px;width:20px;"><span data-feather="bell"
-                style="height:20px;width:20px;"></span></span>
-            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
-              id="vision-notif-badge">0</span>
-          </a>
-
-          <div
-            class="dropdown-menu dropdown-menu-end notification-dropdown-menu py-0 shadow border navbar-dropdown-caret"
-            id="navbarDropdownNotfication" aria-labelledby="navbarDropdownNotfication">
-            <div class="card position-relative border-0">
-              <div class="card-header p-2">
-                <div class="d-flex justify-content-between">
-                  <h5 class="text-body-emphasis mb-0">Notifications</h5>
-                  <button class="btn btn-link p-0 fs-9 fw-normal" type="button" id="vision-notif-mark-read">Mark all as
-                    read</button>
-                </div>
+          <a class="navbar-brand me-1 me-sm-3" href="../index.html">
+            <div class="d-flex align-items-center">
+              <div class="d-flex align-items-center">
+                <img src="../assets/img/icons/logo.png" alt="phoenix" width="27" />
+                <h5 class="logo-text ms-2 d-none d-sm-block">phoenix</h5>
               </div>
-              <div class="card-body p-0">
-                <div class="scrollbar-overlay" style="height: 27rem;" id="vision-notif-list">
-                  <div class="px-3 py-3 text-body-tertiary fs-9" id="vision-notif-empty">No notifications yet.</div>
-                </div>
-              </div>
-              <div class="card-footer p-0 border-top border-translucent border-0">
-                <div class="my-2 text-center fw-bold fs-10 text-body-tertiary text-opactity-85"><a class="fw-bolder"
-                    href="../pages/notifications.html">Notification history</a></div>
-              </div>
-            </div>
-          </div>
-        </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link" id="navbarDropdownNindeDots" href="#" role="button" data-bs-toggle="dropdown"
-            aria-haspopup="true" data-bs-auto-close="outside" aria-expanded="false">
-            <svg width="16" height="16" viewbox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="2" cy="2" r="2" fill="currentColor"></circle>
-              <circle cx="2" cy="8" r="2" fill="currentColor"></circle>
-              <circle cx="2" cy="14" r="2" fill="currentColor"></circle>
-              <circle cx="8" cy="8" r="2" fill="currentColor"></circle>
-              <circle cx="8" cy="14" r="2" fill="currentColor"></circle>
-              <circle cx="14" cy="8" r="2" fill="currentColor"></circle>
-              <circle cx="14" cy="14" r="2" fill="currentColor"></circle>
-              <circle cx="8" cy="2" r="2" fill="currentColor"></circle>
-              <circle cx="14" cy="2" r="2" fill="currentColor"></circle>
-            </svg></a>
-
-          <div class="dropdown-menu dropdown-menu-end navbar-dropdown-caret py-0 dropdown-nine-dots shadow border"
-            aria-labelledby="navbarDropdownNindeDots">
-            <div class="card bg-body-emphasis position-relative border-0">
-              <div class="card-body pt-3 px-3 pb-0 overflow-auto scrollbar" style="height: 20rem;">
-                <div class="row text-center align-items-center gx-0 gy-0">
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/behance.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Behance</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/google-cloud.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Cloud</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/slack.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Slack</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/gitlab.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Gitlab</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/bitbucket.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">BitBucket</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/google-drive.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Drive</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/trello.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Trello</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/figma.webp" alt="" width="20" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Figma</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/twitter.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Twitter</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/pinterest.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Pinterest</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/ln.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Linkedin</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/google-maps.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Maps</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/google-photos.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Photos</p>
-                    </a></div>
-                  <div class="col-4"><a
-                      class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
-                      href="#!"><img src="../assets/img/nav-icons/spotify.webp" alt="" width="30" />
-                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Spotify</p>
-                    </a></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </li>
-        <li class="nav-item dropdown"><a class="nav-link lh-1 pe-0" id="navbarDropdownUser" href="#!" role="button"
-            data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-haspopup="true" aria-expanded="false">
-            <div class="avatar avatar-l ">
-              <img class="rounded-circle " src="../assets/img/team/40x40/57.webp" alt="" id="user-avatar-small" />
-
             </div>
           </a>
-          <div class="dropdown-menu dropdown-menu-end navbar-dropdown-caret py-0 dropdown-profile shadow border"
-            aria-labelledby="navbarDropdownUser">
-            <div class="card position-relative border-0">
-              <div class="card-body p-0">
-                <div class="text-center pt-4 pb-3">
-                  <div class="avatar avatar-xl ">
-                    <img class="rounded-circle " src="../assets/img/team/72x72/57.webp" alt="" id="user-avatar-large" />
-
-                  </div>
-                  <h6 class="mt-2 text-body-emphasis" id="user-name">Guest User</h6>
-                  <p class="text-body-tertiary fs-9 mb-0" id="user-email">Not logged in</p>
-                </div>
-                <div class="mb-3 mx-3">
-                  <input class="form-control form-control-sm" id="statusUpdateInput" type="text"
-                    placeholder="Update your status" />
-                </div>
-              </div>
-              <div class="overflow-auto scrollbar" style="height: 10rem;">
-                <ul class="nav d-flex flex-column mb-2 pb-1">
-                  <li class="nav-item"><a class="nav-link px-3 d-block" href="#!"> <span
-                        class="me-2 text-body align-bottom" data-feather="user"></span><span>Profile</span></a></li>
-                  <li class="nav-item"><a class="nav-link px-3 d-block" href="#!"><span
-                        class="me-2 text-body align-bottom" data-feather="pie-chart"></span>Dashboard</a></li>
-                  <li class="nav-item"><a class="nav-link px-3 d-block" href="#!"> <span
-                        class="me-2 text-body align-bottom" data-feather="lock"></span>Posts &amp; Activity</a></li>
-                  <li class="nav-item"><a class="nav-link px-3 d-block" href="../pages/settings/general.html"> <span
-                        class="me-2 text-body align-bottom" data-feather="settings"></span>Settings &amp; Privacy </a>
-                  </li>
-                  <li class="nav-item"><a class="nav-link px-3 d-block" href="#!"> <span
-                        class="me-2 text-body align-bottom" data-feather="help-circle"></span>Help Center</a></li>
-                  <li class="nav-item"><a class="nav-link px-3 d-block" href="#!"> <span
-                        class="me-2 text-body align-bottom" data-feather="globe"></span>Language</a></li>
-                </ul>
-              </div>
-              <div class="card-footer p-0 border-top border-translucent">
-                <ul class="nav d-flex flex-column my-3">
-                  <li class="nav-item"><a class="nav-link px-3 d-block" href="#!"> <span
-                        class="me-2 text-body align-bottom" data-feather="user-plus"></span>Add another account</a></li>
-                </ul>
-                <hr />
-                <div class="px-3"> <a class="btn btn-phoenix-secondary d-flex flex-center w-100" href="#!"
-                    id="logout-btn"> <span class="me-2" data-feather="log-out"> </span>Sign out</a></div>
-                <div class="my-2 text-center fw-bold fs-10 text-body-quaternary"><a class="text-body-quaternary me-1"
-                    href="#!">Privacy policy</a>&bull;<a class="text-body-quaternary mx-1" href="#!">Terms</a>&bull;<a
-                    class="text-body-quaternary ms-1" href="#!">Cookies</a></div>
-              </div>
-            </div>
-          </div>
-        </li>
-      </ul>
-    </div>
-  </nav>
-
-  <main class="main" id="top">
-    <nav class="navbar navbar-vertical navbar-expand-lg">
-      <div class="collapse navbar-collapse" id="navbarVerticalCollapse">
-        <!-- scrollbar removed-->
-        <div class="navbar-vertical-content">
-          <ul class="navbar-nav flex-column" id="navbarVerticalNav">
-            <li class="nav-item">
-              <!-- parent pages-->
-              <div class="nav-item-wrapper"><a class="nav-link dropdown-indicator label-1" href="#nv-home" role="button"
-                  data-bs-toggle="collapse" aria-expanded="false" aria-controls="nv-home">
-                  <div class="d-flex align-items-center">
-                    <div class="dropdown-indicator-icon-wrapper"><span
-                        class="fas fa-caret-right dropdown-indicator-icon"></span></div><span
-                      class="nav-link-icon"><span data-feather="pie-chart"></span></span><span
-                      class="nav-link-text">Home</span>
-                  </div>
-                </a>
-                <div class="parent-wrapper label-1">
-                  <ul class="nav collapse parent" data-bs-parent="#navbarVerticalCollapse" id="nv-home">
-                    <li class="collapsed-nav-item-title d-none">Home
-                    </li>
-                    <li class="nav-item"><a class="nav-link" href="../pages/dashboard.html">
-                        <div class="d-flex align-items-center"><span class="nav-link-text">Dashboard</span>
-                        </div>
-                      </a>
-                  </ul>
-                </div>
-              </div>
-            </li>
-            <li class="nav-item">
-              <!-- label-->
-              <p class="navbar-vertical-label">Apps
-              </p>
-              <hr class="navbar-vertical-line" />
-
-              <!-- parent pages-->
-              <div class="nav-item-wrapper"><a class="nav-link dropdown-indicator label-1" href="#nv-events"
-                  role="button" data-bs-toggle="collapse" aria-expanded="false" aria-controls="nv-events">
-                  <div class="d-flex align-items-center">
-                    <div class="dropdown-indicator-icon-wrapper"><span
-                        class="fas fa-caret-right dropdown-indicator-icon"></span></div><span
-                      class="nav-link-icon"><span data-feather="bookmark"></span></span><span
-                      class="nav-link-text">Events</span>
-                  </div>
-                </a>
-                <div class="parent-wrapper label-1">
-                  <ul class="nav collapse parent" data-bs-parent="#navbarVerticalCollapse" id="nv-events">
-                    <li class="collapsed-nav-item-title d-none">Events
-                    </li>
-                    <li class="nav-item"><a class="nav-link" href="../pages/events-board.html">
-                        <div class="d-flex align-items-center"><span class="nav-link-text">Events Board</span>
-                        </div>
-                      </a>
-                      <!-- more inner pages-->
-                    </li>
-                    <li class="nav-item"><a class="nav-link" href="../apps/events/create-an-event.html">
-                        <div class="d-flex align-items-center"><span class="nav-link-text">Create an event</span>
-                        </div>
-                      </a>
-                      <!-- more inner pages-->
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </li>
-          </ul>
         </div>
-      </div>
-      <div class="navbar-vertical-footer">
-        <button
-          class="btn navbar-vertical-toggle border-0 fw-semibold w-100 white-space-nowrap d-flex align-items-center"><span
-            class="uil uil-left-arrow-to-left fs-8"></span><span class="uil uil-arrow-from-right fs-8"></span><span
-            class="navbar-vertical-footer-text ms-2">Collapsed View</span></button>
+
+        <!-- Center: Search Box (hidden on mobile) -->
+        <div class="search-box navbar-top-search-box d-none d-lg-block" data-list='{"valueNames":["title"]}'
+          style="width:25rem;">
+          <form class="position-relative" data-bs-toggle="search" data-bs-display="static">
+            <input class="form-control search-input fuzzy-search rounded-pill form-control-sm" type="search"
+              placeholder="Search..." aria-label="Search" />
+            <span class="fas fa-search search-box-icon"></span>
+          </form>
+        </div>
+
+        <!-- Right: Action Icons and User Menu -->
+        <ul class="navbar-nav navbar-nav-icons flex-row">
+          <!-- Theme Toggle (Light/Dark Mode) -->
+          <li class="nav-item">
+            <div class="theme-control-toggle fa-icon-wait px-2">
+              <input class="form-check-input ms-0 theme-control-toggle-input" type="checkbox"
+                data-theme-control="phoenixTheme" value="dark" id="themeControlToggle" />
+              <label class="mb-0 theme-control-toggle-label theme-control-toggle-light" for="themeControlToggle"
+                data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Switch theme"
+                style="height:32px;width:32px;"><span class="icon" data-feather="moon"></span></label>
+              <label class="mb-0 theme-control-toggle-label theme-control-toggle-dark" for="themeControlToggle"
+                data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Switch theme"
+                style="height:32px;width:32px;"><span class="icon" data-feather="sun"></span></label>
+            </div>
+          </li>
+
+          <!-- Reload Cameras Button -->
+          <li class="nav-item">
+            <button class="btn btn-link nav-link p-2" id="reload-cameras-btn" data-bs-toggle="tooltip"
+              data-bs-placement="left" data-bs-title="Reload cameras" style="height:32px;width:32px;" type="button">
+              <span class="icon" data-feather="refresh-cw"></span>
+            </button>
+          </li>
+
+          <!-- Mobile Search Icon (shown on small screens) -->
+          <li class="nav-item d-lg-none">
+            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#searchBoxModal">
+              <span data-feather="search" style="height:19px;width:19px;margin-bottom: 2px;"></span>
+            </a>
+          </li>
+
+          <!-- Notifications Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link position-relative" id="vision-notif-bell" href="#" style="min-width: 2.25rem" role="button"
+              data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-bs-auto-close="outside">
+              <span class="d-block" style="height:20px;width:20px;">
+                <span data-feather="bell" style="height:20px;width:20px;"></span>
+              </span>
+              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                id="vision-notif-badge">0</span>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end notification-dropdown-menu py-0 shadow border navbar-dropdown-caret"
+              id="navbarDropdownNotfication" aria-labelledby="navbarDropdownNotfication">
+              <div class="card position-relative border-0">
+                <div class="card-header p-2">
+                  <div class="d-flex justify-content-between">
+                    <h5 class="text-body-emphasis mb-0">Notifications</h5>
+                    <button class="btn btn-link p-0 fs-9 fw-normal" type="button" id="vision-notif-mark-read">Mark all as
+                      read</button>
+                  </div>
+                </div>
+                <div class="card-body p-0">
+                  <div class="scrollbar-overlay" style="height: 27rem;" id="vision-notif-list">
+                    <div class="px-3 py-3 text-body-tertiary fs-9" id="vision-notif-empty">No notifications yet.</div>
+                  </div>
+                </div>
+                <div class="card-footer p-0 border-top border-translucent border-0">
+                  <div class="my-2 text-center fw-bold fs-10 text-body-tertiary text-opactity-85">
+                    <a class="fw-bolder" href="../pages/notifications.html">Notification history</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <!-- Nine Dots Menu (Quick Links) -->
+          <li class="nav-item dropdown">
+            <a class="nav-link" id="navbarDropdownNindeDots" href="#" role="button" data-bs-toggle="dropdown"
+              aria-haspopup="true" data-bs-auto-close="outside" aria-expanded="false">
+              <svg width="16" height="16" viewbox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="2" cy="2" r="2" fill="currentColor"></circle>
+                <circle cx="2" cy="8" r="2" fill="currentColor"></circle>
+                <circle cx="2" cy="14" r="2" fill="currentColor"></circle>
+                <circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+                <circle cx="8" cy="14" r="2" fill="currentColor"></circle>
+                <circle cx="14" cy="8" r="2" fill="currentColor"></circle>
+                <circle cx="14" cy="14" r="2" fill="currentColor"></circle>
+                <circle cx="8" cy="2" r="2" fill="currentColor"></circle>
+                <circle cx="14" cy="2" r="2" fill="currentColor"></circle>
+              </svg>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end navbar-dropdown-caret py-0 dropdown-nine-dots shadow border"
+              aria-labelledby="navbarDropdownNindeDots">
+              <div class="card bg-body-emphasis position-relative border-0">
+                <div class="card-body pt-3 px-3 pb-0 overflow-auto scrollbar" style="height: 20rem;">
+                  <div class="row text-center align-items-center gx-0 gy-0">
+                    <!-- Quick Link Items (placeholder content) -->
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/behance.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Behance</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/google-cloud.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Cloud</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/slack.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Slack</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/gitlab.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Gitlab</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/bitbucket.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">BitBucket</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/google-drive.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Drive</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/trello.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Trello</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/figma.webp" alt="" width="20" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Figma</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/twitter.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Twitter</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/pinterest.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Pinterest</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/ln.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Linkedin</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/google-maps.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Maps</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/google-photos.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Photos</p>
+                      </a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3"
+                        href="#!"><img src="../assets/img/nav-icons/spotify.webp" alt="" width="30" />
+                        <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Spotify</p>
+                      </a></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <!-- User Profile Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link lh-1 pe-0" id="navbarDropdownUser" href="#!" role="button"
+              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-haspopup="true" aria-expanded="false">
+              <div class="avatar avatar-l ">
+                <img class="rounded-circle " src="../assets/img/team/40x40/57.webp" alt="" id="user-avatar-small" />
+              </div>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end navbar-dropdown-caret py-0 dropdown-profile shadow border"
+              aria-labelledby="navbarDropdownUser">
+              <div class="card position-relative border-0">
+                <div class="card-body p-0">
+                  <div class="text-center pt-4 pb-3">
+                    <div class="avatar avatar-xl ">
+                      <img class="rounded-circle " src="../assets/img/team/72x72/57.webp" alt="" id="user-avatar-large" />
+                    </div>
+                    <h6 class="mt-2 text-body-emphasis" id="user-name">Guest User</h6>
+                    <p class="text-body-tertiary fs-9 mb-0" id="user-email">Not logged in</p>
+                  </div>
+                  <div class="mb-3 mx-3">
+                    <input class="form-control form-control-sm" id="statusUpdateInput" type="text"
+                      placeholder="Update your status" />
+                  </div>
+                </div>
+                <div class="overflow-auto scrollbar" style="height: 10rem;">
+                  <ul class="nav d-flex flex-column mb-2 pb-1">
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                        <span class="me-2 text-body align-bottom" data-feather="user"></span><span>Profile</span></a></li>
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                        <span class="me-2 text-body align-bottom" data-feather="pie-chart"></span>Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                        <span class="me-2 text-body align-bottom" data-feather="lock"></span>Posts &amp; Activity</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="../pages/settings/general.html">
+                        <span class="me-2 text-body align-bottom" data-feather="settings"></span>Settings &amp; Privacy </a>
+                    </li>
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                        <span class="me-2 text-body align-bottom" data-feather="help-circle"></span>Help Center</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                        <span class="me-2 text-body align-bottom" data-feather="globe"></span>Language</a></li>
+                  </ul>
+                </div>
+                <div class="card-footer p-0 border-top border-translucent">
+                  <ul class="nav d-flex flex-column my-3">
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                        <span class="me-2 text-body align-bottom" data-feather="user-plus"></span>Add another account</a></li>
+                  </ul>
+                  <hr />
+                  <div class="px-3">
+                    <a class="btn btn-phoenix-secondary d-flex flex-center w-100" href="#!" id="logout-btn">
+                      <span class="me-2" data-feather="log-out"> </span>Sign out</a>
+                  </div>
+                  <div class="my-2 text-center fw-bold fs-10 text-body-quaternary">
+                    <a class="text-body-quaternary me-1" href="#!">Privacy policy</a>&bull;
+                    <a class="text-body-quaternary mx-1" href="#!">Terms</a>&bull;
+                    <a class="text-body-quaternary ms-1" href="#!">Cookies</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+        </ul>
       </div>
     </nav>
-    <div class="viewport-scrolls">
-      <!-- navbar-top removed from here -->
-    </div>
-  </main>
-  <!-- ===============================================-->
-  <!--    End of Main Content-->
-  <!-- ===============================================-->
 
-    <!-- Chatbot Component - Included from separate file -->
+    <!-- Main Content Area - Contains Sidebar and Viewport -->
+    <main class="main" id="top">
+      <!-- Vertical Sidebar Navigation -->
+      <nav class="navbar navbar-vertical navbar-expand-lg">
+        <div class="collapse navbar-collapse" id="navbarVerticalCollapse">
+          <div class="navbar-vertical-content">
+            <ul class="navbar-nav flex-column" id="navbarVerticalNav">
+              <!-- Home Section -->
+              <li class="nav-item">
+                <div class="nav-item-wrapper">
+                  <a class="nav-link dropdown-indicator label-1" href="#nv-home" role="button"
+                    data-bs-toggle="collapse" aria-expanded="false" aria-controls="nv-home">
+                    <div class="d-flex align-items-center">
+                      <div class="dropdown-indicator-icon-wrapper">
+                        <span class="fas fa-caret-right dropdown-indicator-icon"></span>
+                      </div>
+                      <span class="nav-link-icon"><span data-feather="pie-chart"></span></span>
+                      <span class="nav-link-text">Home</span>
+                    </div>
+                  </a>
+                  <div class="parent-wrapper label-1">
+                    <ul class="nav collapse parent" data-bs-parent="#navbarVerticalCollapse" id="nv-home">
+                      <li class="collapsed-nav-item-title d-none">Home</li>
+                      <li class="nav-item">
+                        <a class="nav-link" href="../pages/dashboard.html">
+                          <div class="d-flex align-items-center"><span class="nav-link-text">Dashboard</span></div>
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </li>
+
+              <!-- Apps Section -->
+              <li class="nav-item">
+                <p class="navbar-vertical-label">Apps</p>
+                <hr class="navbar-vertical-line" />
+                <div class="nav-item-wrapper">
+                  <a class="nav-link dropdown-indicator label-1" href="#nv-events" role="button"
+                    data-bs-toggle="collapse" aria-expanded="false" aria-controls="nv-events">
+                    <div class="d-flex align-items-center">
+                      <div class="dropdown-indicator-icon-wrapper">
+                        <span class="fas fa-caret-right dropdown-indicator-icon"></span>
+                      </div>
+                      <span class="nav-link-icon"><span data-feather="bookmark"></span></span>
+                      <span class="nav-link-text">Events</span>
+                    </div>
+                  </a>
+                  <div class="parent-wrapper label-1">
+                    <ul class="nav collapse parent" data-bs-parent="#navbarVerticalCollapse" id="nv-events">
+                      <li class="collapsed-nav-item-title d-none">Events</li>
+                      <li class="nav-item">
+                        <a class="nav-link" href="../pages/events-board.html">
+                          <div class="d-flex align-items-center"><span class="nav-link-text">Events Board</span></div>
+                        </a>
+                      </li>
+                      <li class="nav-item">
+                        <a class="nav-link" href="../apps/events/create-an-event.html">
+                          <div class="d-flex align-items-center"><span class="nav-link-text">Create an event</span></div>
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <!-- Sidebar Footer - Collapse Toggle Button -->
+        <div class="navbar-vertical-footer">
+          <button class="btn navbar-vertical-toggle border-0 fw-semibold w-100 white-space-nowrap d-flex align-items-center">
+            <span class="uil uil-left-arrow-to-left fs-8"></span>
+            <span class="uil uil-arrow-from-right fs-8"></span>
+            <span class="navbar-vertical-footer-text ms-2">Collapsed View</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Viewport Container - Scrollable content area (page content goes here) -->
+      <div class="viewport-scrolls">
+        <!-- Page content is injected here by layout-loader.js -->
+      </div>
+    </main>
+
+    <!-- Chatbot Container - Component loaded dynamically via JavaScript -->
     <div id="chatbot-container"></div>
   </div>
 
-  <!-- ===============================================-->
-  <!--    JavaScripts-->
-  <!-- ===============================================-->
+  <!-- Vendor JavaScript Libraries -->
   <script src="../vendors/popper/popper.min.js"></script>
   <script src="../vendors/bootstrap/bootstrap.min.js"></script>
   <script src="../vendors/anchorjs/anchor.min.js"></script>
@@ -541,7 +523,7 @@
   <script src="../vendors/echarts/echarts.min.js"></script>
   <script src="../assets/js/dashboards/ecommerce-dashboard.js"></script>
 
-  <!-- Load Chatbot Component -->
+  <!-- Chatbot Component Loader - Dynamically loads chatbot.html based on page depth -->
   <script>
     (function () {
       'use strict';
@@ -553,17 +535,17 @@
           return '/layout/chatbot.html';
         }
 
-        // Calculate page depth (same as layout-loader.js)
+        // Calculate page depth from current path
         const path = window.location.pathname;
         const parts = path.split('/').filter(p => p && p !== 'index.html');
         const directories = parts.filter(p => !p.endsWith('.html'));
         const pageDepth = directories.length;
 
-        // chatbot.html is in the same directory as side_navbar.html (layout/)
-        // So use the same relative path logic: ../layout/ for 1 level, ../../layout/ for 2 levels, etc.
+        // chatbot.html is in layout/ directory, use relative path based on depth
         return '../'.repeat(pageDepth) + 'layout/chatbot.html';
       }
 
+      // Load chatbot component HTML and inject into container
       function loadChatbot() {
         const chatbotContainer = document.getElementById('chatbot-container');
         if (!chatbotContainer) {
@@ -603,7 +585,7 @@
       // Wait for DOM and other scripts to be ready before loading chatbot
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
-          // Wait a bit more for layout-loader and other scripts to finish
+          // Wait for layout-loader and other scripts to finish
           setTimeout(loadChatbot, 500);
         });
       } else {
@@ -613,7 +595,7 @@
     })();
   </script>
 
-  <!-- Load API Service, Toast Service, then Auth Guard -->
+  <!-- Application Services - Loaded after vendor scripts -->
   <script src="../custom_js/api-service.js"></script>
   <script src="../custom_js/toast-service.js"></script>
   <script src="../custom_js/auth-guard.js"></script>
