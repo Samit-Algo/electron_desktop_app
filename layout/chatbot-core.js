@@ -528,6 +528,24 @@
       return true;
     }
 
+    // Replace the text content of the last user bubble
+    function replaceLastUserBubbleText(newText) {
+      const trimmed = (newText || '').trim();
+      if (!trimmed) return false;
+      
+      // Find the last user message wrapper
+      const userWrappers = messagesEl.querySelectorAll('.user-message-wrapper');
+      if (userWrappers.length === 0) return false;
+      
+      const lastWrapper = userWrappers[userWrappers.length - 1];
+      const messageEl = lastWrapper.querySelector('.user-message');
+      if (!messageEl) return false;
+      
+      // Replace text content
+      messageEl.textContent = trimmed;
+      return true;
+    }
+
     // Delegate flow diagram rendering to ChatbotFlowDiagram module
     async function renderFlowDiagram(pendingId, flowDiagramData) {
       if (window.ChatbotFlowDiagram && typeof ChatbotFlowDiagram.renderFlowDiagram === 'function') {
@@ -869,8 +887,10 @@
       getMode,
       messagesEl,
       appendUserBubble,
+      replaceLastUserBubbleText,
       appendAssistantPending,
       replaceAssistantPending,
+      updateAssistantPendingText,
       saveActiveHtml,
       chatbotOffcanvas,
       sendBtn,

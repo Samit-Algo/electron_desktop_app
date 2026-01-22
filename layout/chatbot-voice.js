@@ -20,6 +20,7 @@
   let listeningHasHeardSpeech = false;
   let utteranceSilenceMs = 0;
   let lastUserVoiceActivityTs = 0;
+  let speechDurationMs = 0; // Track duration of detected speech
 
   // Recording state
   let isVoiceRecording = false;
@@ -49,8 +50,10 @@
   let getMode = null;
   let messagesEl = null;
   let appendUserBubble = null;
+  let replaceLastUserBubbleText = null;
   let appendAssistantPending = null;
   let replaceAssistantPending = null;
+  let updateAssistantPendingText = null;
   let saveActiveHtml = null;
   let chatbotOffcanvas = null;
   let sendBtn = null;
@@ -171,9 +174,12 @@
       listeningHasHeardSpeech = false;
       utteranceSilenceMs = 0;
       lastUserVoiceActivityTs = 0;
+      speechDurationMs = 0;
     }
 
     // Track when speaking ends for cooldown period
+    // Note: We now transition from SPEAKING to LISTENING (not IDLE), so this may not trigger
+    // But keep it for backward compatibility
     if (prev === VOICE_STATE.SPEAKING && next === VOICE_STATE.IDLE) {
       lastSpeakingEndedAt = performance.now();
     }
@@ -254,40 +260,38 @@
 
         // During listening: detect speech and silence for auto-stop
         if (voiceState === VOICE_STATE.LISTENING) {
-          const speechThreshold = 0.18;
+          const speechThreshold = 0.45; // Increased from 0.30 to further reduce false positives from small sounds
+          const MIN_SPEECH_DURATION_MS = 400; // Require at least 400ms of sustained speech before considering it valid
           const nowMs = nowTs;
 
           if (n > speechThreshold) {
-            // Speech detected: reset silence timer
-            listeningHasHeardSpeech = true;
+            // Speech detected: accumulate speech duration
+            speechDurationMs += dt;
             utteranceSilenceMs = 0;
             lastUserVoiceActivityTs = nowMs;
-          } else if (listeningHasHeardSpeech) {
-            // Silence after speech: accumulate silence time
-            utteranceSilenceMs += dt;
-            const UTTERANCE_SILENCE_LIMIT_MS = 1200;
-            if (utteranceSilenceMs >= UTTERANCE_SILENCE_LIMIT_MS) {
-              // Auto-stop after 1.2s of silence
-              listeningHasHeardSpeech = false;
-              utteranceSilenceMs = 0;
-              if (voiceState === VOICE_STATE.LISTENING) {
-                stopVoiceRecordingAndSend().catch(() => { });
+            
+            // Only mark as valid speech if it's been detected for minimum duration
+            if (speechDurationMs >= MIN_SPEECH_DURATION_MS) {
+              listeningHasHeardSpeech = true;
+            }
+          } else {
+            // Below threshold: reset speech duration counter
+            speechDurationMs = 0;
+            
+            if (listeningHasHeardSpeech) {
+              // Silence after speech: accumulate silence time
+              utteranceSilenceMs += dt;
+              const UTTERANCE_SILENCE_LIMIT_MS = 1200;
+              if (utteranceSilenceMs >= UTTERANCE_SILENCE_LIMIT_MS) {
+                // Auto-stop after 1.2s of silence
+                utteranceSilenceMs = 0;
+                if (voiceState === VOICE_STATE.LISTENING) {
+                  stopVoiceRecordingAndSend().catch(() => { });
+                }
               }
             }
           }
 
-          // Auto-stop if no activity for 30 seconds
-          if (lastUserVoiceActivityTs) {
-            const SESSION_IDLE_LIMIT_MS = 30000;
-            if ((nowMs - lastUserVoiceActivityTs) >= SESSION_IDLE_LIMIT_MS) {
-              lastUserVoiceActivityTs = 0;
-              listeningHasHeardSpeech = false;
-              utteranceSilenceMs = 0;
-              if (isVoiceAssistantActive()) {
-                stopVoiceAssistantCompletely().catch(() => { });
-              }
-            }
-          }
         }
 
         analyserRaf = requestAnimationFrame(frame);
@@ -435,12 +439,12 @@
         lastTs = nowTs;
 
         // Accumulate speech duration if above threshold
-        const gate = 0.03;
+        const gate = 0.06; // Increased from 0.06 to further reduce false positives from small sounds
         if (rms > gate) bargeSpeechMs += dt;
         else bargeSpeechMs = 0;
 
-        // Trigger barge-in if speech detected for 230ms
-        const BARGE_IN_MS = 230;
+        // Trigger barge-in if speech detected for 700ms (increased from 500ms to require longer sustained speech)
+        const BARGE_IN_MS = 700;
         if (bargeSpeechMs >= BARGE_IN_MS) {
           try {
             if (speakingAudio) {
@@ -450,7 +454,8 @@
           } catch (_) { }
           speakingAudio = null;
           stopBargeInDetector();
-          setVoiceState(VOICE_STATE.IDLE);
+          // On barge-in, go to LISTENING state (not IDLE) - keep voice assistant active
+          setVoiceState(VOICE_STATE.LISTENING);
           startVoiceRecording().catch(() => { });
           return;
         }
@@ -543,6 +548,7 @@
     listeningHasHeardSpeech = false;
     utteranceSilenceMs = 0;
     lastUserVoiceActivityTs = 0;
+    speechDurationMs = 0;
     setVoiceState(VOICE_STATE.LISTENING);
     startOrbAudioReactive(stream);
   }
@@ -550,6 +556,32 @@
   // Stop recording and send audio to backend for processing
   async function stopVoiceRecordingAndSend() {
     if (!voiceRecorder || !getActive || !getMode || !messagesEl || !appendUserBubble || !appendAssistantPending || !saveActiveHtml) return;
+    
+    // If no speech was detected, just stop recording without sending to backend
+    // But keep voice assistant active (LISTENING) for next attempt
+    if (!listeningHasHeardSpeech) {
+      const stopped = new Promise(resolve => {
+        voiceRecorder.addEventListener('stop', resolve, { once: true });
+      });
+      voiceRecorder.stop();
+      stopOrbAudioReactive();
+      await stopped;
+      
+      isVoiceRecording = false;
+      if (voiceStream) {
+        try { voiceStream.getTracks().forEach(t => t.stop()); } catch (_) { }
+      }
+      voiceStream = null;
+      voiceRecorder = null;
+      voiceChunks = [];
+      // Stay in LISTENING state (not IDLE) - keep voice assistant active
+      setVoiceState(VOICE_STATE.LISTENING);
+      // Auto-start listening again for next attempt
+      startVoiceRecording().catch(() => { });
+      syncSendButtonVisual();
+      return;
+    }
+    
     const active = getActive();
     if (!active) return;
     if (!window.visionAPI?.isAuthenticated?.()) throw new Error('Please login first.');
@@ -579,48 +611,177 @@
     const blob = new Blob(voiceChunks, { type: 'audio/webm' });
     const file = new File([blob], 'voice.webm', { type: 'audio/webm' });
 
-    // Add user message bubble and pending assistant response
+    // Add user message bubble with placeholder (will be replaced by STT result)
     appendUserBubble('[Voice message]');
     const pendingId = appendAssistantPending();
     saveActiveHtml();
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
-    // Send audio to backend and get response
-    const result = await window.visionAPI.voiceChat(file, state.sessionId);
-    if (result?.sessionId) state.sessionId = result.sessionId;
-    const textResp = result?.textResponse || '(voice response)';
-    if (replaceAssistantPending) replaceAssistantPending(pendingId, textResp);
-    state.html = messagesEl.innerHTML;
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    // Stream voice chat with real-time events
+    let finalSessionId = state.sessionId;
+    let audioChunks = [];
+    let fullLLMText = '';
+    let audioBlob = null;
 
-    // Play audio response if available, then auto-start listening again
     try {
-      if (result?.audioBlob) {
-        const url = URL.createObjectURL(result.audioBlob);
+      console.log('[Voice] Starting voice chat stream...');
+      await window.visionAPI.voiceChatStream(file, state.sessionId, (eventType, data) => {
+        console.log('[Voice] Event received:', eventType, data ? Object.keys(data) : 'no data');
+        
+        // Handle STT result event (PHASE 1 - Replace placeholder with actual transcribed text)
+        if (eventType === 'stt_result' && data.text) {
+          console.log('[Voice] STT result:', data.text.substring(0, 50) + '...');
+          // Replace the placeholder '[Voice message]' with actual transcribed text
+          if (replaceLastUserBubbleText) {
+            replaceLastUserBubbleText(data.text);
+            saveActiveHtml();
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+        }
+        
+        // Handle LLM token events (streaming text)
+        if (eventType === 'llm_token' && data.delta) {
+          fullLLMText += data.delta;
+          // Update assistant bubble with streaming text (use streaming function to avoid creating new bubbles)
+          if (updateAssistantPendingText) {
+            updateAssistantPendingText(pendingId, fullLLMText);
+          } else if (replaceAssistantPending) {
+            // Fallback if streaming function not available
+            replaceAssistantPending(pendingId, fullLLMText);
+          }
+        }
+        
+        // Handle LLM done event
+        if (eventType === 'llm_done' && data.text) {
+          fullLLMText = data.text;
+          // Final update with full markdown rendering
+          if (replaceAssistantPending) {
+            replaceAssistantPending(pendingId, fullLLMText);
+            saveActiveHtml();
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+        }
+        
+        // Handle TTS audio chunks
+        if (eventType === 'tts_chunk' && data.audio) {
+          console.log('[Voice] Received TTS chunk - base64 length:', data.audio.length);
+          // Decode base64 audio chunk
+          try {
+            const binaryString = atob(data.audio);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            audioChunks.push(bytes);
+            console.log('[Voice] Decoded audio chunk - size:', bytes.length, 'bytes, total chunks:', audioChunks.length);
+          } catch (e) {
+            console.error('[Voice] ERROR: Failed to decode TTS audio chunk:', e);
+          }
+        }
+        
+        // Handle TTS done event
+        if (eventType === 'tts_done') {
+          console.log('[Voice] TTS done event received - total chunks:', audioChunks.length);
+        }
+        
+        // Handle done event
+        if (eventType === 'done' && data.session_id) {
+          finalSessionId = data.session_id;
+        }
+        
+        // Handle error event
+        if (eventType === 'error') {
+          const errorMsg = data.message || 'Voice chat error';
+          if (replaceAssistantPending) {
+            replaceAssistantPending(pendingId, `**Error:** ${errorMsg}`, true);
+            saveActiveHtml();
+          }
+          throw new Error(errorMsg);
+        }
+      });
+
+      // Update session ID
+      if (finalSessionId) {
+        state.sessionId = finalSessionId;
+      }
+
+      // Combine audio chunks into single blob
+      console.log('[Voice] Combining audio chunks - count:', audioChunks.length);
+      if (audioChunks.length > 0) {
+        const combinedAudio = new Blob(audioChunks, { type: 'audio/wav' });
+        audioBlob = combinedAudio;
+        console.log('[Voice] Audio blob created - size:', audioBlob.size, 'bytes, type:', audioBlob.type);
+      } else {
+        console.warn('[Voice] WARNING: No audio chunks received!');
+      }
+
+      // Update final state
+      state.html = messagesEl.innerHTML;
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      // Play audio response if available
+      if (audioBlob) {
+        console.log('[Voice] Attempting to play audio - blob size:', audioBlob.size);
+        const url = URL.createObjectURL(audioBlob);
+        console.log('[Voice] Created object URL:', url.substring(0, 50) + '...');
         const audio = new Audio(url);
         speakingAudio = audio;
+        
+        // Add event listeners for debugging
+        audio.addEventListener('loadstart', () => console.log('[Voice] Audio loadstart'));
+        audio.addEventListener('loadeddata', () => console.log('[Voice] Audio loadeddata'));
+        audio.addEventListener('canplay', () => console.log('[Voice] Audio canplay'));
+        audio.addEventListener('canplaythrough', () => console.log('[Voice] Audio canplaythrough'));
+        audio.addEventListener('error', (e) => {
+          console.error('[Voice] ERROR: Audio playback error:', e);
+          console.error('[Voice] Audio error details:', {
+            code: audio.error?.code,
+            message: audio.error?.message,
+            networkState: audio.networkState,
+            readyState: audio.readyState
+          });
+        });
+        
         audio.play().then(() => {
+          console.log('[Voice] Audio playback started successfully');
           setVoiceState(VOICE_STATE.SPEAKING);
           startOrbAudioReactiveFromAudioElement(audio);
-        }).catch(() => {
+        }).catch((err) => {
+          console.error('[Voice] ERROR: Failed to play audio:', err);
           speakingAudio = null;
           URL.revokeObjectURL(url);
-          setVoiceState(VOICE_STATE.IDLE);
+          // On play error, go to LISTENING state for next conversation
+          setVoiceState(VOICE_STATE.LISTENING);
+          startVoiceRecording().catch(() => { });
         });
         audio.onended = () => {
+          console.log('[Voice] Audio playback ended');
           URL.revokeObjectURL(url);
           speakingAudio = null;
           stopOrbAudioReactive();
-          setVoiceState(VOICE_STATE.IDLE);
-          // Auto-start listening for next user input
+          // After speaking completes, go to LISTENING state (not IDLE) for next conversation
+          // Voice assistant stays active until user clicks stop button
+          setVoiceState(VOICE_STATE.LISTENING);
           startVoiceRecording().catch(() => { });
         };
       } else {
-        setVoiceState(VOICE_STATE.IDLE);
+        console.warn('[Voice] WARNING: No audio blob available to play');
+        // No TTS audio returned: go to LISTENING state for next conversation
+        setVoiceState(VOICE_STATE.LISTENING);
+        startVoiceRecording().catch(() => { });
       }
-    } catch {
-      setVoiceState(VOICE_STATE.IDLE);
+    } catch (err) {
+      console.error('Voice chat stream error:', err);
+      // On error, go to LISTENING state (not IDLE) - keep voice assistant active
+      setVoiceState(VOICE_STATE.LISTENING);
+      if (replaceAssistantPending) {
+        replaceAssistantPending(pendingId, `**Error:** ${err.message || 'Voice chat failed'}`, true);
+        saveActiveHtml();
+      }
+      // Auto-start listening for next attempt
+      startVoiceRecording().catch(() => { });
     }
+    
     syncSendButtonVisual();
   }
 
@@ -732,8 +893,10 @@
     getMode = deps.getMode;
     messagesEl = deps.messagesEl;
     appendUserBubble = deps.appendUserBubble;
+    replaceLastUserBubbleText = deps.replaceLastUserBubbleText;
     appendAssistantPending = deps.appendAssistantPending;
     replaceAssistantPending = deps.replaceAssistantPending;
+    updateAssistantPendingText = deps.updateAssistantPendingText;
     saveActiveHtml = deps.saveActiveHtml;
     chatbotOffcanvas = deps.chatbotOffcanvas;
     sendBtn = deps.sendBtn;

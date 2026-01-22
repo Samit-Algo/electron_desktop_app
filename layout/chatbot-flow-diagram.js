@@ -44,6 +44,7 @@
       container.id = diagramId;
       container.className = 'flow-diagram-container mt-3';
       container.style.width = '100%';
+      container.style.minHeight = '500px';
       bubble.appendChild(container);
 
       // Ensure Rete flow renderer scripts are loaded
@@ -59,13 +60,16 @@
       // Transform generic flow data to Rete.js format
       const reteData = window.flowTransforms.toRete(flowDiagramData);
 
-      // Render the diagram with layout and interaction options
+      // Determine layout direction from backend data or default to vertical
+      const layoutDirection = flowDiagramData.layout === 'vertical' ? 'vertical' : 'vertical';
+      const nodeSpacing = layoutDirection === 'vertical' ? { x: 0, y: 80 } : { x: 28, y: 54 }; // Reduced spacing
+
+      // Render the diagram with vertical layout and interaction options
       await window.reteFlowRenderer.render(diagramId, reteData, {
         readonly: true,
         autoLayout: true,
-        layoutDirection: 'horizontal-wrap',
-        nodeSpacing: { x: 28, y: 54 },
-        wrapColumns: 3,
+        layoutDirection: layoutDirection,
+        nodeSpacing: nodeSpacing,
         enablePanZoom: true,
         fitOnInit: true,
         minScale: 0.5,

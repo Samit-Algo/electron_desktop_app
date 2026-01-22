@@ -1,11 +1,11 @@
 /**
  * Flow Diagram Data Transformation Utilities
  * 
- * Transforms generic flow diagram data from backend to various rendering formats.
- * Backend sends once in generic format, frontend transforms as needed.
+ * Transforms generic flow diagram data from backend to Rete.js format.
+ * Preserves loop/exit flags and neutral colors from backend.
  */
 
-(function() {
+(function () {
   'use strict';
 
   /**
@@ -21,61 +21,66 @@
 
     const nodes = genericData.nodes || [];
     const links = genericData.links || [];
-    
+
     const reteNodes = {};
     const nodeIdMap = {};  // name -> rete_id mapping
-    
-    // Transform nodes
+
+    // Transform nodes - preserve backend coordinates and styling
     nodes.forEach((node, idx) => {
       const reteId = `node_${idx}`;
       const nodeName = node.name;
       nodeIdMap[nodeName] = reteId;
 
-      // Reduce node size a bit (boxes were too big) and bump font for readability.
+      // Use backend-provided size or default (increased sizes)
       const rawSize = Array.isArray(node.symbolSize) && node.symbolSize.length >= 2
         ? node.symbolSize
-        : [170, 60];
-      const scale = 0.82;
-      const scaledW = Math.max(110, Math.round((Number(rawSize[0]) || 170) * scale));
-      const scaledH = Math.max(44, Math.round((Number(rawSize[1]) || 60) * scale));
-      const baseFont = Number(node.label?.fontSize) || 11;
-      const fontSize = Math.min(14, Math.max(12, baseFont + 1));
-      
+        : [200, 80];
+      const scaledW = Number(rawSize[0]) || 200;
+      const scaledH = Number(rawSize[1]) || 80;
+      const baseFont = Number(node.label?.fontSize) || 12;
+      const fontSize = Math.min(16, Math.max(12, baseFont));
+
+      // Use backend-provided position or default to 0,0
+      const x = node.x !== undefined ? node.x : 0;
+      const y = node.y !== undefined ? node.y : 0;
+
       reteNodes[reteId] = {
         id: reteId,
         name: nodeName,
-        position: [node.x || 0, node.y || 0],
+        position: [x, y],
         inputs: { input: { connections: [] } },
         outputs: { output: { connections: [] } },
         data: {
           label: node.label?.formatter || nodeName,
-          color: node.itemStyle?.color || '#2A7BE4',
-          borderColor: node.itemStyle?.borderColor || '#1A5BBE',
-          shape: node.symbol === 'diamond' ? 'diamond' : 'rect',
+          color: node.itemStyle?.color || '#f5f5f5',  // Neutral gray from backend
+          borderColor: node.itemStyle?.borderColor || '#666',  // Neutral border from backend
+          shape: node.symbol === 'diamond' ? 'diamond' : (node.symbol === 'oval' ? 'oval' : 'rect'),
           symbolSize: [scaledW, scaledH],
           fontSize,
-          fontWeight: 700
+          fontWeight: 600
         }
       };
     });
-    
-    // Transform links/connections
+
+    // Transform links/connections - preserve loop and exit flags
     links.forEach(link => {
       const sourceId = nodeIdMap[link.source];
       const targetId = nodeIdMap[link.target];
-      
+
       if (sourceId && targetId && reteNodes[sourceId]) {
         reteNodes[sourceId].outputs.output.connections.push({
           node: targetId,
           input: 'input',
           data: {
             label: link.label?.formatter || '',
-            show: link.label?.show || false
+            show: link.label?.show || false,
+            isLoop: link.isLoop || false,  // Preserve loop flag
+            isExit: link.isExit || false   // Preserve exit flag
           }
         });
       }
     });
-    
+
     return {
       id: 'agent-flow',
       nodes: reteNodes

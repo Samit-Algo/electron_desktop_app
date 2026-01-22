@@ -504,6 +504,129 @@ class VisionAPIService {
   }
 
   /**
+   * Stream voice chat with real-time events via Server-Sent Events (SSE)
+   * @param {File} audioFile - Audio file to transcribe
+   * @param {string|null} sessionId - Optional session ID
+   * @param {Function} onEvent - Callback for each event: (eventType, data) => void
+   * @returns {Promise<{sessionId: string}>} Final session ID
+   */
+  async voiceChatStream(audioFile, sessionId = null, onEvent = null) {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('audio_file', audioFile);
+      if (sessionId) {
+        formData.append('session_id', sessionId);
+      }
+
+      const url = `${this.baseURL}/api/v1/general-chat/voice-message/stream`;
+      
+      // Use fetch with ReadableStream for SSE
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+        },
+        body: formData,
+      })
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(err => {
+              throw new Error(err.detail || 'Voice chat stream error');
+            });
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let finalSessionId = sessionId;
+
+          function processChunk() {
+            reader.read().then(({ done, value }) => {
+              if (done) {
+                resolve({ sessionId: finalSessionId });
+                return;
+              }
+
+              // Decode chunk and add to buffer
+              buffer += decoder.decode(value, { stream: true });
+
+              // Process complete SSE messages (ending with \n\n)
+              // Split by double newline to get complete messages
+              const messages = buffer.split('\n\n');
+              buffer = messages.pop() || ''; // Keep incomplete message in buffer
+
+              for (let msgIdx = 0; msgIdx < messages.length; msgIdx++) {
+                const message = messages[msgIdx];
+                if (!message.trim()) continue;
+
+                let eventType = 'message';
+                let eventData = '';
+
+                // Parse each message line by line
+                const lines = message.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                  const line = lines[i];
+                  if (line.startsWith('event: ')) {
+                    eventType = line.substring(7).trim();
+                  } else if (line.startsWith('data: ')) {
+                    // Handle multi-line data (SSE allows data: on multiple lines)
+                    const dataLine = line.substring(6);
+                    if (eventData) {
+                      eventData += '\n' + dataLine;
+                    } else {
+                      eventData = dataLine;
+                    }
+                  }
+                }
+
+                // Process the complete message
+                if (eventData) {
+                  try {
+                    const data = JSON.parse(eventData);
+                    
+                    console.log('[API] Parsed SSE event:', eventType, 'data keys:', Object.keys(data));
+                    
+                    // Call event handler
+                    if (onEvent) {
+                      try {
+                        onEvent(eventType, data);
+                      } catch (err) {
+                        console.error('[API] Error in event handler:', err);
+                      }
+                    }
+
+                    // Track session ID from done event
+                    if (eventType === 'done' && data.session_id) {
+                      finalSessionId = data.session_id;
+                    }
+
+                    // Handle errors
+                    if (eventType === 'error') {
+                      reject(new Error(data.message || 'Unknown error'));
+                      return;
+                    }
+                  } catch (e) {
+                    console.warn('[API] Failed to parse SSE data:', eventData.substring(0, 100), e);
+                  }
+                }
+              }
+
+              // Continue reading
+              processChunk();
+            }).catch(err => {
+              reject(err);
+            });
+          }
+
+          processChunk();
+        })
+        .catch(err => {
+          reject(err);
+        });
+    });
+  }
+
+  /**
    * Device Methods
    */
   async listDevices() {
