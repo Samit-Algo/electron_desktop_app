@@ -1024,7 +1024,6 @@
                     function drawOverlay(payload) {
                         if (!overlayCanvas || !videoEl) return;
                         if (!payload || payload.type !== 'agent_overlay') return;
-                        if (!payload.detections) return;
 
                         resizeOverlayCanvasToVideo();
                         const ctx = overlayCanvas.getContext('2d');
@@ -1042,35 +1041,121 @@
                         const scaleX = rect.width / srcW;
                         const scaleY = rect.height / srcH;
 
-                        const det = payload.detections || {};
-                        const boxes = Array.isArray(det.boxes) ? det.boxes : [];
-                        const classes = Array.isArray(det.classes) ? det.classes : [];
-                        const scores = Array.isArray(det.scores) ? det.scores : [];
+                        // Draw zone polygon/line first (if present)
+                        const zone = payload.zone;
+                        const zoneViolated = payload.zone_violated || false;
+                        
+                        if (zone && zone.coordinates && Array.isArray(zone.coordinates)) {
+                            const coords = zone.coordinates;
+                            const zoneType = zone.type || 'polygon';
+                            
+                            if (zoneType === 'polygon' && coords.length >= 3) {
+                                // Draw polygon zone (restricted zone)
+                                // Color changes based on violation: red when violated, green when safe
+                                const fillColor = zoneViolated ? 'rgba(255, 0, 0, 0.25)' : 'rgba(0, 255, 0, 0.08)';
+                                const strokeColor = zoneViolated ? 'rgba(255, 0, 0, 0.9)' : 'rgba(0, 255, 0, 0.6)';
+                                const lineWidth = zoneViolated ? 4 : 2;
+                                
+                                ctx.beginPath();
+                                coords.forEach((point, i) => {
+                                    if (Array.isArray(point) && point.length >= 2) {
+                                        const x = point[0] * srcW * scaleX;
+                                        const y = point[1] * srcH * scaleY;
+                                        if (i === 0) {
+                                            ctx.moveTo(x, y);
+                                        } else {
+                                            ctx.lineTo(x, y);
+                                        }
+                                    }
+                                });
+                                ctx.closePath();
+                                ctx.fillStyle = fillColor;
+                                ctx.fill();
+                                ctx.lineWidth = lineWidth;
+                                ctx.strokeStyle = strokeColor;
+                                ctx.stroke();
+                                
+                                // Add "VIOLATION!" text when zone is violated
+                                if (zoneViolated && coords.length > 0) {
+                                    // Calculate center of polygon for label placement
+                                    let centerX = 0, centerY = 0;
+                                    coords.forEach(point => {
+                                        if (Array.isArray(point) && point.length >= 2) {
+                                            centerX += point[0] * srcW * scaleX;
+                                            centerY += point[1] * srcH * scaleY;
+                                        }
+                                    });
+                                    centerX /= coords.length;
+                                    centerY /= coords.length;
+                                    
+                                    // Draw violation text
+                                    ctx.font = 'bold 16px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+                                    ctx.fillStyle = 'rgba(255, 0, 0, 1)';
+                                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                                    ctx.lineWidth = 3;
+                                    const text = '⚠ VIOLATION!';
+                                    const textMetrics = ctx.measureText(text);
+                                    const textX = centerX - textMetrics.width / 2;
+                                    const textY = centerY;
+                                    ctx.strokeText(text, textX, textY);
+                                    ctx.fillText(text, textX, textY);
+                                }
+                            } else if (zoneType === 'line' && coords.length === 2) {
+                                // Draw counting line
+                                const p1 = coords[0];
+                                const p2 = coords[1];
+                                if (Array.isArray(p1) && Array.isArray(p2) && p1.length >= 2 && p2.length >= 2) {
+                                    ctx.beginPath();
+                                    ctx.moveTo(p1[0] * srcW * scaleX, p1[1] * srcH * scaleY);
+                                    ctx.lineTo(p2[0] * srcW * scaleX, p2[1] * srcH * scaleY);
+                                    ctx.lineWidth = 4;
+                                    ctx.strokeStyle = 'rgba(255, 165, 0, 0.9)';
+                                    ctx.stroke();
+                                    
+                                    // Draw endpoints
+                                    ctx.fillStyle = 'rgba(255, 165, 0, 1)';
+                                    ctx.beginPath();
+                                    ctx.arc(p1[0] * srcW * scaleX, p1[1] * srcH * scaleY, 6, 0, Math.PI * 2);
+                                    ctx.fill();
+                                    ctx.beginPath();
+                                    ctx.arc(p2[0] * srcW * scaleX, p2[1] * srcH * scaleY, 6, 0, Math.PI * 2);
+                                    ctx.fill();
+                                }
+                            }
+                        }
 
-                        ctx.lineWidth = 2;
-                        ctx.strokeStyle = 'rgba(0, 255, 102, 0.95)';
-                        ctx.fillStyle = 'rgba(0, 255, 102, 0.95)';
-                        ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+                        // Draw detection boxes (if present)
+                        if (payload.detections) {
+                            const det = payload.detections || {};
+                            const boxes = Array.isArray(det.boxes) ? det.boxes : [];
+                            const classes = Array.isArray(det.classes) ? det.classes : [];
+                            const scores = Array.isArray(det.scores) ? det.scores : [];
 
-                        for (let i = 0; i < boxes.length; i++) {
-                            const b = boxes[i];
-                            if (!Array.isArray(b) || b.length < 4) continue;
-                            const x1 = Number(b[0]), y1 = Number(b[1]), x2 = Number(b[2]), y2 = Number(b[3]);
-                            if (!Number.isFinite(x1 + y1 + x2 + y2)) continue;
+                            ctx.lineWidth = 2;
+                            ctx.strokeStyle = 'rgba(0, 255, 102, 0.95)';
+                            ctx.fillStyle = 'rgba(0, 255, 102, 0.95)';
+                            ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
 
-                            const dx = x1 * scaleX;
-                            const dy = y1 * scaleY;
-                            const dw = Math.max(0, (x2 - x1) * scaleX);
-                            const dh = Math.max(0, (y2 - y1) * scaleY);
-                            ctx.strokeRect(dx, dy, dw, dh);
+                            for (let i = 0; i < boxes.length; i++) {
+                                const b = boxes[i];
+                                if (!Array.isArray(b) || b.length < 4) continue;
+                                const x1 = Number(b[0]), y1 = Number(b[1]), x2 = Number(b[2]), y2 = Number(b[3]);
+                                if (!Number.isFinite(x1 + y1 + x2 + y2)) continue;
 
-                            const cls = String(classes[i] || '');
-                            const sc = Number(scores[i] || 0);
-                            const label = cls ? `${cls}${Number.isFinite(sc) && sc ? ` ${(sc).toFixed(2)}` : ''}` : '';
-                            if (label) {
-                                const tx = dx + 4;
-                                const ty = Math.max(14, dy - 6);
-                                ctx.fillText(label, tx, ty);
+                                const dx = x1 * scaleX;
+                                const dy = y1 * scaleY;
+                                const dw = Math.max(0, (x2 - x1) * scaleX);
+                                const dh = Math.max(0, (y2 - y1) * scaleY);
+                                ctx.strokeRect(dx, dy, dw, dh);
+
+                                const cls = String(classes[i] || '');
+                                const sc = Number(scores[i] || 0);
+                                const label = cls ? `${cls}${Number.isFinite(sc) && sc ? ` ${(sc).toFixed(2)}` : ''}` : '';
+                                if (label) {
+                                    const tx = dx + 4;
+                                    const ty = Math.max(14, dy - 6);
+                                    ctx.fillText(label, tx, ty);
+                                }
                             }
                         }
                     }
@@ -1099,6 +1184,27 @@
                         overlayWs.onmessage = (evt) => {
                             try {
                                 const data = JSON.parse(evt.data);
+                                
+                                // Debug logging for overlay data
+                                if (data && data.type === 'agent_overlay') {
+                                    const logData = {
+                                        frame_index: data.frame_index,
+                                        has_detections: !!data.detections,
+                                        num_boxes: data.detections?.boxes?.length || 0,
+                                        has_zone: !!data.zone,
+                                        zone_type: data.zone?.type,
+                                        zone_coords_length: data.zone?.coordinates?.length || 0,
+                                        zone_violated: data.zone_violated || false
+                                    };
+                                    
+                                    // Show warning if zone is violated
+                                    if (data.zone_violated) {
+                                        console.warn('🚨 [Overlay] ZONE VIOLATION DETECTED!', logData);
+                                    } else {
+                                        console.log('[Overlay] Received data:', logData);
+                                    }
+                                }
+                                
                                 if (data && data.frame_index != null) {
                                     if (overlayLastFrameIndex === data.frame_index) return;
                                     overlayLastFrameIndex = data.frame_index;
@@ -1111,8 +1217,8 @@
                                 // Always draw latest overlay (no timestamp matching for live stream)
                                 // This works even if YOLO processing is slower than video playback
                                 drawOverlay(data);
-                            } catch {
-                                // ignore
+                            } catch (e) {
+                                console.error('[Overlay] Error processing message:', e);
                             }
                         };
                         overlayWs.onclose = () => {

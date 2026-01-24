@@ -383,6 +383,58 @@ class VisionAPIService {
   }
 
   /**
+   * Fetch a single JPEG snapshot for a camera from a specific URL (for zone drawing UI).
+   * Returns JSON with base64-encoded frame and metadata.
+   * @param {string} snapshotUrl - Snapshot URL (can be relative or absolute)
+   * @returns {Promise<{camera_id: string, width: number, height: number, format: string, frame_base64: string}>}
+   */
+  async getCameraSnapshotFromUrl(snapshotUrl) {
+    if (!this.token) throw new Error('Not authenticated');
+    // Ensure URL is absolute (prepend baseURL if relative)
+    const url = snapshotUrl.startsWith('http') 
+      ? snapshotUrl 
+      : `${this.baseURL}${snapshotUrl.startsWith('/') ? '' : '/'}${snapshotUrl}`;
+    
+    console.log('[API] Fetching camera snapshot from:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Cache-Control': 'no-cache',
+      },
+    });
+
+    console.log('[API] Snapshot response status:', response.status, response.statusText);
+    console.log('[API] Snapshot response headers:', Object.fromEntries(response.headers.entries()));
+
+    if (!response.ok) {
+      let msg = 'Failed to fetch snapshot';
+      try {
+        const data = await response.json();
+        console.error('[API] Snapshot error response:', data);
+        msg = data?.detail || msg;
+      } catch (_) {
+        // ignore (non-json)
+      }
+      throw new Error(msg);
+    }
+
+    const jsonData = await response.json();
+    console.log('[API] Snapshot response data:', {
+      camera_id: jsonData?.camera_id,
+      width: jsonData?.width,
+      height: jsonData?.height,
+      format: jsonData?.format,
+      frame_base64_length: jsonData?.frame_base64?.length || 0,
+      frame_base64_preview: jsonData?.frame_base64?.substring(0, 100) + '...' || 'missing'
+    });
+    console.log('[API] Full snapshot response:', jsonData);
+
+    return jsonData;
+  }
+
+  /**
    * Build live WS URL for fMP4 streaming.
    * Backend expects token in query string: ?token=...
    *
