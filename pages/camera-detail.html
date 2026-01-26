@@ -764,6 +764,10 @@
                     const streamTypeIcon = document.getElementById('stream-type-icon');
                     const switchToCameraBtn = document.getElementById('switch-to-camera-btn');
                     const overlayCanvas = document.getElementById('agent-overlay-canvas');
+                    
+                    // Store original canvas parent for restoring after fullscreen
+                    let originalCanvasParent = null;
+                    let originalCanvasNextSibling = null;
 
                     let livePlayer = null;
                     let cameraData = null;
@@ -1013,6 +1017,10 @@
 
                     function resizeOverlayCanvasToVideo() {
                         if (!overlayCanvas || !videoEl) return;
+                        
+                        // Always use video element's actual displayed dimensions
+                        // This works correctly in both normal and fullscreen modes
+                        // (getBoundingClientRect gives actual displayed size even in fullscreen)
                         const rect = videoEl.getBoundingClientRect();
                         const dpr = window.devicePixelRatio || 1;
                         const w = Math.max(1, Math.round(rect.width * dpr));
@@ -1025,10 +1033,15 @@
                         if (!overlayCanvas || !videoEl) return;
                         if (!payload || payload.type !== 'agent_overlay') return;
 
+                        // Store the last payload for redrawing on fullscreen changes
+                        window.__visionaiLastOverlayPayload = payload;
+
                         resizeOverlayCanvasToVideo();
                         const ctx = overlayCanvas.getContext('2d');
                         if (!ctx) return;
 
+                        // Always use video element's actual displayed dimensions
+                        // This works correctly in both normal and fullscreen modes
                         const rect = videoEl.getBoundingClientRect();
                         const dpr = window.devicePixelRatio || 1;
                         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1041,13 +1054,20 @@
                         const scaleX = rect.width / srcW;
                         const scaleY = rect.height / srcH;
 
-                        // Draw zone polygon/line first (if present)
-                        const zone = payload.zone;
+                        // Draw zones (polygons and lines) first (if present)
+                        let zones = Array.isArray(payload.zones) ? payload.zones : [];
+                        // Fallback to single zone for backward compatibility
+                        if (zones.length === 0 && payload.zone) {
+                            zones.push(payload.zone);
+                        }
                         const zoneViolated = payload.zone_violated || false;
                         
-                        if (zone && zone.coordinates && Array.isArray(zone.coordinates)) {
+                        // Draw each zone
+                        for (const zone of zones) {
+                            if (!zone || !zone.coordinates || !Array.isArray(zone.coordinates)) continue;
+                            
                             const coords = zone.coordinates;
-                            const zoneType = zone.type || 'polygon';
+                            const zoneType = (zone.type || 'polygon').toLowerCase();
                             
                             if (zoneType === 'polygon' && coords.length >= 3) {
                                 // Draw polygon zone (restricted zone)
@@ -1130,12 +1150,85 @@
                             const boxes = Array.isArray(det.boxes) ? det.boxes : [];
                             const classes = Array.isArray(det.classes) ? det.classes : [];
                             const scores = Array.isArray(det.scores) ? det.scores : [];
+                            
+                            // Get line crossing information
+                            const line_crossed_indices = Array.isArray(payload.line_crossed_indices) ? payload.line_crossed_indices : [];
+                            const line_crossed = payload.line_crossed || false;
+                            const zone_violated = payload.zone_violated || false;
+                            const track_info = Array.isArray(payload.track_info) ? payload.track_info : [];
 
                             ctx.lineWidth = 2;
-                            ctx.strokeStyle = 'rgba(0, 255, 102, 0.95)';
-                            ctx.fillStyle = 'rgba(0, 255, 102, 0.95)';
                             ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
 
+                            // Create a map of detection index to track info for quick lookup
+                            // Use IoU (Intersection over Union) for better matching
+                            const detectionToTrackMap = new Map();
+                            for (const track of track_info) {
+                                if (track.bbox && Array.isArray(track.bbox) && track.bbox.length >= 4) {
+                                    let bestMatchIdx = -1;
+                                    let bestIoU = 0;
+                                    
+                                    // Find best matching detection by IoU
+                                    for (let i = 0; i < boxes.length; i++) {
+                                        const detBox = boxes[i];
+                                        if (!Array.isArray(detBox) || detBox.length < 4) continue;
+                                        
+                                        // Calculate IoU
+                                        const trackBox = track.bbox;
+                                        const overlapLeft = Math.max(trackBox[0], detBox[0]);
+                                        const overlapTop = Math.max(trackBox[1], detBox[1]);
+                                        const overlapRight = Math.min(trackBox[2], detBox[2]);
+                                        const overlapBottom = Math.min(trackBox[3], detBox[3]);
+                                        
+                                        if (overlapRight > overlapLeft && overlapBottom > overlapTop) {
+                                            const intersection = (overlapRight - overlapLeft) * (overlapBottom - overlapTop);
+                                            const trackArea = (trackBox[2] - trackBox[0]) * (trackBox[3] - trackBox[1]);
+                                            const detArea = (detBox[2] - detBox[0]) * (detBox[3] - detBox[1]);
+                                            const union = trackArea + detArea - intersection;
+                                            
+                                            if (union > 0) {
+                                                const iou = intersection / union;
+                                                if (iou > bestIoU && iou >= 0.3) {
+                                                    bestIoU = iou;
+                                                    bestMatchIdx = i;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (bestMatchIdx >= 0 && !detectionToTrackMap.has(bestMatchIdx)) {
+                                        detectionToTrackMap.set(bestMatchIdx, track);
+                                    }
+                                }
+                            }
+
+                            // Draw center points for all tracks in GREEN (always visible)
+                            for (const track of track_info) {
+                                if (track.center && Array.isArray(track.center) && track.center.length >= 2) {
+                                    const centerX = track.center[0] * scaleX;
+                                    const centerY = track.center[1] * scaleY;
+                                    
+                                    // Always draw center point in GREEN
+                                    ctx.beginPath();
+                                    ctx.arc(centerX, centerY, 6, 0, 2 * Math.PI);
+                                    ctx.fillStyle = 'rgba(0, 255, 0, 1.0)';  // Green for all center points
+                                    ctx.fill();
+                                    ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';
+                                    ctx.lineWidth = 2;
+                                    ctx.stroke();
+                                    
+                                    // Draw track ID near center point
+                                    if (track.track_id !== undefined) {
+                                        ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
+                                        ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+                                        ctx.fillText(`ID:${track.track_id}`, centerX + 8, centerY - 5);
+                                    }
+                                }
+                            }
+
+                            // Get detection colors from payload (yellow when touching, green otherwise)
+                            const detectionColors = Array.isArray(det.colors) ? det.colors : [];
+                            
                             for (let i = 0; i < boxes.length; i++) {
                                 const b = boxes[i];
                                 if (!Array.isArray(b) || b.length < 4) continue;
@@ -1146,16 +1239,64 @@
                                 const dy = y1 * scaleY;
                                 const dw = Math.max(0, (x2 - x1) * scaleX);
                                 const dh = Math.max(0, (y2 - y1) * scaleY);
+                                
+                                // Get track info for this detection
+                                const track = detectionToTrackMap.get(i);
+                                const touchingLine = track && track.touching_line === true;
+                                const isCounted = track && track.counted === true;
+                                
+                                // Determine box color: YELLOW when touching line, GREEN otherwise
+                                let boxColor, fillColor;
+                                if (zone_violated) {
+                                    // Red for zone violation
+                                    boxColor = 'rgba(255, 0, 0, 0.95)';
+                                    fillColor = 'rgba(255, 0, 0, 0.3)';
+                                } else if (touchingLine || (detectionColors[i] === 'yellow')) {
+                                    // YELLOW when center point touches the line
+                                    boxColor = 'rgba(255, 255, 0, 0.95)';
+                                    fillColor = 'rgba(255, 255, 0, 0.3)';
+                                } else {
+                                    // GREEN for normal detections
+                                    boxColor = 'rgba(0, 255, 0, 0.95)';
+                                    fillColor = 'rgba(0, 255, 0, 0.2)';
+                                }
+                                
+                                ctx.strokeStyle = boxColor;
+                                ctx.fillStyle = fillColor;
+                                ctx.lineWidth = 3;
                                 ctx.strokeRect(dx, dy, dw, dh);
+                                ctx.fillRect(dx, dy, dw, dh);
 
                                 const cls = String(classes[i] || '');
                                 const sc = Number(scores[i] || 0);
-                                const label = cls ? `${cls}${Number.isFinite(sc) && sc ? ` ${(sc).toFixed(2)}` : ''}` : '';
+                                let label = cls ? `${cls}${Number.isFinite(sc) && sc ? ` ${(sc).toFixed(2)}` : ''}` : '';
+                                
+                                // Add "TOUCHED!" label if box touched the line and was counted
+                                if (isCounted && touchingLine) {
+                                    const direction = track.direction || '';
+                                    label = label ? `TOUCHED (${direction.toUpperCase()})! ${label}` : `TOUCHED (${direction.toUpperCase()})!`;
+                                } else if (touchingLine) {
+                                    label = label ? `TOUCHING LINE ${label}` : 'TOUCHING LINE';
+                                }
+                                
                                 if (label) {
+                                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                                    ctx.fillRect(dx, dy - 18, label.length * 7, 16);
+                                    ctx.fillStyle = touchingLine ? 'rgba(255, 255, 0, 1.0)' : 'rgba(255, 255, 255, 1.0)';
+                                    ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
                                     const tx = dx + 4;
                                     const ty = Math.max(14, dy - 6);
                                     ctx.fillText(label, tx, ty);
                                 }
+                            }
+                            
+                            // Show alert in console when line is crossed
+                            if (line_crossed && line_crossed_indices.length > 0) {
+                                console.warn('🚨 [LINE CROSSING]', {
+                                    count: line_crossed_indices.length,
+                                    indices: line_crossed_indices,
+                                    frame_index: payload.frame_index
+                                });
                             }
                         }
                     }
@@ -1311,6 +1452,134 @@
                         }
                         loadAgentsForCamera().catch(() => {});
                     });
+
+                    // Handle fullscreen changes to ensure canvas overlay is properly positioned
+                    function handleFullscreenChange() {
+                        if (!overlayCanvas || !videoEl) return;
+                        
+                        // Check if video is in fullscreen (support all browser prefixes)
+                        const isFullscreen = document.fullscreenElement === videoEl || 
+                                           document.webkitFullscreenElement === videoEl ||
+                                           document.mozFullScreenElement === videoEl ||
+                                           document.msFullscreenElement === videoEl;
+                        
+                        if (isFullscreen) {
+                            // Store original parent if not already stored
+                            if (!originalCanvasParent) {
+                                originalCanvasParent = overlayCanvas.parentNode;
+                                originalCanvasNextSibling = overlayCanvas.nextSibling;
+                            }
+                            
+                            // Move canvas to body so it can overlay the fullscreen video
+                            document.body.appendChild(overlayCanvas);
+                            
+                            // Function to position and size canvas to match video's displayed area
+                            const updateCanvasPosition = () => {
+                                const rect = videoEl.getBoundingClientRect();
+                                overlayCanvas.style.position = 'fixed';
+                                overlayCanvas.style.top = rect.top + 'px';
+                                overlayCanvas.style.left = rect.left + 'px';
+                                overlayCanvas.style.width = rect.width + 'px';
+                                overlayCanvas.style.height = rect.height + 'px';
+                                overlayCanvas.style.zIndex = '2147483647'; // Maximum z-index to ensure it's on top
+                                overlayCanvas.style.pointerEvents = 'none'; // Ensure it doesn't block video controls
+                            };
+                            
+                            // Initial positioning
+                            updateCanvasPosition();
+                            
+                            // Resize and redraw after a short delay to ensure fullscreen is fully active
+                            setTimeout(() => {
+                                updateCanvasPosition(); // Update position again after fullscreen settles
+                                resizeOverlayCanvasToVideo();
+                                // If we have overlay data, trigger a redraw by calling drawOverlay with last data
+                                if (window.__visionaiLastOverlayPayload) {
+                                    drawOverlay(window.__visionaiLastOverlayPayload);
+                                }
+                            }, 150);
+                            
+                            // Store update function for resize events
+                            window.__visionaiUpdateCanvasPosition = updateCanvasPosition;
+                        } else {
+                            // When exiting fullscreen, restore canvas to its original position
+                            if (originalCanvasParent) {
+                                if (originalCanvasNextSibling) {
+                                    originalCanvasParent.insertBefore(overlayCanvas, originalCanvasNextSibling);
+                                } else {
+                                    originalCanvasParent.appendChild(overlayCanvas);
+                                }
+                                originalCanvasParent = null;
+                                originalCanvasNextSibling = null;
+                            }
+                            
+                            // Clear the update function
+                            window.__visionaiUpdateCanvasPosition = null;
+                            
+                            // Restore original CSS positioning (will use CSS class styles)
+                            overlayCanvas.style.position = '';
+                            overlayCanvas.style.top = '';
+                            overlayCanvas.style.left = '';
+                            overlayCanvas.style.width = '';
+                            overlayCanvas.style.height = '';
+                            overlayCanvas.style.zIndex = '';
+                            
+                            // Resize and redraw after exiting fullscreen
+                            setTimeout(() => {
+                                resizeOverlayCanvasToVideo();
+                                if (window.__visionaiLastOverlayPayload) {
+                                    drawOverlay(window.__visionaiLastOverlayPayload);
+                                }
+                            }, 150);
+                        }
+                    }
+                    
+                    // Listen for fullscreen changes (all browser prefixes)
+                    document.addEventListener('fullscreenchange', handleFullscreenChange);
+                    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+                    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+                    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+                    
+                    // Also handle resize events when in fullscreen
+                    let resizeTimeout;
+                    window.addEventListener('resize', () => {
+                        clearTimeout(resizeTimeout);
+                        resizeTimeout = setTimeout(() => {
+                            const isFullscreen = document.fullscreenElement === videoEl || 
+                                               document.webkitFullscreenElement === videoEl ||
+                                               document.mozFullScreenElement === videoEl ||
+                                               document.msFullscreenElement === videoEl;
+                            if (isFullscreen) {
+                                // Update canvas position to match video
+                                if (window.__visionaiUpdateCanvasPosition) {
+                                    window.__visionaiUpdateCanvasPosition();
+                                }
+                                resizeOverlayCanvasToVideo();
+                                if (window.__visionaiLastOverlayPayload) {
+                                    drawOverlay(window.__visionaiLastOverlayPayload);
+                                }
+                            }
+                        }, 100);
+                    });
+                    
+                    // Also listen for video element resize (for aspect ratio changes in fullscreen)
+                    if (window.ResizeObserver) {
+                        const videoResizeObserver = new ResizeObserver(() => {
+                            const isFullscreen = document.fullscreenElement === videoEl || 
+                                               document.webkitFullscreenElement === videoEl ||
+                                               document.mozFullScreenElement === videoEl ||
+                                               document.msFullscreenElement === videoEl;
+                            if (isFullscreen && window.__visionaiUpdateCanvasPosition) {
+                                window.__visionaiUpdateCanvasPosition();
+                                resizeOverlayCanvasToVideo();
+                                if (window.__visionaiLastOverlayPayload) {
+                                    drawOverlay(window.__visionaiLastOverlayPayload);
+                                }
+                            }
+                        });
+                        if (videoEl) {
+                            videoResizeObserver.observe(videoEl);
+                        }
+                    }
 
                     // Collapse/expand agent sidebar (persists)
                     const SIDEBAR_KEY = 'visionai.cameraDetail.sidebarCollapsed.v1';

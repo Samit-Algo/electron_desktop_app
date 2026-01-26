@@ -281,8 +281,21 @@
     const hint = container.querySelector('[data-zone-hint]');
     const actions = container.querySelector('[data-zone-actions]');
     
+    console.log('[ZoneEditor] showDrawingCanvas called:', {
+      hasStatus: !!statusEl,
+      hasCanvasWrap: !!canvasWrap,
+      hasHint: !!hint,
+      hasActions: !!actions,
+      canvasWrapClassesBefore: canvasWrap?.className
+    });
+    
     if (statusEl) statusEl.classList.add('d-none');
-    if (canvasWrap) canvasWrap.classList.remove('d-none');
+    if (canvasWrap) {
+      canvasWrap.classList.remove('d-none');
+      console.log('[ZoneEditor] ✅ Canvas wrap d-none removed, classes now:', canvasWrap.className);
+      console.log('[ZoneEditor] Canvas wrap display:', window.getComputedStyle(canvasWrap).display);
+      console.log('[ZoneEditor] Canvas wrap visible:', canvasWrap.offsetHeight > 0 && canvasWrap.offsetWidth > 0);
+    }
     if (hint) hint.classList.remove('d-none');
     if (actions) actions.classList.remove('d-none');
   }
@@ -619,12 +632,20 @@
       
       if (!bubble) {
         attempts++;
+        console.log(`[ZoneEditor] Bubble lookup attempt ${attempts}/${maxAttempts} for pendingId: ${pendingId}`);
         await new Promise(resolve => setTimeout(resolve, 100));
+      } else {
+        console.log('[ZoneEditor] ✅ Found assistant bubble:', {
+          pendingId,
+          bubbleElement: bubble,
+          bubbleHTML: bubble.outerHTML.substring(0, 200)
+        });
       }
     }
 
     if (!bubble) {
-      console.error('[ZoneEditor] Could not find assistant bubble for:', pendingId);
+      console.error('[ZoneEditor] ❌ Could not find assistant bubble for:', pendingId);
+      console.log('[ZoneEditor] Creating standalone editor as fallback...');
       // Fallback: create standalone editor
       await createStandaloneEditor(cameraId, zoneMode, snapshotUrl);
       return;
@@ -642,11 +663,20 @@
     const mode = zoneMode === 'line' ? 'line' : 'polygon';
     const editorEl = createZoneEditorElement(editorId, cameraId, mode);
     bubble.appendChild(editorEl);
+    
+    console.log('[ZoneEditor] ✅ Editor element appended to bubble:', {
+      editorId,
+      mode,
+      editorVisible: editorEl.offsetHeight > 0 && editorEl.offsetWidth > 0,
+      editorDisplay: window.getComputedStyle(editorEl).display,
+      editorHTML: editorEl.outerHTML.substring(0, 300)
+    });
 
     // Scroll to editor
     const messagesEl = getMessagesEl();
     if (messagesEl) {
       messagesEl.scrollTop = messagesEl.scrollHeight;
+      console.log('[ZoneEditor] Scrolled to bottom of messages');
     }
 
     // Load snapshot and initialize canvas
