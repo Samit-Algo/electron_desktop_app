@@ -1156,7 +1156,7 @@
                             const line_crossed = payload.line_crossed || false;
                             const zone_violated = payload.zone_violated || false;
                             const track_info = Array.isArray(payload.track_info) ? payload.track_info : [];
-
+                            
                             ctx.lineWidth = 2;
                             ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
 
@@ -1203,26 +1203,31 @@
                             }
 
                             // Draw center points for all tracks in GREEN (always visible)
+                            let centerPointsDrawn = 0;
                             for (const track of track_info) {
                                 if (track.center && Array.isArray(track.center) && track.center.length >= 2) {
+                                    // Backend sends center in absolute pixel coordinates (not percentages)
+                                    // So we need to scale them to match video display size
                                     const centerX = track.center[0] * scaleX;
                                     const centerY = track.center[1] * scaleY;
                                     
-                                    // Always draw center point in GREEN
+                                    // Always draw center point in GREEN (larger and more visible)
                                     ctx.beginPath();
-                                    ctx.arc(centerX, centerY, 6, 0, 2 * Math.PI);
+                                    ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI);  // Increased radius from 6 to 8
                                     ctx.fillStyle = 'rgba(0, 255, 0, 1.0)';  // Green for all center points
                                     ctx.fill();
                                     ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';
-                                    ctx.lineWidth = 2;
+                                    ctx.lineWidth = 3;  // Increased from 2 to 3
                                     ctx.stroke();
                                     
                                     // Draw track ID near center point
                                     if (track.track_id !== undefined) {
                                         ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
-                                        ctx.font = '10px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
-                                        ctx.fillText(`ID:${track.track_id}`, centerX + 8, centerY - 5);
+                                        ctx.font = 'bold 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';  // Made bold and larger
+                                        ctx.fillText(`ID:${track.track_id}`, centerX + 10, centerY - 8);
                                     }
+                                    
+                                    centerPointsDrawn++;
                                 }
                             }
 
@@ -1242,21 +1247,28 @@
                                 
                                 // Get track info for this detection
                                 const track = detectionToTrackMap.get(i);
-                                const touchingLine = track && track.touching_line === true;
                                 const isCounted = track && track.counted === true;
+                                const crossDirection = track ? track.direction : null;
                                 
-                                // Determine box color: YELLOW when touching line, GREEN otherwise
+                                // Determine box color based on side transition:
+                                // - GREEN: Not crossed yet (still on initial side)
+                                // - ORANGE: Crossed Side 2 → Side 1 (entry/ADD direction)
+                                // - YELLOW: Crossed Side 1 → Side 2 (exit/OUT direction)
                                 let boxColor, fillColor;
                                 if (zone_violated) {
                                     // Red for zone violation
                                     boxColor = 'rgba(255, 0, 0, 0.95)';
                                     fillColor = 'rgba(255, 0, 0, 0.3)';
-                                } else if (touchingLine || (detectionColors[i] === 'yellow')) {
-                                    // YELLOW when center point touches the line
+                                } else if (isCounted && crossDirection === 'entry') {
+                                    // ORANGE when crossed from Side 2 → Side 1 (ADD)
+                                    boxColor = 'rgba(255, 165, 0, 0.95)';
+                                    fillColor = 'rgba(255, 165, 0, 0.3)';
+                                } else if (isCounted && crossDirection === 'exit') {
+                                    // YELLOW when crossed from Side 1 → Side 2 (OUT)
                                     boxColor = 'rgba(255, 255, 0, 0.95)';
                                     fillColor = 'rgba(255, 255, 0, 0.3)';
                                 } else {
-                                    // GREEN for normal detections
+                                    // GREEN for not crossed yet
                                     boxColor = 'rgba(0, 255, 0, 0.95)';
                                     fillColor = 'rgba(0, 255, 0, 0.2)';
                                 }
@@ -1271,18 +1283,22 @@
                                 const sc = Number(scores[i] || 0);
                                 let label = cls ? `${cls}${Number.isFinite(sc) && sc ? ` ${(sc).toFixed(2)}` : ''}` : '';
                                 
-                                // Add "TOUCHED!" label if box touched the line and was counted
-                                if (isCounted && touchingLine) {
-                                    const direction = track.direction || '';
-                                    label = label ? `TOUCHED (${direction.toUpperCase()})! ${label}` : `TOUCHED (${direction.toUpperCase()})!`;
-                                } else if (touchingLine) {
-                                    label = label ? `TOUCHING LINE ${label}` : 'TOUCHING LINE';
+                                // Add direction label when crossed
+                                // - ORANGE text for ADD (Side 2 → Side 1)
+                                // - YELLOW text for OUT (Side 1 → Side 2)
+                                let labelColor = 'rgba(255, 255, 255, 1.0)'; // Default white
+                                if (isCounted && crossDirection === 'entry') {
+                                    label = label ? `ADD! ${label}` : 'ADD!';
+                                    labelColor = 'rgba(255, 165, 0, 1.0)'; // Orange text
+                                } else if (isCounted && crossDirection === 'exit') {
+                                    label = label ? `OUT! ${label}` : 'OUT!';
+                                    labelColor = 'rgba(255, 255, 0, 1.0)'; // Yellow text
                                 }
                                 
                                 if (label) {
                                     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                                     ctx.fillRect(dx, dy - 18, label.length * 7, 16);
-                                    ctx.fillStyle = touchingLine ? 'rgba(255, 255, 0, 1.0)' : 'rgba(255, 255, 255, 1.0)';
+                                    ctx.fillStyle = labelColor;
                                     ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
                                     const tx = dx + 4;
                                     const ty = Math.max(14, dy - 6);
