@@ -1155,6 +1155,7 @@
                             const line_crossed_indices = Array.isArray(payload.line_crossed_indices) ? payload.line_crossed_indices : [];
                             const line_crossed = payload.line_crossed || false;
                             const zone_violated = payload.zone_violated || false;
+                            const fire_detected = payload.fire_detected || false;
                             const track_info = Array.isArray(payload.track_info) ? payload.track_info : [];
                             
                             ctx.lineWidth = 2;
@@ -1250,12 +1251,23 @@
                                 const isCounted = track && track.counted === true;
                                 const crossDirection = track ? track.direction : null;
                                 
-                                // Determine box color based on side transition:
-                                // - GREEN: Not crossed yet (still on initial side)
+                                // Determine box color based on detection type:
+                                // - RED: Fire detected or zone violation (safety-critical)
                                 // - ORANGE: Crossed Side 2 → Side 1 (entry/ADD direction)
                                 // - YELLOW: Crossed Side 1 → Side 2 (exit/OUT direction)
+                                // - GREEN: Normal detection (not crossed yet)
                                 let boxColor, fillColor;
-                                if (zone_violated) {
+                                
+                                // Check if this is a fire-related class (use class name so red works even if payload lags)
+                                const clsLower = String(classes[i] || '').toLowerCase();
+                                const isFireClass = clsLower.includes('fire') || clsLower.includes('flame') || clsLower.includes('smoke');
+                                
+                                if (isFireClass || (fire_detected && isFireClass)) {
+                                    // RED for fire detection (safety-critical, highest priority)
+                                    // Use class name so fire boxes are always red when agent is fire detection
+                                    boxColor = 'rgba(255, 0, 0, 0.95)';
+                                    fillColor = 'rgba(255, 0, 0, 0.35)';
+                                } else if (zone_violated) {
                                     // Red for zone violation
                                     boxColor = 'rgba(255, 0, 0, 0.95)';
                                     fillColor = 'rgba(255, 0, 0, 0.3)';
@@ -1268,7 +1280,7 @@
                                     boxColor = 'rgba(255, 255, 0, 0.95)';
                                     fillColor = 'rgba(255, 255, 0, 0.3)';
                                 } else {
-                                    // GREEN for not crossed yet
+                                    // GREEN for normal detection (not crossed yet)
                                     boxColor = 'rgba(0, 255, 0, 0.95)';
                                     fillColor = 'rgba(0, 255, 0, 0.2)';
                                 }
@@ -1283,14 +1295,20 @@
                                 const sc = Number(scores[i] || 0);
                                 let label = cls ? `${cls}${Number.isFinite(sc) && sc ? ` ${(sc).toFixed(2)}` : ''}` : '';
                                 
-                                // Add direction label when crossed
-                                // - ORANGE text for ADD (Side 2 → Side 1)
-                                // - YELLOW text for OUT (Side 1 → Side 2)
+                                // Add special labels based on detection type
                                 let labelColor = 'rgba(255, 255, 255, 1.0)'; // Default white
-                                if (isCounted && crossDirection === 'entry') {
+                                
+                                if (isFireClass) {
+                                    // RED label with fire indicator (any fire/flame/smoke class)
+                                    label = `🔥 FIRE! ${Number.isFinite(sc) ? (sc).toFixed(2) : ''}`.trim();
+                                    labelColor = 'rgba(255, 50, 50, 1.0)'; // Bright red text
+                                } else if (isCounted && crossDirection === 'entry') {
+                                    // Add direction label when crossed
+                                    // - ORANGE text for ADD (Side 2 → Side 1)
                                     label = label ? `ADD! ${label}` : 'ADD!';
                                     labelColor = 'rgba(255, 165, 0, 1.0)'; // Orange text
                                 } else if (isCounted && crossDirection === 'exit') {
+                                    // - YELLOW text for OUT (Side 1 → Side 2)
                                     label = label ? `OUT! ${label}` : 'OUT!';
                                     labelColor = 'rgba(255, 255, 0, 1.0)'; // Yellow text
                                 }
@@ -1311,6 +1329,15 @@
                                 console.warn('🚨 [LINE CROSSING]', {
                                     count: line_crossed_indices.length,
                                     indices: line_crossed_indices,
+                                    frame_index: payload.frame_index
+                                });
+                            }
+                            
+                            // Show alert in console when fire is detected
+                            if (fire_detected) {
+                                console.warn('🔥🚨 [FIRE DETECTED]', {
+                                    num_boxes: boxes.length,
+                                    classes: classes,
                                     frame_index: payload.frame_index
                                 });
                             }
