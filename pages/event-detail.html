@@ -352,39 +352,56 @@
                     if (severityBadgeEl) severityBadgeEl.className = `badge badge-phoenix ${badgeClass} fs-9 px-3 py-2`;
                     if (statusBadgeEl) statusBadgeEl.className = `badge badge-phoenix ${badgeClass} fs-9 px-3 py-2`;
 
-                    // Detection Details - populate from metadata if available
+                    // Detection Details - show only user-friendly fields
                     if (detectionDetailsEl && ev?.metadata) {
                         const metadata = ev.metadata;
                         const details = [];
                         
-                        if (metadata.rule_index !== undefined) {
-                            details.push(`Rule Index: ${metadata.rule_index}`);
-                        }
-                        if (metadata.confidence !== undefined) {
-                            details.push(`Confidence: ${metadata.confidence}%`);
-                        }
-                        if (metadata.detection_time !== undefined) {
-                            details.push(`Detection Time: ${metadata.detection_time}s`);
-                        }
-                        if (metadata.boxes && Array.isArray(metadata.boxes) && metadata.boxes.length > 0) {
-                            details.push(`Detected Objects: ${metadata.boxes.length}`);
-                        }
-                        if (metadata.classes && Array.isArray(metadata.classes) && metadata.classes.length > 0) {
-                            details.push(`Classes: ${metadata.classes.join(', ')}`);
+                        // 1. Video timestamp
+                        if (metadata.video_timestamp) {
+                            details.push(`<li><strong>Video Timestamp:</strong> ${metadata.video_timestamp}</li>`);
                         }
                         
-                        // Add any other metadata fields as list items
-                        Object.keys(metadata).forEach(key => {
-                            if (!['rule_index', 'confidence', 'detection_time', 'boxes', 'classes', 'description'].includes(key)) {
-                                const value = metadata[key];
-                                if (value !== null && value !== undefined && value !== '') {
-                                    details.push(`${key.charAt(0).toUpperCase() + key.slice(1)}: ${JSON.stringify(value)}`);
-                                }
+                        // 2. Session ID
+                        if (metadata.session_id) {
+                            details.push(`<li><strong>Session ID:</strong> ${metadata.session_id}</li>`);
+                        }
+                        
+                        // 3-5. Report fields (weapon_type, confidence, vlm_description)
+                        let ruleReport = null;
+                        if (metadata.detections && typeof metadata.detections === 'object') {
+                            // Try to get rule_report from detections
+                            if (metadata.detections.rule_report) {
+                                ruleReport = metadata.detections.rule_report;
                             }
-                        });
+                        }
+                        // Also check if report is directly in metadata
+                        if (!ruleReport && metadata.report) {
+                            ruleReport = metadata.report;
+                        }
+                        
+                        if (ruleReport && typeof ruleReport === 'object') {
+                            // Weapon Type
+                            if (ruleReport.weapon_type) {
+                                details.push(`<li><strong>Weapon Type:</strong> ${ruleReport.weapon_type}</li>`);
+                            }
+                            
+                            // Confidence
+                            if (ruleReport.confidence !== undefined && ruleReport.confidence !== null) {
+                                const confidence = typeof ruleReport.confidence === 'number' 
+                                    ? (ruleReport.confidence * 100).toFixed(1) + '%'
+                                    : ruleReport.confidence;
+                                details.push(`<li><strong>Confidence:</strong> ${confidence}</li>`);
+                            }
+                            
+                            // VLM Description
+                            if (ruleReport.vlm_description) {
+                                details.push(`<li><strong>VLM Description:</strong> ${ruleReport.vlm_description}</li>`);
+                            }
+                        }
                         
                         if (details.length > 0) {
-                            detectionDetailsEl.innerHTML = details.map(d => `<li>${d}</li>`).join('');
+                            detectionDetailsEl.innerHTML = details.join('');
                             detectionDetailsSection.style.display = 'block';
                         } else {
                             detectionDetailsSection.style.display = 'none';

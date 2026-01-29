@@ -532,15 +532,15 @@
     function replaceLastUserBubbleText(newText) {
       const trimmed = (newText || '').trim();
       if (!trimmed) return false;
-      
+
       // Find the last user message wrapper
       const userWrappers = messagesEl.querySelectorAll('.user-message-wrapper');
       if (userWrappers.length === 0) return false;
-      
+
       const lastWrapper = userWrappers[userWrappers.length - 1];
       const messageEl = lastWrapper.querySelector('.user-message');
       if (!messageEl) return false;
-      
+
       // Replace text content
       messageEl.textContent = trimmed;
       return true;
@@ -695,6 +695,8 @@
             const delta = data?.delta != null ? String(data.delta) : '';
             if (delta) {
               acc += delta;
+              console.log('[Token Debug] delta:', delta);
+              console.log('[Token Debug] acc content contains markdown image:', acc.includes('![') && acc.includes(']('));
               const boundary = /[\s.,!?;:\n]/.test(delta);
               const now = Date.now();
               const last = state._lastStreamUiFlushTs || 0;

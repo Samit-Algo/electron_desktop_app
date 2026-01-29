@@ -1073,6 +1073,40 @@
                                 ctx.fillText(label, tx, ty);
                             }
                         }
+                        
+                        // Draw scenario overlays (e.g., loom ROI boxes with state labels)
+                        const scenarioOverlays = Array.isArray(payload.scenario_overlays) ? payload.scenario_overlays : [];
+                        for (const overlay of scenarioOverlays) {
+                            const overlayBoxes = Array.isArray(overlay.boxes) ? overlay.boxes : [];
+                            const overlayLabels = Array.isArray(overlay.labels) ? overlay.labels : [];
+                            const overlayColors = Array.isArray(overlay.colors) ? overlay.colors : [];
+                            
+                            for (let i = 0; i < overlayBoxes.length; i++) {
+                                const b = overlayBoxes[i];
+                                if (!Array.isArray(b) || b.length < 4) continue;
+                                const x1 = Number(b[0]), y1 = Number(b[1]), x2 = Number(b[2]), y2 = Number(b[3]);
+                                if (!Number.isFinite(x1 + y1 + x2 + y2)) continue;
+                                
+                                // Use custom color if provided, otherwise default
+                                const color = overlayColors[i] || 'rgba(0, 255, 102, 0.95)';
+                                ctx.strokeStyle = color;
+                                ctx.fillStyle = color;
+                                
+                                const dx = x1 * scaleX;
+                                const dy = y1 * scaleY;
+                                const dw = Math.max(0, (x2 - x1) * scaleX);
+                                const dh = Math.max(0, (y2 - y1) * scaleY);
+                                ctx.strokeRect(dx, dy, dw, dh);
+                                
+                                // Draw label
+                                const label = String(overlayLabels[i] || '');
+                                if (label) {
+                                    const tx = dx + 4;
+                                    const ty = Math.max(14, dy - 6);
+                                    ctx.fillText(label, tx, ty);
+                                }
+                            }
+                        }
                     }
 
                     async function openOverlayWsForAgent(agentId, agentName) {

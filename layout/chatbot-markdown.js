@@ -165,7 +165,7 @@
       try {
         // Render markdown if libraries are available, otherwise fallback to plain text
         if (window.marked && window.DOMPurify && typeof window.marked.parse === 'function') {
-          const allowedTags = ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'a', 'hr', 'div'];
+          const allowedTags = ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'a', 'hr', 'div', 'img'];
           let rawHtml = '';
           try {
             rawHtml = window.marked.parse(safe);
@@ -174,10 +174,30 @@
           }
           const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
             ALLOWED_TAGS: allowedTags,
-            ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'style'],
+            ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'style', 'src', 'alt'],
             KEEP_CONTENT: true
           });
-          bubble.innerHTML = cleanHtml;
+
+          // Debug logging
+          console.log('[Markdown Debug] rawHtml:', rawHtml);
+          console.log('[Markdown Debug] sanitizedHtml:', cleanHtml);
+
+          // Automatically append authentication token to vision backend images
+          const token = localStorage.getItem('visionai_token');
+          let processedHtml = cleanHtml;
+          if (token) {
+            processedHtml = cleanHtml.replace(
+              /src="([^"]*\/api\/v1\/events\/[^"]*\/image)"/g,
+              (match, p1) => {
+                const finalUrl = `${p1}${p1.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+                console.log('[Markdown Debug] Injecting token into URL:', finalUrl);
+                return `src="${finalUrl}"`;
+              }
+            );
+          }
+
+          console.log('[Markdown Debug] finalProcessedHtml:', processedHtml);
+          bubble.innerHTML = processedHtml;
           // Make all links open in new tab with security attributes
           bubble.querySelectorAll?.('a[href]')?.forEach(a => {
             a.setAttribute('target', '_blank');
@@ -224,7 +244,7 @@
     // Render final markdown HTML with full feature support
     try {
       if (window.marked && window.DOMPurify) {
-        const allowedTags = ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'a', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div'];
+        const allowedTags = ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'a', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'img'];
         let rawHtml;
         try {
           if (window.marked && typeof window.marked.parse === 'function') {
@@ -238,11 +258,31 @@
         }
         const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
           ALLOWED_TAGS: allowedTags,
-          ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'id', 'style', 'type', 'class'],
+          ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'id', 'style', 'type', 'class', 'src', 'alt'],
           KEEP_CONTENT: true,
-          ADD_ATTR: ['id', 'style', 'class']
+          ADD_ATTR: ['id', 'style', 'class', 'src', 'alt']
         });
-        bubble.innerHTML = cleanHtml;
+
+        // Debug logging
+        console.log('[Markdown Debug Final] rawHtml:', rawHtml);
+        console.log('[Markdown Debug Final] sanitizedHtml:', cleanHtml);
+
+        // Automatically append authentication token to vision backend images
+        const token = localStorage.getItem('visionai_token');
+        let processedHtml = cleanHtml;
+        if (token) {
+          processedHtml = cleanHtml.replace(
+            /src="([^"]*\/api\/v1\/events\/[^"]*\/image)"/g,
+            (match, p1) => {
+              const finalUrl = `${p1}${p1.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+              console.log('[Markdown Debug Final] Injecting token into URL:', finalUrl);
+              return `src="${finalUrl}"`;
+            }
+          );
+        }
+
+        console.log('[Markdown Debug Final] finalProcessedHtml:', processedHtml);
+        bubble.innerHTML = processedHtml;
         // Make all links open in new tab with security attributes
         bubble.querySelectorAll?.('a[href]')?.forEach(a => {
           a.setAttribute('target', '_blank');
