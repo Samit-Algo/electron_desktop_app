@@ -1151,12 +1151,14 @@
                             const classes = Array.isArray(det.classes) ? det.classes : [];
                             const scores = Array.isArray(det.scores) ? det.scores : [];
                             
-                            // Get line crossing information
+                            // Get line crossing and restricted-zone information
                             const line_crossed_indices = Array.isArray(payload.line_crossed_indices) ? payload.line_crossed_indices : [];
                             const line_crossed = payload.line_crossed || false;
                             const zone_violated = payload.zone_violated || false;
                             const fire_detected = payload.fire_detected || false;
                             const track_info = Array.isArray(payload.track_info) ? payload.track_info : [];
+                            const in_zone_indices = Array.isArray(payload.in_zone_indices) ? payload.in_zone_indices : [];
+                            const inZoneSet = new Set(in_zone_indices);
                             
                             ctx.lineWidth = 2;
                             ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
@@ -1267,8 +1269,12 @@
                                     // Use class name so fire boxes are always red when agent is fire detection
                                     boxColor = 'rgba(255, 0, 0, 0.95)';
                                     fillColor = 'rgba(255, 0, 0, 0.35)';
-                                } else if (zone_violated) {
-                                    // Red for zone violation
+                                } else if (inZoneSet.size > 0 && inZoneSet.has(i)) {
+                                    // Restricted zone: red only for this detection (inside zone)
+                                    boxColor = 'rgba(255, 0, 0, 0.95)';
+                                    fillColor = 'rgba(255, 0, 0, 0.3)';
+                                } else if (zone_violated && inZoneSet.size === 0) {
+                                    // Legacy: no in_zone_indices – all boxes red when zone violated
                                     boxColor = 'rgba(255, 0, 0, 0.95)';
                                     fillColor = 'rgba(255, 0, 0, 0.3)';
                                 } else if (isCounted && crossDirection === 'entry') {
