@@ -592,9 +592,9 @@
     }
 
     // Delegate zone editor opening to ChatbotZoneEditor module
-    async function openZoneEditorInBubble(pendingId, cameraId) {
+    async function openZoneEditorInBubble(pendingId, cameraId, zoneMode = 'polygon', snapshotUrl = null) {
       if (window.ChatbotZoneEditor && typeof ChatbotZoneEditor.openZoneEditorInBubble === 'function') {
-        return ChatbotZoneEditor.openZoneEditorInBubble(pendingId, cameraId);
+        return ChatbotZoneEditor.openZoneEditorInBubble(pendingId, cameraId, zoneMode, snapshotUrl);
       }
     }
 
@@ -755,8 +755,76 @@
           }
 
           const needsZoneUi = !!(finalPayload?.awaiting_zone_input || finalPayload?.zone_required);
-          if (needsZoneUi && resolvedCameraId) {
-            await openZoneEditorInBubble(pendingId, resolvedCameraId);
+          
+          // Fallback: detect if assistant is asking user to draw polygon/zone by checking response text
+          const answerLower = (answer || '').toLowerCase();
+          const drawKeywords = ['draw', 'polygon', 'zone', 'area', 'restricted zone', 'counting line'];
+          const mentionsDrawing = drawKeywords.some(keyword => answerLower.includes(keyword));
+          
+          // Also check if response mentions "camera frame" or similar
+          const mentionsFrame = answerLower.includes('camera frame') || answerLower.includes('frame') || answerLower.includes('snapshot');
+          
+          const shouldShowZoneEditor = needsZoneUi || (mentionsDrawing && mentionsFrame && resolvedCameraId);
+          
+          console.log('[ChatbotCore] Zone UI check:', {
+            needsZoneUi,
+            resolvedCameraId,
+            awaiting_zone_input: finalPayload?.awaiting_zone_input,
+            zone_required: finalPayload?.zone_required,
+            frame_snapshot_url: finalPayload?.frame_snapshot_url,
+            zone_type: finalPayload?.zone_type || finalPayload?.zone_mode,
+            mentionsDrawing,
+            mentionsFrame,
+            shouldShowZoneEditor
+          });
+          
+          if (shouldShowZoneEditor && resolvedCameraId) {
+            // Determine zone mode from backend response (defaults to 'polygon' for backward compatibility)
+            // Backend can specify: 'line' for counting line, 'polygon' for restricted zone, or omit for default
+            const zoneMode = finalPayload?.zone_type || finalPayload?.zone_mode || 'polygon';
+            // Use frame_snapshot_url if provided, otherwise fall back to camera ID
+            const snapshotUrl = finalPayload?.frame_snapshot_url || null;
+            console.log('[ChatbotCore] Opening zone editor:', {
+              pendingId,
+              cameraId: resolvedCameraId,
+              zoneMode,
+              snapshotUrl
+            });
+            try {
+              await openZoneEditorInBubble(pendingId, resolvedCameraId, zoneMode, snapshotUrl);
+              console.log('[ChatbotCore] Zone editor opened successfully');
+            } catch (err) {
+              console.error('[ChatbotCore] Error opening zone editor:', err);
+              // Show user-friendly error message in chat
+              const errorMsg = `⚠️ Failed to load zone editor. Please check console for details. Camera ID: ${resolvedCameraId}`;
+              const errorBubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+              if (errorBubble) {
+                const bubbleDiv = errorBubble.querySelector?.('div');
+                if (bubbleDiv) {
+                  const errorDiv = document.createElement('div');
+                  errorDiv.className = 'text-danger mt-2 fs-9';
+                  errorDiv.textContent = errorMsg;
+                  bubbleDiv.appendChild(errorDiv);
+                }
+              }
+            }
+          } else if (shouldShowZoneEditor && !resolvedCameraId) {
+            console.warn('[ChatbotCore] Zone UI needed but camera_id is missing. Response:', {
+              needsZoneUi,
+              mentionsDrawing,
+              mentionsFrame
+            });
+            const helpMsg = '⚠️ Zone editor requires a camera ID. Please provide the camera ID in your message.';
+            const helpBubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+            if (helpBubble) {
+              const bubbleDiv = helpBubble.querySelector?.('div');
+              if (bubbleDiv) {
+                const helpDiv = document.createElement('div');
+                helpDiv.className = 'text-warning mt-2 fs-9';
+                helpDiv.textContent = helpMsg;
+                bubbleDiv.appendChild(helpDiv);
+              }
+            }
           }
         }
 
@@ -905,12 +973,26 @@
     }
 
     // Initialize zone editor module with dependencies
+    console.log('[ChatbotCore] About to initialize zone editor');
+    console.log('[ChatbotCore] window.ChatbotZoneEditor exists?', !!window.ChatbotZoneEditor);
+    console.log('[ChatbotCore] sendTextMessage type:', typeof sendTextMessage);
+    
     if (window.ChatbotZoneEditor && typeof ChatbotZoneEditor.init === 'function') {
+      console.log('[ChatbotCore] ✅ Calling ChatbotZoneEditor.init()');
       ChatbotZoneEditor.init({
         messagesEl,
         sendTextMessage,
         escapeHtml
       });
+      console.log('[ChatbotCore] ✅ ChatbotZoneEditor.init() completed');
+    } else {
+      console.warn('[ChatbotCore] ⚠️ ChatbotZoneEditor not loaded yet, saving deps for later');
+      // Zone editor will load after this - save dependencies for it to pick up
+      window.ChatbotZoneEditorPendingDeps = {
+        messagesEl,
+        sendTextMessage,
+        escapeHtml
+      };
     }
 
     // Initialize flow diagram module with dependencies
