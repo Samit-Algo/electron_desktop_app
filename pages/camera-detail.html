@@ -1325,6 +1325,49 @@
                                     ctx.fillText(label, tx, ty);
                                 }
                             }
+
+                            // Draw pose keypoints and skeleton (weapon_detection / fall_detection / any pose scenario)
+                            const keypointsList = Array.isArray(det.keypoints) ? det.keypoints : [];
+                            if (keypointsList.length > 0) {
+                                const POSE_SKELETON = [[0,1],[0,2],[1,3],[2,4],[5,6],[5,7],[7,9],[6,8],[8,10],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]];
+                                const minConf = 0.25;
+                                const pointColor = 'rgba(255, 255, 0, 1.0)';
+                                const skeletonColor = 'rgba(0, 255, 0, 1.0)';
+                                const pointRadius = 3;
+                                const skeletonThickness = 2;
+                                for (const personKps of keypointsList) {
+                                    if (!personKps || !Array.isArray(personKps)) continue;
+                                    const kps = [];
+                                    for (const pt of personKps) {
+                                        if (!pt || pt.length < 2) { kps.push(null); continue; }
+                                        const x = Number(pt[0]), y = Number(pt[1]);
+                                        const conf = pt.length >= 3 ? Number(pt[2]) : 1.0;
+                                        if (!Number.isFinite(x + y) || conf < minConf) { kps.push(null); continue; }
+                                        kps.push({ x: x * scaleX, y: y * scaleY });
+                                    }
+                                    for (let i = 0; i < kps.length; i++) {
+                                        const pt = kps[i];
+                                        if (pt) {
+                                            ctx.beginPath();
+                                            ctx.arc(pt.x, pt.y, pointRadius, 0, Math.PI * 2);
+                                            ctx.fillStyle = pointColor;
+                                            ctx.fill();
+                                        }
+                                    }
+                                    for (const [i, j] of POSE_SKELETON) {
+                                        if (i >= kps.length || j >= kps.length) continue;
+                                        const a = kps[i], b = kps[j];
+                                        if (a && b) {
+                                            ctx.beginPath();
+                                            ctx.moveTo(a.x, a.y);
+                                            ctx.lineTo(b.x, b.y);
+                                            ctx.strokeStyle = skeletonColor;
+                                            ctx.lineWidth = skeletonThickness;
+                                            ctx.stroke();
+                                        }
+                                    }
+                                }
+                            }
                             
                             // Show alert in console when line is crossed
                             if (line_crossed && line_crossed_indices.length > 0) {
