@@ -1270,11 +1270,7 @@
                                     boxColor = 'rgba(255, 0, 0, 0.95)';
                                     fillColor = 'rgba(255, 0, 0, 0.35)';
                                 } else if (inZoneSet.size > 0 && inZoneSet.has(i)) {
-                                    // Restricted zone: red only for this detection (inside zone)
-                                    boxColor = 'rgba(255, 0, 0, 0.95)';
-                                    fillColor = 'rgba(255, 0, 0, 0.3)';
-                                } else if (zone_violated && inZoneSet.size === 0) {
-                                    // Legacy: no in_zone_indices – all boxes red when zone violated
+                                    // Restricted zone: red only for detections inside the zone (per-box coloring)
                                     boxColor = 'rgba(255, 0, 0, 0.95)';
                                     fillColor = 'rgba(255, 0, 0, 0.3)';
                                 } else if (isCounted && crossDirection === 'entry') {
