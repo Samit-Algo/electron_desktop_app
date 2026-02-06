@@ -1161,6 +1161,10 @@
                             const inZoneSet = new Set(in_zone_indices);
                             const sleep_confirmed_indices = Array.isArray(payload.sleep_confirmed_indices) ? payload.sleep_confirmed_indices : [];
                             const sleepConfirmedSet = new Set(sleep_confirmed_indices);
+                            const wall_climb_red_indices = Array.isArray(payload.wall_climb_red_indices) ? payload.wall_climb_red_indices : [];
+                            const wall_climb_orange_indices = Array.isArray(payload.wall_climb_orange_indices) ? payload.wall_climb_orange_indices : [];
+                            const wallClimbRedSet = new Set(wall_climb_red_indices);
+                            const wallClimbOrangeSet = new Set(wall_climb_orange_indices);
                             
                             ctx.lineWidth = 2;
                             ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
@@ -1279,6 +1283,14 @@
                                     // Restricted zone: red only for detections inside the zone (per-box coloring)
                                     boxColor = 'rgba(255, 0, 0, 0.95)';
                                     fillColor = 'rgba(255, 0, 0, 0.3)';
+                                } else if (wallClimbRedSet.size > 0 && wallClimbRedSet.has(i)) {
+                                    // Wall climb: red when person is fully above wall (stays red)
+                                    boxColor = 'rgba(255, 0, 0, 0.95)';
+                                    fillColor = 'rgba(255, 0, 0, 0.3)';
+                                } else if (wallClimbOrangeSet.size > 0 && wallClimbOrangeSet.has(i)) {
+                                    // Wall climb: orange when person is climbing (part above wall)
+                                    boxColor = 'rgba(255, 165, 0, 0.95)';
+                                    fillColor = 'rgba(255, 165, 0, 0.3)';
                                 } else if (isCounted && crossDirection === 'entry') {
                                     // ORANGE when crossed from Side 2 → Side 1 (ADD)
                                     boxColor = 'rgba(255, 165, 0, 0.95)';
