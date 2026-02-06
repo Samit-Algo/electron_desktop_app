@@ -667,9 +667,11 @@
         let sawError = false;
 
         const zoneData = options?.zoneData || null;
+        // Pass known camera ID so backend can persist it; avoids repeated "provide camera ID" prompts
+        const cameraIdForRequest = state.cameraId || null;
         // Get appropriate stream based on mode (agent vs general)
         const stream = (mode === 'agent')
-          ? window.visionAPI.chatWithAgentStream(trimmed, state.sessionId, null, zoneData, state._abortController.signal)
+          ? window.visionAPI.chatWithAgentStream(trimmed, state.sessionId, cameraIdForRequest, zoneData, state._abortController.signal)
           : window.visionAPI.generalChatStream(trimmed, state.sessionId, state._abortController.signal);
 
         // Mark text streaming active for voice module
@@ -747,12 +749,14 @@
           await renderFlowDiagram(pendingId, finalPayload.flow_diagram_data);
         }
 
-        // Handle zone editor UI for agent mode if needed
+        // Handle zone editor UI for agent mode as needed
         if (!isError && mode === 'agent') {
           const resolvedCameraId = finalPayload?.camera_id || null;
           if (resolvedCameraId) {
             state.cameraId = resolvedCameraId;
           }
+          // Use response camera_id first, then session state (so zone editor works even if backend missed one turn)
+          const effectiveCameraId = resolvedCameraId || state.cameraId || null;
 
           const needsZoneUi = !!(finalPayload?.awaiting_zone_input || finalPayload?.zone_required);
           
@@ -764,11 +768,12 @@
           // Also check if response mentions "camera frame" or similar
           const mentionsFrame = answerLower.includes('camera frame') || answerLower.includes('frame') || answerLower.includes('snapshot');
           
-          const shouldShowZoneEditor = needsZoneUi || (mentionsDrawing && mentionsFrame && resolvedCameraId);
+          const shouldShowZoneEditor = needsZoneUi || (mentionsDrawing && mentionsFrame && effectiveCameraId);
           
           console.log('[ChatbotCore] Zone UI check:', {
             needsZoneUi,
             resolvedCameraId,
+            effectiveCameraId,
             awaiting_zone_input: finalPayload?.awaiting_zone_input,
             zone_required: finalPayload?.zone_required,
             frame_snapshot_url: finalPayload?.frame_snapshot_url,
@@ -778,7 +783,7 @@
             shouldShowZoneEditor
           });
           
-          if (shouldShowZoneEditor && resolvedCameraId) {
+          if (shouldShowZoneEditor && effectiveCameraId) {
             // Determine zone mode from backend response (defaults to 'polygon' for backward compatibility)
             // Backend can specify: 'line' for counting line, 'polygon' for restricted zone, or omit for default
             const zoneMode = finalPayload?.zone_type || finalPayload?.zone_mode || 'polygon';
@@ -786,17 +791,17 @@
             const snapshotUrl = finalPayload?.frame_snapshot_url || null;
             console.log('[ChatbotCore] Opening zone editor:', {
               pendingId,
-              cameraId: resolvedCameraId,
+              cameraId: effectiveCameraId,
               zoneMode,
               snapshotUrl
             });
             try {
-              await openZoneEditorInBubble(pendingId, resolvedCameraId, zoneMode, snapshotUrl);
+              await openZoneEditorInBubble(pendingId, effectiveCameraId, zoneMode, snapshotUrl);
               console.log('[ChatbotCore] Zone editor opened successfully');
             } catch (err) {
               console.error('[ChatbotCore] Error opening zone editor:', err);
               // Show user-friendly error message in chat
-              const errorMsg = `⚠️ Failed to load zone editor. Please check console for details. Camera ID: ${resolvedCameraId}`;
+              const errorMsg = `⚠️ Failed to load zone editor. Please check console for details. Camera ID: ${effectiveCameraId}`;
               const errorBubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
               if (errorBubble) {
                 const bubbleDiv = errorBubble.querySelector?.('div');
@@ -808,13 +813,13 @@
                 }
               }
             }
-          } else if (shouldShowZoneEditor && !resolvedCameraId) {
+          } else if (shouldShowZoneEditor && !effectiveCameraId) {
             console.warn('[ChatbotCore] Zone UI needed but camera_id is missing. Response:', {
               needsZoneUi,
               mentionsDrawing,
               mentionsFrame
             });
-            const helpMsg = '⚠️ Zone editor requires a camera ID. Please provide the camera ID in your message.';
+            const helpMsg = '⚠️ Zone editor needs a camera. Please provide the camera name or camera ID in your message (e.g. "TEST", "Front Gate", or CAM-xxx).';
             const helpBubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
             if (helpBubble) {
               const bubbleDiv = helpBubble.querySelector?.('div');
