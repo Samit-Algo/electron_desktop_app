@@ -3,6 +3,25 @@
  * Centralized API client for all backend communication
  */
 
+/**
+ * Parse FastAPI/Pydantic error detail into a human-readable message.
+ * - If detail is a string: return as-is
+ * - If detail is an array of validation errors: join their .msg values
+ * @param {string|Array<{msg?: string, loc?: string[], type?: string}>} detail
+ * @returns {string}
+ */
+function parseErrorDetail(detail) {
+  if (detail == null) return '';
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .filter((item) => item && typeof item === 'object' && item.msg)
+      .map((item) => item.msg);
+    return messages.length ? messages.join('. ') : JSON.stringify(detail);
+  }
+  return String(detail);
+}
+
 class VisionAPIService {
   constructor() {
     // Backend URL - adjust this to your backend URL
@@ -53,7 +72,8 @@ class VisionAPIService {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.detail || `API Error: ${response.statusText}`);
+        const msg = parseErrorDetail(data?.detail) || `API Error: ${response.statusText}`;
+        throw new Error(msg);
       }
 
       return data;
@@ -92,7 +112,7 @@ class VisionAPIService {
       let msg = `API Error: ${response.statusText}`;
       try {
         const err = await response.json();
-        msg = err?.detail || msg;
+        msg = parseErrorDetail(err?.detail) || msg;
       } catch (_) {
         try {
           const t = await response.text();
@@ -242,13 +262,12 @@ class VisionAPIService {
     return await this.request(`/api/v1/cameras/get/${cameraId}`);
   }
 
-  async createCamera(name, streamUrl, deviceId = null) {
+  async createCamera(name, streamUrl) {
     return await this.request('/api/v1/cameras/create', {
       method: 'POST',
       body: JSON.stringify({
         name,
         stream_url: streamUrl,
-        device_id: deviceId,
       }),
     });
   }
@@ -372,7 +391,7 @@ class VisionAPIService {
       let msg = 'Failed to fetch snapshot';
       try {
         const data = await response.json();
-        msg = data?.detail || msg;
+        msg = parseErrorDetail(data?.detail) || msg;
       } catch (_) {
         // ignore (non-json)
       }
@@ -413,7 +432,7 @@ class VisionAPIService {
       try {
         const data = await response.json();
         console.error('[API] Snapshot error response:', data);
-        msg = data?.detail || msg;
+        msg = parseErrorDetail(data?.detail) || msg;
       } catch (_) {
         // ignore (non-json)
       }
@@ -467,7 +486,7 @@ class VisionAPIService {
   /**
    * Chat Methods
    */
-  async chatWithAgent(message, sessionId = null, cameraId = null, zoneData = null) {
+  async chatWithAgent(message, sessionId = null, cameraId = null, zoneData = null, videoPath = null) {
     return await this.request('/api/v1/chat/message', {
       method: 'POST',
       body: JSON.stringify({
@@ -475,16 +494,18 @@ class VisionAPIService {
         session_id: sessionId,
         camera_id: cameraId,
         zone_data: zoneData,
+        video_path: videoPath,
       }),
     });
   }
 
-  async *chatWithAgentStream(message, sessionId = null, cameraId = null, zoneData = null, signal = null) {
+  async *chatWithAgentStream(message, sessionId = null, cameraId = null, zoneData = null, videoPath = null, signal = null) {
     const body = JSON.stringify({
       message,
       session_id: sessionId,
       camera_id: cameraId,
       zone_data: zoneData,
+      video_path: videoPath,
     });
     yield* this.sseRequest('/api/v1/chat/message/stream', {
       method: 'POST',
@@ -493,6 +514,107 @@ class VisionAPIService {
       headers: {
         'Content-Type': 'application/json',
       },
+    });
+  }
+
+  /**
+   * Upload a video file for "create agent for this video" in chat.
+   * @param {File} file - Video file (e.g. from input type=file)
+   * @returns {Promise<{ video_path: string, filename: string }>}
+   */
+  async uploadVideo(file) {
+    const url = `${this.baseURL}/api/v1/videos/upload`;
+    const formData = new FormData();
+    formData.append('file', file);
+    const headers = {};
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (response.status === 401) {
+      this.logout();
+      throw new Error('Session expired. Please login again.');
+    }
+    const data = await response.json();
+    if (!response.ok) {
+      const msg = parseErrorDetail(data?.detail) || `Upload failed: ${response.statusText}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  /**
+   * Upload video + optional question. Single endpoint: upload and analyze.
+   * If question: analyze with it; else use general prompt.
+   * @param {File} file - Video file
+   * @param {string|null} question - Optional question for focused analysis
+   * @returns {Promise<{ video_id: string, status: string, indexing: string }>}
+   */
+  async staticVideoUpload(file, question = null) {
+    const url = `${this.baseURL}/api/v1/videos/static`;
+    const formData = new FormData();
+    formData.append('file', file);
+    if (question && String(question).trim()) {
+      formData.append('question', String(question).trim());
+    }
+    const headers = {};
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (response.status === 401) {
+      this.logout();
+      throw new Error('Session expired. Please login again.');
+    }
+    const data = await response.json();
+    if (!response.ok) {
+      const msg = parseErrorDetail(data?.detail) || `Upload failed: ${response.statusText}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  /**
+   * Ask question about an uploaded video. Uses RAG first; reanalyzes only when needed.
+   * @param {string} videoId - Video ID from staticVideoUpload
+   * @param {string} question - User question
+   * @returns {Promise<{ answer: string }>}
+   */
+  async staticVideoAsk(videoId, question) {
+    const url = `${this.baseURL}/api/v1/videos/static/ask`;
+    const formData = new FormData();
+    formData.append('video_id', videoId);
+    formData.append('question', question);
+    const headers = {};
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (response.status === 401) {
+      this.logout();
+      throw new Error('Session expired. Please login again.');
+    }
+    const data = await response.json();
+    if (!response.ok) {
+      const msg = parseErrorDetail(data?.detail) || `Ask failed: ${response.statusText}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  /**
+   * List static videos uploaded by the current user.
+   * @returns {Promise<{ videos: Array<{ video_id: string, video_path: string, filename: string, created_at?: string }> }>}
+   */
+  async listStaticVideos() {
+    return await this.request('/api/v1/videos/static/library', {
+      method: 'GET',
     });
   }
 
@@ -539,7 +661,7 @@ class VisionAPIService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || 'Voice chat error');
+      throw new Error(parseErrorDetail(error?.detail) || 'Voice chat error');
     }
 
     // Get session ID from header
@@ -583,7 +705,7 @@ class VisionAPIService {
         .then(response => {
           if (!response.ok) {
             return response.json().then(err => {
-              throw new Error(err.detail || 'Voice chat stream error');
+              throw new Error(parseErrorDetail(err?.detail) || 'Voice chat stream error');
             });
           }
 

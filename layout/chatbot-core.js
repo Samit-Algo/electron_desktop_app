@@ -358,9 +358,10 @@
 
     // Tab management state
     let tabCounter = 0;
-    const emptyModeState = () => ({ sessionId: null, html: initialTemplate, started: false });
+    const emptyModeState = () => ({ sessionId: null, html: initialTemplate, started: false, cameraId: null, videoPath: null, attachedVideoFilename: null });
     const tabs = [];
     let activeId = null;
+    let thinkingToProcessingTimer = null;
 
     // Escape HTML to prevent XSS
     function escapeHtml(s) {
@@ -402,6 +403,9 @@
 
       // Load new mode's HTML for this tab
       messagesEl.innerHTML = active.mode[mode].html || initialTemplate;
+
+      if (typeof updateUploadVideoButtonVisibility === 'function') updateUploadVideoButtonVisibility();
+      if (typeof updateAttachedVideoIndicator === 'function') updateAttachedVideoIndicator();
     }
 
     // Save current tab's HTML to state
@@ -448,6 +452,7 @@
       const mode = getMode();
       messagesEl.innerHTML = target.mode[mode].html || initialTemplate;
       renderTabs();
+      if (typeof updateAttachedVideoIndicator === 'function') updateAttachedVideoIndicator();
     }
 
     // Create a new chat tab
@@ -553,7 +558,7 @@
       }
     }
 
-    // Create pending assistant message bubble and return its ID
+    // Create pending assistant message bubble and return its ID (ChatGPT-style: one pulsing dot + thinking/processing text)
     function appendAssistantPending() {
       const id = `pending_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       messagesEl.insertAdjacentHTML(
@@ -561,12 +566,29 @@
         `
             <div class="d-flex flex-column align-items-start mt-3" data-chatbot-pending="${id}">
               <div class="ai-message-transparent fs-9 text-body-emphasis markdown-content">
-                ...
+                <div class="chatbot-thinking-indicator">
+                  <span class="chatbot-thinking-dot" aria-hidden="true"></span>
+                  <span class="chatbot-thinking-text"><span class="chatbot-thinking-label">Thinking...</span></span>
+                </div>
               </div>
             </div>
           `
       );
+      // After a longer "Thinking..." period, switch to "Processing..." once and stay there until backend responds
+      const THINKING_DURATION_MS = 4000;
+      thinkingToProcessingTimer = window.setTimeout(function () {
+        thinkingToProcessingTimer = null;
+        switchPendingToProcessing(id);
+      }, THINKING_DURATION_MS);
       return id;
+    }
+
+    // Switch the pending bubble label from "Thinking..." to "Processing..." (no repeat; stays until response replaces it)
+    function switchPendingToProcessing(pendingId) {
+      const node = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+      if (!node) return;
+      const label = node.querySelector?.('.chatbot-thinking-label');
+      if (label) label.textContent = 'Processing...';
     }
 
     // Delegate final markdown rendering to ChatbotMarkdown module
@@ -632,6 +654,10 @@
         const lower = trimmed.toLowerCase();
 
         if (lower === 'demo on' || lower === '/demo on') {
+          if (thinkingToProcessingTimer) {
+            clearTimeout(thinkingToProcessingTimer);
+            thinkingToProcessingTimer = null;
+          }
           localStorage.setItem(DEMO_KEY, 'true');
           replaceAssistantPending(pendingId, '**Demo mode enabled** (backend calls are disabled). Type `demo off` to exit.');
           state.html = messagesEl.innerHTML;
@@ -639,6 +665,10 @@
           return;
         }
         if (lower === 'demo off' || lower === '/demo off') {
+          if (thinkingToProcessingTimer) {
+            clearTimeout(thinkingToProcessingTimer);
+            thinkingToProcessingTimer = null;
+          }
           localStorage.setItem(DEMO_KEY, 'false');
           replaceAssistantPending(pendingId, '**Demo mode disabled** (backend calls are enabled again).');
           state.html = messagesEl.innerHTML;
@@ -667,11 +697,10 @@
         let sawError = false;
 
         const zoneData = options?.zoneData || null;
-        // Pass known camera ID so backend can persist it; avoids repeated "provide camera ID" prompts
         const cameraIdForRequest = state.cameraId || null;
-        // Get appropriate stream based on mode (agent vs general)
+        const videoPathForRequest = state.videoPath || null;
         const stream = (mode === 'agent')
-          ? window.visionAPI.chatWithAgentStream(trimmed, state.sessionId, cameraIdForRequest, zoneData, state._abortController.signal)
+          ? window.visionAPI.chatWithAgentStream(trimmed, state.sessionId, cameraIdForRequest, zoneData, videoPathForRequest, state._abortController.signal)
           : window.visionAPI.generalChatStream(trimmed, state.sessionId, state._abortController.signal);
 
         // Mark text streaming active for voice module
@@ -693,6 +722,11 @@
           }
 
           if (evName === 'token') {
+            // Cancel "Thinking..." -> "Processing..." timer once backend has responded
+            if (thinkingToProcessingTimer) {
+              clearTimeout(thinkingToProcessingTimer);
+              thinkingToProcessingTimer = null;
+            }
             // Accumulate streaming text tokens with micro-batching
             const delta = data?.delta != null ? String(data.delta) : '';
             if (delta) {
@@ -759,16 +793,7 @@
           const effectiveCameraId = resolvedCameraId || state.cameraId || null;
 
           const needsZoneUi = !!(finalPayload?.awaiting_zone_input || finalPayload?.zone_required);
-          
-          // Fallback: detect if assistant is asking user to draw polygon/zone by checking response text
-          const answerLower = (answer || '').toLowerCase();
-          const drawKeywords = ['draw', 'polygon', 'zone', 'area', 'restricted zone', 'counting line'];
-          const mentionsDrawing = drawKeywords.some(keyword => answerLower.includes(keyword));
-          
-          // Also check if response mentions "camera frame" or similar
-          const mentionsFrame = answerLower.includes('camera frame') || answerLower.includes('frame') || answerLower.includes('snapshot');
-          
-          const shouldShowZoneEditor = needsZoneUi || (mentionsDrawing && mentionsFrame && effectiveCameraId);
+          const shouldShowZoneEditor = needsZoneUi;
           
           console.log('[ChatbotCore] Zone UI check:', {
             needsZoneUi,
@@ -778,8 +803,6 @@
             zone_required: finalPayload?.zone_required,
             frame_snapshot_url: finalPayload?.frame_snapshot_url,
             zone_type: finalPayload?.zone_type || finalPayload?.zone_mode,
-            mentionsDrawing,
-            mentionsFrame,
             shouldShowZoneEditor
           });
           
@@ -815,9 +838,7 @@
             }
           } else if (shouldShowZoneEditor && !effectiveCameraId) {
             console.warn('[ChatbotCore] Zone UI needed but camera_id is missing. Response:', {
-              needsZoneUi,
-              mentionsDrawing,
-              mentionsFrame
+              needsZoneUi
             });
             const helpMsg = '⚠️ Zone editor needs a camera. Please provide the camera name or camera ID in your message (e.g. "TEST", "Front Gate", or CAM-xxx).';
             const helpBubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
@@ -836,6 +857,10 @@
         state.html = messagesEl.innerHTML;
         messagesEl.scrollTop = messagesEl.scrollHeight;
       } catch (err) {
+        if (thinkingToProcessingTimer) {
+          clearTimeout(thinkingToProcessingTimer);
+          thinkingToProcessingTimer = null;
+        }
         // Handle abort errors gracefully (expected when user cancels)
         if (err && (err.name === 'AbortError' || String(err).includes('AbortError'))) {
           return;
@@ -952,6 +977,140 @@
       setMode(mode);
     });
 
+    // ----- Upload video (Agent mode: create agent for this video) -----
+    const uploadVideoBtn = document.getElementById('chatbot-upload-video-btn');
+    const videoUploadInput = document.getElementById('chatbot-video-upload');
+    const attachedVideoIndicator = document.getElementById('chatbot-attached-video-indicator');
+    const attachedVideoLabel = attachedVideoIndicator?.querySelector?.('.chatbot-attached-video-label');
+    const attachedVideoClearBtn = document.getElementById('chatbot-attached-video-clear');
+
+    function updateUploadVideoButtonVisibility() {
+      if (!uploadVideoBtn) return;
+      uploadVideoBtn.style.display = getMode() === 'agent' ? '' : 'none';
+    }
+
+    function updateAttachedVideoIndicator() {
+      if (!attachedVideoIndicator || !attachedVideoLabel) return;
+      const active = getActive();
+      const mode = getMode();
+      const path = active?.mode?.[mode]?.videoPath;
+      const name = active?.mode?.[mode]?.attachedVideoFilename;
+      if (path && getMode() === 'agent') {
+        attachedVideoLabel.textContent = name ? `Video attached: ${name}` : 'Video attached';
+        attachedVideoIndicator.classList.remove('d-none');
+        attachedVideoIndicator.classList.add('d-flex');
+      } else {
+        attachedVideoIndicator.classList.add('d-none');
+        attachedVideoIndicator.classList.remove('d-flex');
+      }
+    }
+
+    if (uploadVideoBtn && videoUploadInput) {
+      uploadVideoBtn.addEventListener('click', function () {
+        if (getMode() !== 'agent') return;
+        videoUploadInput.value = '';
+        videoUploadInput.click();
+      });
+      videoUploadInput.addEventListener('change', async function () {
+        const file = this.files?.[0];
+        if (!file || getMode() !== 'agent') return;
+        if (!window.visionAPI || typeof window.visionAPI.uploadVideo !== 'function') {
+          console.warn('[ChatbotCore] visionAPI.uploadVideo not available');
+          return;
+        }
+        const active = getActive();
+        const mode = getMode();
+        if (!active) return;
+        try {
+          uploadVideoBtn.setAttribute('aria-busy', 'true');
+          uploadVideoBtn.querySelector('.fa-video')?.classList?.add('fa-spin');
+          const data = await window.visionAPI.uploadVideo(file);
+          if (data && data.video_path) {
+            active.mode[mode].videoPath = data.video_path;
+            active.mode[mode].attachedVideoFilename = data.filename || file.name;
+            if (window.ChatbotCore && typeof window.ChatbotCore.setVideoPath === 'function') {
+              window.ChatbotCore.setVideoPath(data.video_path);
+            }
+            updateAttachedVideoIndicator();
+          }
+        } catch (err) {
+          console.error('[ChatbotCore] Video upload failed:', err);
+          if (typeof window.toastService !== 'undefined' && window.toastService.error) {
+            window.toastService.error(err.message || 'Video upload failed');
+          } else {
+            alert(err.message || 'Video upload failed');
+          }
+        } finally {
+          uploadVideoBtn.removeAttribute('aria-busy');
+          uploadVideoBtn.querySelector('.fa-video')?.classList?.remove('fa-spin');
+          this.value = '';
+        }
+      });
+    }
+
+    if (attachedVideoClearBtn) {
+      attachedVideoClearBtn.addEventListener('click', function () {
+        const active = getActive();
+        const mode = getMode();
+        if (active) {
+          active.mode[mode].videoPath = null;
+          active.mode[mode].attachedVideoFilename = null;
+          if (window.ChatbotCore && typeof window.ChatbotCore.setVideoPath === 'function') {
+            window.ChatbotCore.setVideoPath(null);
+          }
+          updateAttachedVideoIndicator();
+        }
+      });
+    }
+
+    // Optional: drag-and-drop video on messages area (Agent mode)
+    if (messagesEl) {
+      messagesEl.addEventListener('dragover', function (e) {
+        if (getMode() !== 'agent') return;
+        const hasVideo = Array.from(e.dataTransfer?.types || []).some(t => t === 'Files');
+        if (hasVideo) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          messagesEl.classList.add('chatbot-drag-over');
+        }
+      });
+      messagesEl.addEventListener('dragleave', function () {
+        messagesEl.classList.remove('chatbot-drag-over');
+      });
+      messagesEl.addEventListener('drop', async function (e) {
+        e.preventDefault();
+        messagesEl.classList.remove('chatbot-drag-over');
+        if (getMode() !== 'agent') return;
+        const file = e.dataTransfer?.files?.[0];
+        if (!file || !file.type.startsWith('video/')) return;
+        if (!window.visionAPI || typeof window.visionAPI.uploadVideo !== 'function') return;
+        const active = getActive();
+        const mode = getMode();
+        if (!active) return;
+        try {
+          const data = await window.visionAPI.uploadVideo(file);
+          if (data && data.video_path) {
+            active.mode[mode].videoPath = data.video_path;
+            active.mode[mode].attachedVideoFilename = data.filename || file.name;
+            if (window.ChatbotCore && typeof window.ChatbotCore.setVideoPath === 'function') {
+              window.ChatbotCore.setVideoPath(data.video_path);
+            }
+            updateAttachedVideoIndicator();
+            if (window.toastService && window.toastService.success) {
+              window.toastService.success('Video attached');
+            }
+          }
+        } catch (err) {
+          console.error('[ChatbotCore] Video upload failed:', err);
+          if (typeof window.toastService !== 'undefined' && window.toastService.error) {
+            window.toastService.error(err.message || 'Video upload failed');
+          } else {
+            alert(err.message || 'Video upload failed');
+          }
+        }
+      });
+    }
+
     // Initialize mode label and create first tab
     chatbotOffcanvas.dataset.chatbotMode = chatbotOffcanvas.dataset.chatbotMode || 'general';
     if (modeLabel) modeLabel.textContent = getMode() === 'agent' ? 'Agent' : 'General';
@@ -1023,6 +1182,26 @@
     }
 
     createTab('New chat 1');
+    updateUploadVideoButtonVisibility();
+    updateAttachedVideoIndicator();
+
+    // Expose helpers so pages can open agent chat with a video file (no camera_id)
+    window.ChatbotCore = {
+      setVideoPath: function (path) {
+        const active = getActive();
+        if (active) {
+          const m = getMode();
+          active.mode[m].videoPath = path ? String(path).trim() || null : null;
+        }
+      },
+      setCameraId: function (id) {
+        const active = getActive();
+        if (active) {
+          const m = getMode();
+          active.mode[m].cameraId = id ? String(id).trim() || null : null;
+        }
+      }
+    };
   }
 
   // Initialize keyboard shortcut (Ctrl+L / Cmd+L to toggle chatbot)

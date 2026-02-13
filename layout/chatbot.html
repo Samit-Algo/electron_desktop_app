@@ -103,6 +103,14 @@
     <!-- Chatbot Footer - Input area and controls -->
     <div class="card-footer px-3 py-3" style="background: transparent;">
       <div class="chatbot-input-container">
+        <!-- Video attached indicator (shown in Agent mode when a video is uploaded) -->
+        <div class="chatbot-attached-video-indicator d-none align-items-center gap-2 px-2 py-1 mb-1 rounded small" id="chatbot-attached-video-indicator" aria-live="polite">
+          <span class="fas fa-video text-success fs-9"></span>
+          <span class="chatbot-attached-video-label text-body-secondary"></span>
+          <button type="button" class="btn btn-link p-0 ms-auto text-danger fs-9" id="chatbot-attached-video-clear" aria-label="Remove video">
+            <span class="fas fa-times"></span>
+          </button>
+        </div>
         <!-- Text input area (autosizes via JS) -->
         <textarea class="form-control fs-9" placeholder="Message Agent..." id="chatbot-input" rows="1"></textarea>
 
@@ -148,9 +156,10 @@
               <span class="fas fa-globe fs-9"></span>
             </button>
 
-            <!-- Upload image button (placeholder) -->
-            <button class="chatbot-action-icon" title="Upload Image">
-              <span class="far fa-image fs-9"></span>
+            <!-- Upload video button (Agent mode: create agent for this video) -->
+            <input type="file" id="chatbot-video-upload" accept="video/mp4,video/webm,video/x-msvideo,video/quicktime,.mp4,.webm,.avi,.mov,.mkv" class="d-none" aria-hidden="true">
+            <button class="chatbot-action-icon" type="button" id="chatbot-upload-video-btn" title="Upload video for agent" aria-label="Upload video">
+              <span class="fas fa-video fs-9"></span>
             </button>
 
             <!-- Send/Voice button - Dynamically switches between send, voice, and stop states -->

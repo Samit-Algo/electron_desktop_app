@@ -43,7 +43,7 @@ function startLocalServer() {
       try {
         const filename = req.params.filename;
         // Security: Only allow video files
-        if (!filename.match(/\.(mp4|webm|ogg)$/i)) {
+        if (!filename.match(/\.(mp4|webm|ogg|avi|mov|mkv)$/i)) {
           return res.status(400).json({ error: 'Invalid file type' });
         }
 
@@ -70,7 +70,10 @@ function startLocalServer() {
         const mimeTypes = {
           '.mp4': 'video/mp4',
           '.webm': 'video/webm',
-          '.ogg': 'video/ogg'
+          '.ogg': 'video/ogg',
+          '.avi': 'video/x-msvideo',
+          '.mov': 'video/quicktime',
+          '.mkv': 'video/x-matroska'
         };
         const contentType = mimeTypes[ext] || 'video/mp4';
 

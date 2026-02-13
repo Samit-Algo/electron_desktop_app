@@ -292,6 +292,10 @@
     if (statusEl) statusEl.classList.add('d-none');
     if (canvasWrap) {
       canvasWrap.classList.remove('d-none');
+      // Force visibility even if inherited styles temporarily hide dynamic content.
+      canvasWrap.style.display = 'block';
+      canvasWrap.style.visibility = 'visible';
+      canvasWrap.style.minHeight = '220px';
       console.log('[ZoneEditor] ✅ Canvas wrap d-none removed, classes now:', canvasWrap.className);
       console.log('[ZoneEditor] Canvas wrap display:', window.getComputedStyle(canvasWrap).display);
       console.log('[ZoneEditor] Canvas wrap visible:', canvasWrap.offsetHeight > 0 && canvasWrap.offsetWidth > 0);
@@ -575,6 +579,11 @@
     // Image load handler
     imgEl.addEventListener('load', () => {
       console.log('[ZoneEditor] Image loaded successfully');
+      const canvasWrap = container.querySelector('[data-canvas-wrap]');
+      if (canvasWrap) {
+        // Remove fallback min height once image has intrinsic dimensions.
+        canvasWrap.style.minHeight = '';
+      }
       requestAnimationFrame(() => {
         resizeCanvas();
         requestAnimationFrame(resizeCanvas);
@@ -678,6 +687,7 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
       console.log('[ZoneEditor] Scrolled to bottom of messages');
     }
+    editorEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 
     // Load snapshot and initialize canvas
     try {

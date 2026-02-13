@@ -109,6 +109,20 @@
     overflow-x: hidden;
   }
 
+  #chatbot-offcanvas .chat-messages.chatbot-drag-over {
+    outline: 2px dashed var(--phoenix-primary, #2a7be4);
+    outline-offset: -4px;
+    background: rgba(42, 123, 228, 0.06);
+  }
+
+  #chatbot-offcanvas .chatbot-attached-video-indicator {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  [data-bs-theme="dark"] #chatbot-offcanvas .chatbot-attached-video-indicator {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
   /* -----------------------------
      Voice UI Overlay (ChatGPT-like)
      ----------------------------- */
@@ -702,6 +716,52 @@
     background: transparent !important;
     padding: 0.5rem 0;
     max-width: 85%;
+  }
+
+  /* ChatGPT-style thinking indicator: one pulsing dot + label on a straight line */
+  #chatbot-offcanvas .chatbot-thinking-indicator {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    line-height: 1;
+    min-height: 1.25rem;
+  }
+
+  #chatbot-offcanvas .chatbot-thinking-dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--phoenix-body-color-tertiary, #6c757d);
+    animation: chatbot-thinking-pulse 1s ease-in-out infinite;
+    vertical-align: middle;
+  }
+
+  #chatbot-offcanvas .chatbot-thinking-text {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--phoenix-body-color-tertiary, #6c757d);
+    font-weight: 500;
+    line-height: 1.25rem;
+    min-height: 1.25rem;
+  }
+
+  #chatbot-offcanvas .chatbot-thinking-text .chatbot-thinking-label {
+    display: inline-block;
+    line-height: 1.25rem;
+  }
+
+  @keyframes chatbot-thinking-pulse {
+    0%, 100% {
+      transform: scale(0.65);
+      opacity: 0.85;
+    }
+    50% {
+      transform: scale(1.2);
+      opacity: 1;
+    }
   }
 
   /* AI message action buttons */

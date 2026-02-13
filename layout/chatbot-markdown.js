@@ -46,6 +46,9 @@
   function safeMarkdownForStreaming(text) {
     let t = String(text || '');
 
+    // Strip lightweight control wrappers occasionally emitted by the model.
+    t = t.replace(/<\/?question>/gi, '');
+
     // Replace incomplete mermaid diagram blocks with placeholder during streaming
     (function suppressMermaidBlocks() {
       const placeholder = '\n\n<div class="flow-diagram-placeholder" style="width:100%;height:360px;margin-top:1rem;margin-bottom:1rem;background:#f8f9fa;border:1px solid #dee2e6;border-radius:0.5rem;display:flex;align-items:center;justify-content:center;color:#6c757d;font-size:0.95rem;">Rendering diagram…</div>\n\n';
@@ -219,7 +222,7 @@
     if (!node) return;
     const bubble = node.querySelector?.('div');
     if (!bubble) return;
-    const msg = text || '';
+    const msg = String(text || '').replace(/<\/?question>/gi, '');
 
     // Handle error state: plain text with error styling
     if (isError) {
