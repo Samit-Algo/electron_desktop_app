@@ -1204,6 +1204,74 @@
     };
   }
 
+  // Initialize Find Person modal: upload reference photo for face recognition (no separate page)
+  function initFindPersonModal() {
+    const findPersonBtn = document.getElementById('chatbot-find-person-btn');
+    const modalEl = document.getElementById('find-person-modal');
+    const formEl = document.getElementById('find-person-form');
+    const nameInput = document.getElementById('find-person-name');
+    const fileInput = document.getElementById('find-person-file');
+    const submitBtn = document.getElementById('find-person-submit-btn');
+
+    if (!findPersonBtn || !modalEl || !formEl || !submitBtn) return;
+
+    findPersonBtn.addEventListener('click', function () {
+      if (typeof bootstrap === 'undefined') return;
+      const modal = new bootstrap.Modal(modalEl);
+      modal.show();
+      if (nameInput) nameInput.value = '';
+      if (fileInput) fileInput.value = '';
+    });
+
+    submitBtn.addEventListener('click', function () {
+      var name = nameInput ? nameInput.value.trim() : '';
+      var files = fileInput && fileInput.files ? fileInput.files : [];
+      var minPhotos = 4;
+      if (!name) {
+        if (window.VisionToast) window.VisionToast.warning('Please enter the person\'s name.');
+        if (nameInput) nameInput.focus();
+        return;
+      }
+      if (files.length < minPhotos) {
+        if (window.VisionToast) window.VisionToast.warning('Please select at least ' + minPhotos + ' photos for accurate recognition.');
+        if (fileInput) fileInput.focus();
+        return;
+      }
+      if (!window.visionAPI) {
+        if (window.VisionToast) window.VisionToast.error('API service not available.');
+        return;
+      }
+
+      var btnText = submitBtn.querySelector('.find-person-btn-text');
+      var spinner = submitBtn.querySelector('.find-person-spinner');
+      if (btnText) btnText.classList.add('d-none');
+      if (spinner) spinner.classList.remove('d-none');
+      submitBtn.disabled = true;
+
+      window.visionAPI.uploadReferencePhotos(name, files)
+        .then(function (res) {
+          if (window.VisionToast) {
+            window.VisionToast.success((res.image_count || files.length) + ' photos uploaded for ' + name + '. You can now create an agent like "alert me when ' + name + ' appears on camera 1".');
+          }
+          if (typeof bootstrap !== 'undefined') {
+            var modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+          }
+          if (formEl) formEl.reset();
+        })
+        .catch(function (err) {
+          if (window.VisionToast) {
+            window.VisionToast.error(err.message || 'Upload failed.');
+          }
+        })
+        .finally(function () {
+          if (btnText) btnText.classList.remove('d-none');
+          if (spinner) spinner.classList.add('d-none');
+          submitBtn.disabled = false;
+        });
+    });
+  }
+
   // Initialize keyboard shortcut (Ctrl+L / Cmd+L to toggle chatbot)
   function initChatbotKeyboardShortcut() {
     document.addEventListener('keydown', function (e) {
@@ -1228,6 +1296,7 @@
     initChatbotPush();
     initChatbotComposer();
     initChatbotTabs();
+    initFindPersonModal();
     initChatbotKeyboardShortcut();
   }
 

@@ -903,6 +903,56 @@ class VisionAPIService {
 
     return response.blob();
   }
+
+  /**
+   * Person Gallery: upload reference photos for face recognition (minimum 4 per person).
+   * Photos are stored in Gallery/<name>/ and metadata in MongoDB person_gallery.
+   * @param {string} name - Person's name (e.g. "sachin")
+   * @param {FileList|File[]} files - At least 4 image files (JPEG/PNG/WebP, one face per image)
+   * @returns {Promise<{id: string, name: string, image_count: number, uploaded_at: string, status: string}>}
+   */
+  async uploadReferencePhotos(name, files) {
+    const url = `${this.baseURL}/api/v1/person-gallery/upload`;
+    const formData = new FormData();
+    formData.append('name', name.trim());
+    const fileList = Array.isArray(files) ? files : (files && typeof files.length === 'number' ? Array.from(files) : []);
+    for (let i = 0; i < fileList.length; i++) {
+      formData.append('files', fileList[i]);
+    }
+
+    const headers = {};
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (response.status === 401) {
+      this.logout();
+      throw new Error('Session expired. Please login again.');
+    }
+
+    const data = await response.json();
+    if (!response.ok) {
+      const msg = Array.isArray(data.detail)
+        ? data.detail.map(function (d) { return d.msg || JSON.stringify(d); }).join(' ')
+        : (data.detail || `Upload failed: ${response.statusText}`);
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  /**
+   * Person Gallery: list all persons (reference photos) in the gallery.
+   * @returns {Promise<Array<{id: string, name: string, image: string, uploaded_at: string, status: string}>>}
+   */
+  async getPersonGalleryList() {
+    return await this.request('/api/v1/person-gallery/list');
+  }
 }
 
 // Create singleton instance

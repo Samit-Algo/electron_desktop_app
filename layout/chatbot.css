@@ -576,6 +576,13 @@
     background-color: rgba(var(--phoenix-primary-rgb), 0.1);
   }
 
+  /* Find Person icon: magnifying glass with person (matches action icon size) */
+  .chatbot-find-person-icon .find-person-svg {
+    width: 1em;
+    height: 1em;
+    font-size: 0.875rem;
+  }
+
   /* Send Button / Voice Assistant Button (Dynamic) */
   .chatbot-send-btn {
     width: 30px;
