@@ -364,6 +364,7 @@
     const container = document.getElementById('vision-latest-events');
     if (!container) return;
     if (!window.visionAPI || typeof window.visionAPI.listEvents !== 'function') return;
+    if (typeof window.visionAPI.isAuthenticated === 'function' && !window.visionAPI.isAuthenticated()) return;
     try {
       const res = await window.visionAPI.listEvents('today', 5, 0);
       const items = Array.isArray(res?.items) ? res.items : [];
@@ -389,6 +390,7 @@
     const grid = document.getElementById('vision-events-board-grid');
     if (!grid) return;
     if (!window.visionAPI || typeof window.visionAPI.listEvents !== 'function') return;
+    if (typeof window.visionAPI.isAuthenticated === 'function' && !window.visionAPI.isAuthenticated()) return;
     try {
       const res = await window.visionAPI.listEvents(range || 'all', 200, 0);
       const items = Array.isArray(res?.items) ? res.items : [];
@@ -505,14 +507,17 @@
 
   // Init (SPA-safe): layout-loader may inject this script after DOMContentLoaded.
   // So we run once immediately and keep a small retry loop.
+  // Events API is only called when authenticated to avoid 401s before login.
   function boot() {
     initUiHandlers();
     connectIfReady();
     updateTopbar();
     bindEventsBoardFilterOnce();
-    refreshDashboardLatestFromApi();
-    const sel = document.getElementById('vision-events-range');
-    refreshEventsBoardFromApi(sel?.value || 'all');
+    if (window.visionAPI && typeof window.visionAPI.isAuthenticated === 'function' && window.visionAPI.isAuthenticated()) {
+      refreshDashboardLatestFromApi();
+      const sel = document.getElementById('vision-events-range');
+      refreshEventsBoardFromApi(sel?.value || 'all');
+    }
   }
 
   boot();
@@ -522,8 +527,13 @@
   });
 
   window.addEventListener('authStateChanged', function (event) {
-    if (event?.detail?.loggedIn) connectIfReady();
-    else disconnect();
+    if (event?.detail?.loggedIn) {
+      connectIfReady();
+      refreshDashboardLatestFromApi();
+      refreshEventsBoardFromApi(document.getElementById('vision-events-range')?.value || 'all');
+    } else {
+      disconnect();
+    }
   });
 
   // SPA navigation hook (layout-loader dispatches this)

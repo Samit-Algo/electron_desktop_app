@@ -94,6 +94,8 @@
                         <div class="card-body p-0 visionai-right-body">
                             <div class="position-relative bg-black visionai-video-stage">
                                 <video id="camera-video" class="w-100 h-100 visionai-video" controls autoplay muted playsinline></video>
+                                <!-- Agent frame stream (JPEG per frame; shown when agent selected, avoids fMP4 break) -->
+                                <img id="camera-agent-frames" class="w-100 h-100 visionai-video visionai-agent-frames" alt="Agent view" style="display:none; object-fit:contain;">
                                 <!-- Agent overlay canvas (Option A) -->
                                 <canvas id="agent-overlay-canvas" class="visionai-agent-overlay"></canvas>
 
@@ -764,7 +766,8 @@
                     const streamTypeIcon = document.getElementById('stream-type-icon');
                     const switchToCameraBtn = document.getElementById('switch-to-camera-btn');
                     const overlayCanvas = document.getElementById('agent-overlay-canvas');
-                    
+                    const agentFramesEl = document.getElementById('camera-agent-frames');
+
                     // Store original canvas parent for restoring after fullscreen
                     let originalCanvasParent = null;
                     let originalCanvasNextSibling = null;
@@ -778,6 +781,101 @@
                     let overlayLastFrameIndex = null;
                     let overlayLastTimestamp = null;  // Track latest overlay timestamp for staleness check
                     let overlayStalenessCheckInterval = null;  // Interval to check for stale overlays
+
+                    /**
+                     * Shared onState handler for fMP4 player (live and agent processed stream).
+                     * Reused so we don't duplicate status/UI logic.
+                     */
+                    function createFmp4PlayerOnStateHandler() {
+                        return (ev) => {
+                            if (!ev || !ev.state) return;
+                            if (ev.state === 'connecting') {
+                                statusText.textContent = 'Connecting...';
+                                return;
+                            }
+                            if (ev.state === 'ws-open') {
+                                statusText.textContent = 'Starting...';
+                                return;
+                            }
+                            if (ev.state === 'first-append') {
+                                statusDot?.classList.remove('text-warning');
+                                statusDot?.classList.add('text-success');
+                                statusText.textContent = 'Live';
+                                try {
+                                    if (videoEl) videoEl.play().catch(function() {});
+                                } catch (e) {}
+                                return;
+                            }
+                            if (ev.state === 'stalled') {
+                                statusText.textContent = 'Stalled...';
+                                return;
+                            }
+                            if (ev.state === 'append-error' || ev.state === 'error') {
+                                statusDot?.classList.remove('text-success');
+                                statusDot?.classList.add('text-warning');
+                                statusText.textContent = 'Stream error';
+                                return;
+                            }
+                        };
+                    }
+
+                    /**
+                     * Agent frame player: WebSocket receives JPEG frames, display on img. No fMP4/MSE — continuous stream.
+                     */
+                    function createAgentFramePlayer(opts) {
+                        const { imgEl, videoEl, wsUrl, onState } = opts || {};
+                        if (!imgEl || !videoEl || !wsUrl) return null;
+                        let destroyed = false;
+                        let ws = null;
+                        let lastUrl = null;
+
+                        const emit = (state) => {
+                            try {
+                                if (typeof onState === 'function') onState({ state });
+                            } catch (_) {}
+                        };
+
+                        const cleanup = () => {
+                            try {
+                                if (ws) ws.close();
+                            } catch (_) {}
+                            ws = null;
+                            if (lastUrl) {
+                                try { URL.revokeObjectURL(lastUrl); } catch (_) {}
+                                lastUrl = null;
+                            }
+                            imgEl.style.display = 'none';
+                            imgEl.removeAttribute('src');
+                            videoEl.style.display = '';
+                        };
+
+                        emit('connecting');
+                        ws = new WebSocket(wsUrl);
+                        ws.binaryType = 'arraybuffer';
+                        ws.onopen = () => {
+                            if (destroyed) return;
+                            videoEl.style.display = 'none';
+                            imgEl.style.display = '';
+                            emit('ws-open');
+                            emit('first-append');
+                        };
+                        ws.onmessage = (evt) => {
+                            if (destroyed || !evt.data) return;
+                            if (lastUrl) URL.revokeObjectURL(lastUrl);
+                            lastUrl = URL.createObjectURL(new Blob([evt.data], { type: 'image/jpeg' }));
+                            imgEl.src = lastUrl;
+                        };
+                        ws.onerror = () => emit('error');
+                        ws.onclose = () => { emit('closed'); };
+
+                        return {
+                            destroy() {
+                                if (destroyed) return;
+                                destroyed = true;
+                                cleanup();
+                            }
+                        };
+                    }
 
                     // Register SPA cleanup hook so navigating away closes WS + MSE resources.
                     window.__visionaiPageCleanup = () => {
@@ -943,37 +1041,7 @@
                             wsUrl,
                             mimeCodec,
                             bufferSeconds: 60,
-                            onState: (ev) => {
-                                if (!ev || !ev.state) return;
-
-                                if (ev.state === 'connecting') {
-                                    statusText.textContent = 'Connecting...';
-                                    return;
-                                }
-                                if (ev.state === 'ws-open') {
-                                    statusText.textContent = 'Starting...';
-                                    return;
-                                }
-                                if (ev.state === 'first-append') {
-                                    statusDot?.classList.remove('text-warning');
-                                    statusDot?.classList.add('text-success');
-                                    statusText.textContent = 'Live';
-                                    try {
-                                        videoEl.play().catch(() => {});
-                                    } catch {}
-                                    return;
-                                }
-                                if (ev.state === 'stalled') {
-                                    statusText.textContent = 'Stalled...';
-                                    return;
-                                }
-                                if (ev.state === 'append-error' || ev.state === 'error') {
-                                    statusDot?.classList.remove('text-success');
-                                    statusDot?.classList.add('text-warning');
-                                    statusText.textContent = 'Stream error';
-                                    return;
-                                }
-                            }
+                            onState: createFmp4PlayerOnStateHandler()
                         });
 
                         // Sync video position with timeline
@@ -1447,6 +1515,9 @@
                         }
                     }
 
+                    /**
+                     * Switch video to agent processed stream. Uses direct JPEG frames (no fMP4) so stream does not break.
+                     */
                     async function openOverlayWsForAgent(agentId, agentName) {
                         closeOverlayWs();
                         clearOverlayCanvas();
@@ -1454,82 +1525,55 @@
 
                         if (!agentId) return;
                         if (!window.visionAPI || !window.visionAPI.isAuthenticated || !window.visionAPI.isAuthenticated()) return;
-                        if (!window.visionAPI.getAgentOverlayWsURL) {
-                            console.warn('visionAPI.getAgentOverlayWsURL missing');
+                        if (!window.visionAPI.getAgentOverlayFramesWsURL) {
+                            console.warn('visionAPI.getAgentOverlayFramesWsURL missing');
                             return;
                         }
+                        if (!videoEl || !agentFramesEl) return;
 
                         let wsUrl = null;
                         try {
-                            wsUrl = window.visionAPI.getAgentOverlayWsURL(agentId);
+                            wsUrl = window.visionAPI.getAgentOverlayFramesWsURL(agentId);
                         } catch (e) {
-                            console.warn('Overlay WS auth error', e);
+                            console.warn('Agent stream auth error', e);
                             return;
                         }
 
-                        overlayWs = new WebSocket(wsUrl);
-                        overlayWs.onmessage = (evt) => {
-                            try {
-                                const data = JSON.parse(evt.data);
-                                
-                                // Debug logging for overlay data
-                                if (data && data.type === 'agent_overlay') {
-                                    const logData = {
-                                        frame_index: data.frame_index,
-                                        has_detections: !!data.detections,
-                                        num_boxes: data.detections?.boxes?.length || 0,
-                                        has_zone: !!data.zone,
-                                        zone_type: data.zone?.type,
-                                        zone_coords_length: data.zone?.coordinates?.length || 0,
-                                        zone_violated: data.zone_violated || false
-                                    };
-                                    
-                                    // Show warning if zone is violated
-                                    if (data.zone_violated) {
-                                        console.warn('🚨 [Overlay] ZONE VIOLATION DETECTED!', logData);
-                                    } else {
-                                        console.log('[Overlay] Received data:', logData);
-                                    }
-                                }
-                                
-                                if (data && data.frame_index != null) {
-                                    if (overlayLastFrameIndex === data.frame_index) return;
-                                    overlayLastFrameIndex = data.frame_index;
-                                }
-                                
-                                // Update timestamp (use ts_monotonic from backend, or current time as fallback)
-                                // ts_monotonic is in seconds, convert to milliseconds
-                                overlayLastTimestamp = data.ts_monotonic ? (data.ts_monotonic * 1000) : Date.now();
-                                
-                                // Always draw latest overlay (no timestamp matching for live stream)
-                                // This works even if YOLO processing is slower than video playback
-                                drawOverlay(data);
-                            } catch (e) {
-                                console.error('[Overlay] Error processing message:', e);
-                            }
-                        };
-                        overlayWs.onclose = () => {
-                            // leave last overlay drawn; user can click again
-                        };
+                        if (livePlayer && typeof livePlayer.destroy === 'function') {
+                            livePlayer.destroy();
+                            livePlayer = null;
+                        }
 
-                        // Start staleness check: clear overlay if no new data for 5 seconds
-                        // This prevents stale overlays from showing when agent stops processing or is too slow
-                        overlayStalenessCheckInterval = setInterval(() => {
-                            if (overlayLastTimestamp) {
-                                const now = Date.now();
-                                const age = now - overlayLastTimestamp;
-                                const STALE_THRESHOLD_MS = 5000;  // 5 seconds
-                                
-                                if (age > STALE_THRESHOLD_MS) {
-                                    // Overlay is stale, clear it
-                                    clearOverlayCanvas();
-                                    overlayLastTimestamp = null;
+                        statusText.textContent = 'Connecting...';
+                        statusDot?.classList.remove('text-success');
+                        statusDot?.classList.add('text-warning');
+
+                        livePlayer = createAgentFramePlayer({
+                            imgEl: agentFramesEl,
+                            videoEl,
+                            wsUrl,
+                            onState: (ev) => {
+                                if (!ev || !ev.state) return;
+                                if (ev.state === 'connecting') {
+                                    statusText.textContent = 'Connecting...';
+                                    return;
+                                }
+                                if (ev.state === 'ws-open' || ev.state === 'first-append') {
+                                    statusDot?.classList.remove('text-warning');
+                                    statusDot?.classList.add('text-success');
+                                    statusText.textContent = 'Live';
+                                    return;
+                                }
+                                if (ev.state === 'error' || ev.state === 'closed') {
+                                    statusDot?.classList.remove('text-success');
+                                    statusDot?.classList.add('text-warning');
+                                    statusText.textContent = ev.state === 'closed' ? 'Disconnected' : 'Stream error';
                                 }
                             }
-                        }, 1000);  // Check every second
+                        });
 
                         if (overlayBadge) {
-                            overlayBadge.innerHTML = `<span class="fa-solid fa-robot me-1"></span>${escapeHtml(agentName || 'Agent')} overlay`;
+                            overlayBadge.innerHTML = '<span class="fa-solid fa-robot me-1"></span>' + escapeHtml(agentName || 'Agent') + ' (processed)';
                         }
                         if (switchToCameraBtn) {
                             switchToCameraBtn.classList.remove('d-none');
@@ -1557,24 +1601,20 @@
                         await openOverlayWsForAgent(agentId, agentName);
                     }
 
-                    // Function to switch back to camera stream
+                    // Function to switch back to camera (raw live) stream
                     async function switchToCameraStream() {
-                        console.log('Clearing agent overlay');
-                        
-                        // Remove active highlight from all agents
-                        document.querySelectorAll('.agent-item').forEach(item => {
-                            item.classList.remove('active');
-                        });
-
+                        console.log('Switching to camera stream');
+                        document.querySelectorAll('.agent-item').forEach(item => item.classList.remove('active'));
                         closeOverlayWs();
                         clearOverlayCanvas();
                         selectedAgentId = null;
-                        if (overlayBadge) {
-                            overlayBadge.innerHTML = '<span class="fa-solid fa-eye me-1"></span>Live preview';
+                        if (overlayBadge) overlayBadge.innerHTML = '<span class="fa-solid fa-eye me-1"></span>Live preview';
+                        if (switchToCameraBtn) switchToCameraBtn.classList.add('d-none');
+                        if (livePlayer && typeof livePlayer.destroy === 'function') {
+                            livePlayer.destroy();
+                            livePlayer = null;
                         }
-                        if (switchToCameraBtn) {
-                            switchToCameraBtn.classList.add('d-none');
-                        }
+                        await initLivePlayer();
                     }
 
                     // Add click handler for switch to camera button
@@ -1582,19 +1622,18 @@
                         switchToCameraStream();
                     });
 
-                    // Reload button - reloads current stream (camera or agent)
-                    document.getElementById('camera-reload')?.addEventListener('click', () => {
+                    // Reload button - reloads current stream (camera or agent processed)
+                    document.getElementById('camera-reload')?.addEventListener('click', async () => {
                         if (livePlayer && typeof livePlayer.destroy === 'function') {
                             livePlayer.destroy();
                             livePlayer = null;
                         }
-                        // Reload camera stream (video always stays camera in Option A)
-                        initLivePlayer();
-                        // If an agent overlay is selected, re-open overlay WS
                         if (selectedAgentId) {
                             const agentItem = document.querySelector(`[data-agent-id="${selectedAgentId}"]`);
                             const agentName = agentItem?.querySelector('.name')?.textContent || 'Agent';
-                            openOverlayWsForAgent(selectedAgentId, agentName);
+                            await openOverlayWsForAgent(selectedAgentId, agentName);
+                        } else {
+                            await initLivePlayer();
                         }
                         loadAgentsForCamera().catch(() => {});
                     });

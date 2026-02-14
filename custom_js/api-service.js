@@ -467,12 +467,25 @@ class VisionAPIService {
   }
 
   /**
-   * Agent overlay WS URL (Option A): JSON detections for canvas overlay.
+   * Agent processed video stream (fMP4 over WebSocket).
+   * Same format as live camera stream; use createWsFmp4Player with this URL.
+   */
+  /**
+   * WebSocket URL for agent processed stream (fMP4 chunks). Use for MSE playback.
    */
   getAgentOverlayWsURL(agentId) {
     if (!this.token) throw new Error('Not authenticated');
     const wsBase = this.baseURL.replace('http://', 'ws://').replace('https://', 'wss://');
     return `${wsBase}/api/v1/streams/agents/${encodeURIComponent(agentId)}/overlay/ws?token=${encodeURIComponent(this.token)}`;
+  }
+
+  /**
+   * WebSocket URL for agent processed frames (JPEG per frame). Use for direct frame display without fMP4.
+   */
+  getAgentOverlayFramesWsURL(agentId) {
+    if (!this.token) throw new Error('Not authenticated');
+    const wsBase = this.baseURL.replace('http://', 'ws://').replace('https://', 'wss://');
+    return `${wsBase}/api/v1/streams/agents/${encodeURIComponent(agentId)}/overlay/frames/ws?token=${encodeURIComponent(this.token)}`;
   }
 
   /**
