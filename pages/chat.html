@@ -17,7 +17,7 @@
     <div class="content chat-page-content">
       <div class="row gy-3 mb-3 flex-shrink-0">
         <div class="col-12">
-          <h2 class="mb-2 text-body-emphasis">Chat</h2>
+          <h2 class="mb-2 text-body-emphasis">Algo Vision Analyzer</h2>
           <p class="text-body-tertiary fw-semibold mb-0 fs-9">Upload media in chat — it appears here as a card.</p>
         </div>
       </div>
@@ -41,18 +41,15 @@
         <div class="col-12 col-lg-8 min-h-0">
           <div class="card h-100 d-flex flex-column min-h-0">
             <div class="card-header bg-body-emphasis py-2 d-flex align-items-center">
-              <span class="fa-solid fa-comments text-info me-2 fs-9"></span>
-              <span class="fw-semibold fs-9">Chat</span>
+              <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle text-primary me-2" style="width:24px;height:24px;">
+                <span data-feather="cpu" style="width:14px;height:14px;"></span>
+              </span>
+              <span class="fw-semibold fs-9">Algo Vision Analyzer</span>
             </div>
             <div class="card-body p-0 d-flex flex-column flex-grow-1 overflow-hidden">
               <!-- Messages area -->
               <div class="chat-messages-area flex-grow-1 overflow-auto p-3 scrollbar" id="chat-messages">
-                <!-- Initial greeting -->
-                <div class="d-flex flex-column align-items-start mt-3">
-                  <div class="ai-message-transparent fs-9 text-body-emphasis">
-                    Hi! Attach a video and ask anything about it.
-                  </div>
-                </div>
+                
               </div>
               <!-- Input area -->
               <div class="card-footer border-top px-3 py-3 chat-page-footer" style="background: transparent;">
@@ -336,6 +333,7 @@
     var currentVideoMeta = null;
     var pendingVideoFile = null;
     var pendingVideoName = null;
+    var pendingLibraryVideo = null;
     var CHAT_SELECTION_KEY = 'visionai_chat_selected_video_meta';
     var CHAT_PENDING_KEY = 'visionai_pending_chat_video';
 
@@ -411,28 +409,16 @@
       var pending = parseJsonSafe(localStorage.getItem(CHAT_PENDING_KEY));
       if (pending && pending.video_id) {
         localStorage.removeItem(CHAT_PENDING_KEY);
-        setCurrentVideo(String(pending.video_id), pending);
         return pending;
       }
       var selected = parseJsonSafe(localStorage.getItem(CHAT_SELECTION_KEY));
       if (selected && selected.video_id) {
         setCurrentVideo(String(selected.video_id), selected);
-        return selected;
+        return null;
       }
       return null;
     }
 
-    function extractDraggedVideoPayload(event) {
-      if (!event || !event.dataTransfer) return null;
-      var txt = event.dataTransfer.getData('text/plain');
-      var parsed = parseJsonSafe(txt);
-      if (!parsed || parsed.kind !== 'visionai-static-video' || !parsed.video_id) return null;
-      return {
-        video_id: String(parsed.video_id),
-        filename: parsed.filename || 'Selected video',
-        video_path: parsed.video_path || null
-      };
-    }
 
     function addMediaCard(media, withProgress) {
       if (!media) return null;
@@ -532,6 +518,8 @@
       attachRemoveBtn.addEventListener('click', function () {
         pendingVideoFile = null;
         pendingVideoName = null;
+        pendingLibraryVideo = null;
+        localStorage.removeItem(CHAT_PENDING_KEY);
         hideAttachPreview();
       });
     }
@@ -540,6 +528,8 @@
       var file = this.files && this.files[0];
       this.value = '';
       if (!file) return;
+      pendingLibraryVideo = null;
+      localStorage.removeItem(CHAT_PENDING_KEY);
       if (!ensureStaticVideoApi()) {
         notifyError('API client not ready. Please refresh the page.');
         return;
@@ -553,26 +543,6 @@
       pendingVideoFile = file;
       pendingVideoName = file.name;
       showAttachPreview(file.name);
-    });
-
-    mediaContainer.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-      mediaContainer.classList.add('border', 'border-primary', 'rounded');
-    });
-    mediaContainer.addEventListener('dragleave', function () {
-      mediaContainer.classList.remove('border', 'border-primary', 'rounded');
-    });
-    mediaContainer.addEventListener('drop', function (e) {
-      e.preventDefault();
-      mediaContainer.classList.remove('border', 'border-primary', 'rounded');
-      var payload = extractDraggedVideoPayload(e);
-      if (!payload) return;
-      setCurrentVideo(payload.video_id, payload);
-      renderSelectedLibraryVideoCard(payload);
-      if (window.toastService && typeof window.toastService.success === 'function') {
-        window.toastService.success('Video selected for chat analysis.');
-      }
     });
 
     chatInput.addEventListener('input', function () {
@@ -589,7 +559,7 @@
 
     sendBtn.addEventListener('click', async function () {
       var text = (chatInput.value || '').trim();
-      if (!text && !pendingVideoFile) return;
+      if (!text && !pendingVideoFile && !pendingLibraryVideo) return;
 
       if (!ensureStaticVideoApi()) {
         notifyError('API client not ready. Please refresh the page.');
@@ -636,6 +606,53 @@
         return;
       }
 
+      if (pendingLibraryVideo) {
+        var selected = pendingLibraryVideo;
+        var questionForLibrary = text || null;
+        pendingLibraryVideo = null;
+        localStorage.removeItem(CHAT_PENDING_KEY);
+        chatInput.value = '';
+        hideAttachPreview();
+        autosizeInput();
+
+        var selectedVideoUrl = '#';
+        try {
+          if (selected.video_path) {
+            selectedVideoUrl = await window.visionAPI.fetchEventVideoObjectUrl(selected.video_path);
+          }
+        } catch (_) {
+          selectedVideoUrl = '#';
+        }
+
+        var selectedCard = addMediaCard(
+          { isVideo: true, name: selected.filename || 'Selected video', videoUrl: selectedVideoUrl },
+          true
+        );
+
+        setCurrentVideo(String(selected.video_id), selected);
+        if (questionForLibrary) addChatMessage(questionForLibrary, true);
+
+        try {
+          var libraryAskRes = await window.visionAPI.staticVideoAsk(
+            String(selected.video_id),
+            questionForLibrary || 'Summarize this video.'
+          );
+          removeProgressOverlay(selectedCard);
+          addChatMessage(
+            libraryAskRes && libraryAskRes.answer ? libraryAskRes.answer : 'No answer returned.',
+            false
+          );
+        } catch (err) {
+          var askMsg = (err && err.message) ? err.message : 'Video analysis failed.';
+          notifyError(askMsg);
+          if (selectedCard && selectedCard.parentNode) selectedCard.remove();
+          if (mediaContainer && mediaContainer.querySelectorAll('.chat-media-card').length === 0 && mediaEmpty) {
+            mediaEmpty.style.display = 'block';
+          }
+        }
+        return;
+      }
+
       chatInput.value = '';
       autosizeInput();
 
@@ -660,7 +677,8 @@
 
     var selectedMeta = consumePendingSelectedVideo();
     if (selectedMeta && selectedMeta.video_id) {
-      renderSelectedLibraryVideoCard(selectedMeta);
+      pendingLibraryVideo = selectedMeta;
+      showAttachPreview(selectedMeta.filename || 'Selected video');
     }
   }
 
