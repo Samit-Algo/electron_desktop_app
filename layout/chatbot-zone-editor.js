@@ -334,7 +334,9 @@
     let isDisabled = false;
 
     /**
-     * Resize canvas to match image display size
+     * Resize canvas to match image display size.
+     * When chat width (or any container) changes, canvas must stay in sync or click coords are wrong.
+     * Scales existing points so dots stay in the same visual place after resize.
      */
     function resizeCanvas() {
       if (!imgEl.naturalWidth || !imgEl.naturalHeight) return;
@@ -342,6 +344,20 @@
       const rect = imgEl.getBoundingClientRect();
       const w = Math.max(1, Math.round(rect.width));
       const h = Math.max(1, Math.round(rect.height));
+      
+      const oldW = canvasEl.width;
+      const oldH = canvasEl.height;
+      const sizeChanged = (oldW !== w || oldH !== h);
+      
+      if (sizeChanged && points.length > 0 && oldW > 0 && oldH > 0) {
+        // Scale existing points so they stay in the same place after resize
+        const scaleX = w / oldW;
+        const scaleY = h / oldH;
+        for (const p of points) {
+          p.x = p.x * scaleX;
+          p.y = p.y * scaleY;
+        }
+      }
       
       if (canvasEl.width !== w) canvasEl.width = w;
       if (canvasEl.height !== h) canvasEl.height = h;
@@ -576,18 +592,20 @@
       }
     });
 
-    // Image load handler
-    imgEl.addEventListener('load', () => {
-      console.log('[ZoneEditor] Image loaded successfully');
+    // Image load handler — must be attached before setting img.src so we never miss the event
+    // (when snapshot is cached, load can fire immediately; attaching after set src would miss it)
+    function onImageReady() {
+      if (!imgEl.naturalWidth || !imgEl.naturalHeight) return;
       const canvasWrap = container.querySelector('[data-canvas-wrap]');
-      if (canvasWrap) {
-        // Remove fallback min height once image has intrinsic dimensions.
-        canvasWrap.style.minHeight = '';
-      }
+      if (canvasWrap) canvasWrap.style.minHeight = '';
       requestAnimationFrame(() => {
         resizeCanvas();
         requestAnimationFrame(resizeCanvas);
       });
+    }
+    imgEl.addEventListener('load', () => {
+      console.log('[ZoneEditor] Image loaded successfully');
+      onImageReady();
     });
 
     // Image error handler
@@ -600,7 +618,17 @@
     const resizeHandler = () => requestAnimationFrame(resizeCanvas);
     window.addEventListener('resize', resizeHandler, { passive: true });
 
-    // Initial resize after short delay
+    // When chat panel width is changed (drag handle), image/canvas display size changes but
+    // window resize does not fire. ResizeObserver keeps canvas in sync so click position = dot position.
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        requestAnimationFrame(resizeCanvas);
+      });
+      resizeObserver.observe(imgEl);
+    }
+
+    // Initial resize after short delay (layout may not be ready yet)
     setTimeout(resizeCanvas, 100);
     setTimeout(resizeCanvas, 500);
   }
@@ -693,15 +721,15 @@
     try {
       const snapshot = await fetchCameraSnapshot(cameraId, snapshotUrl);
       
-      // Set image source
+      // Show canvas and init drawing first so the image load listener is attached
+      // before we set src (avoids missing load when image is cached / loads instantly)
+      showDrawingCanvas(editorEl);
+      initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
+
       const imgEl = editorEl.querySelector('[data-zone-img]');
       if (imgEl) {
         imgEl.src = snapshot.imageUrl;
       }
-
-      // Show canvas and initialize drawing
-      showDrawingCanvas(editorEl);
-      initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
       
       console.log('[ZoneEditor] Zone editor initialized successfully');
       
@@ -747,17 +775,17 @@
     const editorEl = createZoneEditorElement(editorId, cameraId, mode);
     bubble.appendChild(editorEl);
 
-    // Load snapshot and initialize
+    // Load snapshot and initialize (init before setting src so load listener is never missed)
     try {
       const snapshot = await fetchCameraSnapshot(cameraId, snapshotUrl);
       
+      showDrawingCanvas(editorEl);
+      initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
+
       const imgEl = editorEl.querySelector('[data-zone-img]');
       if (imgEl) {
         imgEl.src = snapshot.imageUrl;
       }
-
-      showDrawingCanvas(editorEl);
-      initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
       
     } catch (error) {
       const isStreamingError = error.message?.includes('not streaming');

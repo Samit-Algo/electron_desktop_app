@@ -1809,9 +1809,9 @@
 
                     function mapAgentStatus(status) {
                         const s = String(status || '').toUpperCase();
-                        if (s === 'SCHEDULED') return 'scheduled';
+                        if (s === 'RUNNING') return 'active';
                         if (s === 'COMPLETED') return 'completed';
-                        return 'active'; // ACTIVE + unknown -> active
+                        return 'scheduled'; // everything else -> scheduled
                     }
 
                     function formatTimeLabel(agent) {

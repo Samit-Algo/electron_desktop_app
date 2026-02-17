@@ -514,56 +514,8 @@
           
           console.log(`Total tiles in grid: ${gridEl.children.length}`);
 
-          // Initialize GridStack after tiles are created
+          // Initialize GridStack after tiles are created (layout includes all cameras: saved + new)
           initCameraGrid();
-          
-          // After GridStack is initialized, ensure all cameras are positioned
-          const grid = gridEl.gridstack;
-          if (grid) {
-            // Get saved layout
-            const saved = safeJsonParse(localStorage.getItem(GRID_KEY));
-            const savedCameraIds = saved && Array.isArray(saved) ? new Set(saved.map(item => item.id)) : new Set();
-            
-            // Find cameras not in saved layout (new cameras)
-            const newCameras = cameras.filter(cam => !savedCameraIds.has(cam.id));
-            
-            if (newCameras.length > 0) {
-              console.log(`Found ${newCameras.length} new cameras not in saved layout, adding them...`);
-              
-              // Calculate positions for new cameras
-              const cols = 4;
-              let maxY = 0;
-              
-              // Get max Y position from existing layout
-              if (saved && Array.isArray(saved) && saved.length > 0) {
-                maxY = Math.max(...saved.map(item => (item.y || 0) + (item.h || 4)));
-              }
-              
-              // Also check current grid items
-              const currentNodes = grid.engine.nodes || [];
-              if (currentNodes.length > 0) {
-                const currentMaxY = Math.max(...currentNodes.map(n => (n.y || 0) + (n.h || 4)));
-                maxY = Math.max(maxY, currentMaxY);
-              }
-              
-              // Add new cameras to grid with calculated positions
-              newCameras.forEach((camera, idx) => {
-                const tile = gridEl.querySelector(`[gs-id="${camera.id}"]`);
-                if (tile) {
-                  const x = (idx % cols) * 3;
-                  const y = maxY + Math.floor(idx / cols) * 4;
-                  
-                  // Check if tile is already in grid
-                  const existingNode = grid.engine.nodes.find(n => n.id === camera.id);
-                  if (!existingNode) {
-                    // Add to grid with position
-                    grid.addWidget(tile, { x, y, w: 3, h: 4 });
-                    console.log(`Added new camera ${camera.id} (${camera.name}) to grid at position (${x}, ${y})`);
-                  }
-                }
-              });
-            }
-          }
           
           // Initialize HLS players for each camera
           // Use for...of loop to handle async operations properly
@@ -639,38 +591,52 @@
         }
   
         const saved = safeJsonParse(localStorage.getItem(GRID_KEY));
-        if (Array.isArray(saved) && saved.length && cameraData.length > 0) {
-          // Filter saved layout to only include cameras that exist
-          const existingCameraIds = new Set(cameraData.map(cam => cam.id));
-          const validSavedLayout = saved.filter(item => existingCameraIds.has(item.id));
-          
-          if (validSavedLayout.length > 0) {
-            // Load valid saved layout
-            grid.load(validSavedLayout);
-            console.log(`Loaded saved layout for ${validSavedLayout.length} cameras`);
-            
-            // If we have cameras not in saved layout, they'll be added after initCameraGrid returns
-          } else {
-            // No valid saved layout, use default layout for all cameras
-            const defaultLayout = cameraData.map((cam, idx) => {
-              const cols = 4;
-              const x = (idx % cols) * 3;
-              const y = Math.floor(idx / cols) * 4;
-              return { id: cam.id, x, y, w: 3, h: 4 };
+        const cols = 4;
+        const defaultW = 3;
+        const defaultH = 4;
+
+        if (cameraData.length > 0) {
+          // Build a full layout for ALL cameras: use saved positions where available,
+          // and default positions for new cameras (so grid.load() manages every tile)
+          const savedById = new Map();
+          if (Array.isArray(saved) && saved.length) {
+            saved.forEach(item => {
+              if (item && item.id) savedById.set(item.id, item);
             });
-            grid.load(defaultLayout);
-            console.log(`Using default layout for ${cameraData.length} cameras (no valid saved layout)`);
           }
-        } else if (cameraData.length > 0) {
-          // No saved layout, use default layout for all cameras
-          const defaultLayout = cameraData.map((cam, idx) => {
-            const cols = 4;
-            const x = (idx % cols) * 3;
-            const y = Math.floor(idx / cols) * 4;
-            return { id: cam.id, x, y, w: 3, h: 4 };
+
+          let maxY = -1;
+          const fullLayout = cameraData.map((cam) => {
+            const existing = savedById.get(cam.id);
+            if (existing && typeof existing.x === 'number' && typeof existing.y === 'number') {
+              const bottom = (existing.y || 0) + (existing.h || defaultH);
+              if (bottom > maxY) maxY = bottom;
+              return {
+                id: cam.id,
+                x: existing.x,
+                y: existing.y,
+                w: typeof existing.w === 'number' ? existing.w : defaultW,
+                h: typeof existing.h === 'number' ? existing.h : defaultH
+              };
+            }
+            return { id: cam.id, x: 0, y: 0, w: defaultW, h: defaultH };
           });
-          grid.load(defaultLayout);
-          console.log(`Using default layout for ${cameraData.length} cameras (no saved layout)`);
+
+          // Place new cameras in a block below saved items
+          let newIdx = 0;
+          fullLayout.forEach((item, i) => {
+            if (!savedById.has(cameraData[i].id)) {
+              const startY = maxY < 0 ? 0 : maxY;
+              item.x = (newIdx % cols) * 3;
+              item.y = startY + Math.floor(newIdx / cols) * defaultH;
+              item.w = defaultW;
+              item.h = defaultH;
+              newIdx++;
+            }
+          });
+
+          grid.load(fullLayout);
+          console.log(`Loaded layout for ${fullLayout.length} cameras (saved + new)`);
         }
   
         grid.on('change', saveLayout);
