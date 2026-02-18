@@ -462,7 +462,7 @@
       const id = `chat_tab_${Date.now()}_${tabCounter}`;
       tabs.push({
         id,
-        title: title || `New chat ${tabCounter}`,
+        title: title || `Agent chat ${tabCounter}`,
         mode: {
           general: emptyModeState(),
           agent: emptyModeState()
@@ -478,7 +478,7 @@
       if (tabs.length <= 1) {
         // Reset the only remaining tab
         const only = tabs[0];
-        only.title = 'New chat 1';
+        only.title = 'Agent chat 1';
         only.mode.general = emptyModeState();
         only.mode.agent = emptyModeState();
         activeId = only.id;
@@ -1181,7 +1181,7 @@
       window.ChatbotMarkdownPendingDeps = markdownDeps;
     }
 
-    createTab('New chat 1');
+    createTab('Agent chat 1');
     updateUploadVideoButtonVisibility();
     updateAttachedVideoIndicator();
 

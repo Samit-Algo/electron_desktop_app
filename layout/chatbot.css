@@ -959,7 +959,7 @@
     /* Fixed visual area: diagram fits via SVG viewBox, no page scrolling */
     height: clamp(400px, 70vh, 900px);
     /* Theme-aware colors (Phoenix/Bootstrap variables) */
-    --flow-bg: var(--bs-emphasis-bg, #f8f9fa);
+    --flow-bg: var(--phoenix-body-highlight-bg, transparent);
     --flow-border: rgba(var(--bs-border-color-rgb, 222, 226, 230), 0.9);
     --flow-edge-color: rgba(var(--bs-dark-rgb, 33, 37, 41), 0.75);
     --flow-label-color: #000000;
