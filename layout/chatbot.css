@@ -483,7 +483,7 @@
     position: relative;
     /* Context for absolute controls */
     display: block;
-    min-height: 84px;
+    min-height: 104px;
     /* Sufficient height for textarea + controls */
     transition: background-color 0.2s, border-color 0.2s;
   }
@@ -499,7 +499,7 @@
     box-shadow: none !important;
     padding: 0;
     resize: none;
-    min-height: 24px;
+    min-height: 36px;
     max-height: 200px;
     width: 100%;
     /* Reserve space for the absolute position controls below */
