@@ -499,27 +499,37 @@ class VisionAPIService {
   /**
    * Chat Methods
    */
-  async chatWithAgent(message, sessionId = null, cameraId = null, zoneData = null, videoPath = null) {
-    return await this.request('/api/v1/chat/message', {
-      method: 'POST',
-      body: JSON.stringify({
-        message,
-        session_id: sessionId,
-        camera_id: cameraId,
-        zone_data: zoneData,
-        video_path: videoPath,
-      }),
-    });
-  }
-
-  async *chatWithAgentStream(message, sessionId = null, cameraId = null, zoneData = null, videoPath = null, signal = null) {
-    const body = JSON.stringify({
-      message,
+  async chatWithAgent(message, sessionId = null, cameraId = null, zoneData = null, videoPath = null, resume = null) {
+    const payload = {
       session_id: sessionId,
       camera_id: cameraId,
       zone_data: zoneData,
       video_path: videoPath,
+    };
+    if (resume != null) {
+      payload.resume = resume;
+    } else {
+      payload.message = message;
+    }
+    return await this.request('/api/v1/chat/message', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
+  }
+
+  async *chatWithAgentStream(message, sessionId = null, cameraId = null, zoneData = null, videoPath = null, resume = null, signal = null) {
+    const payload = {
+      session_id: sessionId,
+      camera_id: cameraId,
+      zone_data: zoneData,
+      video_path: videoPath,
+    };
+    if (resume != null) {
+      payload.resume = resume;
+    } else {
+      payload.message = message;
+    }
+    const body = JSON.stringify(payload);
     yield* this.sseRequest('/api/v1/chat/message/stream', {
       method: 'POST',
       body,

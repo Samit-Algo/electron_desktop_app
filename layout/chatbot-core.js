@@ -1,9 +1,16 @@
-// Core chatbot logic - handles layout, tabs, messaging, and module initialization
-
+/**
+ * Chatbot Core Module
+ *
+ * Responsibilities:
+ * - Layout: resize handle, grid integration when panel opens/closes
+ * - Tabs: create, switch, close; per-tab state (general/agent mode, sessionId, cameraId, videoPath)
+ * - Composer: textarea autosize, send/voice/stop button state
+ * - Messaging: append user/assistant bubbles, stream tokens, HITL (approval cards, zone editor)
+ * - Delegates: markdown (ChatbotMarkdown), zone drawing (ChatbotZoneEditor), flow diagrams (ChatbotFlowDiagram), voice (ChatbotVoice)
+ */
 (function () {
   'use strict';
 
-  // Generate root-relative vendor path for script loading
   function vendorPath(relFromVendors) {
     return new URL('/vendors/' + relFromVendors, window.location.origin).toString();
   }
@@ -41,9 +48,7 @@
     const rendererSrc = new URL('/custom_js/rete-flow-renderer.js', window.location.origin).toString();
     return loadScriptOnce(transformsSrc)
       .then(() => loadScriptOnce(rendererSrc))
-      .catch((e) => {
-        console.warn('Rete flow renderer load failed:', e);
-      });
+      .catch(function () {});
   }
 
   // Global flag to prevent chart resizing during layout transitions
@@ -519,10 +524,10 @@
                   ${escapeHtml(trimmed)}
                 </div>
                 <div class="user-message-actions">
-                  <button type="button" title="Edit" onclick="console.log('Edit clicked')">
+                  <button type="button" title="Edit" aria-label="Edit message">
                     <span class="far fa-edit"></span>
                   </button>
-                  <button type="button" title="Copy" onclick="navigator.clipboard.writeText(this.closest('.user-message-wrapper').querySelector('.user-message').textContent.trim()).then(() => console.log('Copied'))">
+                  <button type="button" title="Copy" aria-label="Copy message" data-copy-user-message>
                     <span class="far fa-copy"></span>
                   </button>
                 </div>
@@ -591,6 +596,161 @@
       if (label) label.textContent = 'Processing...';
     }
 
+    // Human-in-the-loop: show approval card (config summary + Approve / Reject), then send resume on button click
+    function renderApprovalCardInBubble(pendingId, approvalData, state) {
+      const bubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+      if (!bubble) return;
+      const inner = bubble.querySelector?.('.markdown-content') || bubble.querySelector?.('div');
+      if (!inner) return;
+      const summary = approvalData?.summary || {};
+      const ruleId = summary.rule_id || '—';
+      const config = summary.config || {};
+      const configStr = typeof config === 'object' ? JSON.stringify(config, null, 2) : String(config);
+      inner.innerHTML = `
+        <div class="chatbot-approval-card border rounded p-3 bg-light">
+          <p class="mb-2 fw-semibold">Save agent configuration?</p>
+          <p class="mb-1 small text-body-secondary"><strong>Rule:</strong> ${escapeHtml(ruleId)}</p>
+          <pre class="small bg-white border rounded p-2 mb-3 overflow-auto" style="max-height: 120px;">${escapeHtml(configStr)}</pre>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-success btn-sm chatbot-approve-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">Approve</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm chatbot-reject-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">Reject</button>
+          </div>
+        </div>
+      `;
+      bubble.querySelector?.('.chatbot-approve-btn')?.addEventListener?.('click', function () {
+        sendResumeAndHandleStream(pendingId, state.sessionId, { decisions: [{ type: 'approve' }] }, state);
+      });
+      bubble.querySelector?.('.chatbot-reject-btn')?.addEventListener?.('click', function () {
+        sendResumeAndHandleStream(pendingId, state.sessionId, { decisions: [{ type: 'reject' }] }, state);
+      });
+    }
+
+    async function sendResumeAndHandleStream(pendingId, sessionId, resume, state) {
+      const bubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+      if (!bubble || !sessionId) return;
+      const inner = bubble.querySelector?.('.markdown-content') || bubble.querySelector?.('div');
+      if (inner) inner.innerHTML = '<p class="mb-0">Saving...</p>';
+      state.html = messagesEl.innerHTML;
+      try {
+        const stream = window.visionAPI.chatWithAgentStream('', sessionId, null, null, null, resume, state._abortController?.signal);
+        let finalPayload = null;
+        let pendingApprovalData = null;
+        let pendingZoneInputData = null;
+        for await (const evt of stream) {
+          const evName = evt?.event || 'message';
+          const data = evt?.data;
+          if (evName === 'meta' && data?.session_id) state.sessionId = data.session_id;
+          if (evName === 'pending_approval') pendingApprovalData = data || null;
+          if (evName === 'pending_zone_input') pendingZoneInputData = data || null;
+          if (evName === 'done') finalPayload = data;
+        }
+        if (pendingApprovalData && getMode() === 'agent') {
+          renderApprovalCardInBubble(pendingId, pendingApprovalData, state);
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return;
+        }
+        const zonePayload = pendingZoneInputData || finalPayload?.pending_zone_input;
+        if (zonePayload && getMode() === 'agent') {
+          const cameraId = zonePayload?.camera_id || state.cameraId;
+          const snapshotUrl = zonePayload?.frame_snapshot_url || null;
+          const zoneMode = zonePayload?.zone_type || 'polygon';
+          if (cameraId) {
+            try {
+              await openZoneEditorInBubble(pendingId, cameraId, zoneMode, snapshotUrl, {
+                saveWithResume: (zoneData) => sendZoneResumeAndHandleStream(pendingId, state.sessionId, zoneData, state)
+              });
+            } catch (err) {
+              replaceAssistantPending(pendingId, 'Zone editor failed. Please try again.', true);
+            }
+          } else {
+            replaceAssistantPending(pendingId, 'Zone requested but camera ID is missing.', true);
+          }
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return;
+        }
+        const answer = finalPayload?.response ?? 'Done.';
+        const isError = finalPayload?.status === 'error';
+        replaceAssistantPending(pendingId, answer, isError);
+        if (!isError && finalPayload?.flow_diagram_data) {
+          await renderFlowDiagram(pendingId, finalPayload.flow_diagram_data);
+        }
+      } catch (err) {
+        const msg = err?.message ? String(err.message) : 'Request failed.';
+        replaceAssistantPending(pendingId, msg, true);
+      }
+      state.html = messagesEl.innerHTML;
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    async function sendZoneResumeAndHandleStream(pendingId, sessionId, zoneData, state) {
+      const bubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+      if (!bubble || !sessionId) return;
+      const inner = bubble.querySelector?.('.markdown-content') || bubble.querySelector?.('.zone-editor')?.closest?.('.ai-message-transparent');
+      const target = inner || bubble.querySelector?.('div');
+      if (target) target.innerHTML = '<p class="mb-0">Applying zone...</p>';
+      state.html = messagesEl.innerHTML;
+      try {
+        const resume = { decisions: [{ type: 'approve', zone: zoneData }] };
+        const stream = window.visionAPI.chatWithAgentStream('', sessionId, null, null, null, resume, state._abortController?.signal);
+        let finalPayload = null;
+        let acc = '';
+        let pendingApprovalData = null;
+        let pendingZoneInputData = null;
+        for await (const evt of stream) {
+          const evName = evt?.event || 'message';
+          const data = evt?.data;
+          if (evName === 'meta' && data?.session_id) state.sessionId = data.session_id;
+          if (evName === 'token' && data?.delta) {
+            acc += String(data.delta);
+            updateAssistantPendingText(pendingId, acc);
+            state.html = messagesEl.innerHTML;
+          }
+          if (evName === 'pending_approval') pendingApprovalData = data || null;
+          if (evName === 'pending_zone_input') pendingZoneInputData = data || null;
+          if (evName === 'done') finalPayload = data;
+        }
+        if (pendingApprovalData && getMode() === 'agent') {
+          renderApprovalCardInBubble(pendingId, pendingApprovalData, state);
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return;
+        }
+        const zonePayload = pendingZoneInputData || finalPayload?.pending_zone_input;
+        if (zonePayload && getMode() === 'agent') {
+          const cameraId = zonePayload?.camera_id || state.cameraId;
+          const snapshotUrl = zonePayload?.frame_snapshot_url || null;
+          const zoneMode = zonePayload?.zone_type || 'polygon';
+          if (cameraId) {
+            try {
+              await openZoneEditorInBubble(pendingId, cameraId, zoneMode, snapshotUrl, {
+                saveWithResume: (zd) => sendZoneResumeAndHandleStream(pendingId, state.sessionId, zd, state)
+              });
+            } catch (err) {
+              replaceAssistantPending(pendingId, 'Zone editor failed. Please try again.', true);
+            }
+          } else {
+            replaceAssistantPending(pendingId, 'Zone requested but camera ID is missing.', true);
+          }
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return;
+        }
+        const answer = finalPayload?.response ?? acc ?? 'Done.';
+        const isError = finalPayload?.status === 'error';
+        replaceAssistantPending(pendingId, answer, isError);
+        if (!isError && finalPayload?.flow_diagram_data) {
+          await renderFlowDiagram(pendingId, finalPayload.flow_diagram_data);
+        }
+      } catch (err) {
+        const msg = err?.message ? String(err.message) : 'Request failed.';
+        replaceAssistantPending(pendingId, msg, true);
+      }
+      state.html = messagesEl.innerHTML;
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
     // Delegate final markdown rendering to ChatbotMarkdown module
     function replaceAssistantPending(pendingId, text, isError = false) {
       if (window.ChatbotMarkdown && typeof window.ChatbotMarkdown.replaceAssistantPending === 'function') {
@@ -614,9 +774,9 @@
     }
 
     // Delegate zone editor opening to ChatbotZoneEditor module
-    async function openZoneEditorInBubble(pendingId, cameraId, zoneMode = 'polygon', snapshotUrl = null) {
+    async function openZoneEditorInBubble(pendingId, cameraId, zoneMode = 'polygon', snapshotUrl = null, options = null) {
       if (window.ChatbotZoneEditor && typeof ChatbotZoneEditor.openZoneEditorInBubble === 'function') {
-        return ChatbotZoneEditor.openZoneEditorInBubble(pendingId, cameraId, zoneMode, snapshotUrl);
+        return ChatbotZoneEditor.openZoneEditorInBubble(pendingId, cameraId, zoneMode, snapshotUrl, options);
       }
     }
 
@@ -695,12 +855,14 @@
         let acc = '';
         let finalPayload = null;
         let sawError = false;
+        let pendingApprovalData = null;
+        let pendingZoneInputData = null;
 
         const zoneData = options?.zoneData || null;
         const cameraIdForRequest = state.cameraId || null;
         const videoPathForRequest = state.videoPath || null;
         const stream = (mode === 'agent')
-          ? window.visionAPI.chatWithAgentStream(trimmed, state.sessionId, cameraIdForRequest, zoneData, videoPathForRequest, state._abortController.signal)
+          ? window.visionAPI.chatWithAgentStream(trimmed, state.sessionId, cameraIdForRequest, zoneData, videoPathForRequest, null, state._abortController.signal)
           : window.visionAPI.generalChatStream(trimmed, state.sessionId, state._abortController.signal);
 
         // Mark text streaming active for voice module
@@ -731,8 +893,6 @@
             const delta = data?.delta != null ? String(data.delta) : '';
             if (delta) {
               acc += delta;
-              console.log('[Token Debug] delta:', delta);
-              console.log('[Token Debug] acc content contains markdown image:', acc.includes('![') && acc.includes(']('));
               const boundary = /[\s.,!?;:\n]/.test(delta);
               const now = Date.now();
               const last = state._lastStreamUiFlushTs || 0;
@@ -754,6 +914,16 @@
             continue;
           }
 
+          if (evName === 'pending_approval') {
+            pendingApprovalData = data || null;
+            continue;
+          }
+
+          if (evName === 'pending_zone_input') {
+            pendingZoneInputData = data || null;
+            continue;
+          }
+
           if (evName === 'error') {
             sawError = true;
             continue;
@@ -771,10 +941,39 @@
         }
 
         // Process final response
-        const answer = finalPayload?.response ?? acc ?? '';
         const nextSessionId = finalPayload?.session_id ?? null;
         if (nextSessionId) state.sessionId = nextSessionId;
 
+        const approvalPayload = pendingApprovalData || finalPayload?.pending_approval;
+        if (approvalPayload && mode === 'agent') {
+          renderApprovalCardInBubble(pendingId, approvalPayload, state);
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return;
+        }
+
+        const zoneInputPayload = pendingZoneInputData || finalPayload?.pending_zone_input;
+        if (zoneInputPayload && mode === 'agent') {
+          const cameraId = zoneInputPayload?.camera_id || state.cameraId;
+          const snapshotUrl = zoneInputPayload?.frame_snapshot_url || null;
+          const zoneMode = zoneInputPayload?.zone_type || 'polygon';
+          if (cameraId) {
+            try {
+              await openZoneEditorInBubble(pendingId, cameraId, zoneMode, snapshotUrl, {
+                saveWithResume: (zoneData) => sendZoneResumeAndHandleStream(pendingId, state.sessionId, zoneData, state)
+              });
+            } catch (err) {
+              replaceAssistantPending(pendingId, 'Zone editor failed. Please try again.', true);
+            }
+          } else {
+            replaceAssistantPending(pendingId, 'Zone requested but camera ID is missing.', true);
+          }
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+          return;
+        }
+
+        const answer = finalPayload?.response ?? acc ?? '';
         const isError = (finalPayload?.status === 'error') || sawError;
         replaceAssistantPending(pendingId, answer || '(empty response)', isError);
 
@@ -794,35 +993,13 @@
 
           const needsZoneUi = !!(finalPayload?.awaiting_zone_input || finalPayload?.zone_required);
           const shouldShowZoneEditor = needsZoneUi;
-          
-          console.log('[ChatbotCore] Zone UI check:', {
-            needsZoneUi,
-            resolvedCameraId,
-            effectiveCameraId,
-            awaiting_zone_input: finalPayload?.awaiting_zone_input,
-            zone_required: finalPayload?.zone_required,
-            frame_snapshot_url: finalPayload?.frame_snapshot_url,
-            zone_type: finalPayload?.zone_type || finalPayload?.zone_mode,
-            shouldShowZoneEditor
-          });
-          
+
           if (shouldShowZoneEditor && effectiveCameraId) {
-            // Determine zone mode from backend response (defaults to 'polygon' for backward compatibility)
-            // Backend can specify: 'line' for counting line, 'polygon' for restricted zone, or omit for default
             const zoneMode = finalPayload?.zone_type || finalPayload?.zone_mode || 'polygon';
-            // Use frame_snapshot_url if provided, otherwise fall back to camera ID
             const snapshotUrl = finalPayload?.frame_snapshot_url || null;
-            console.log('[ChatbotCore] Opening zone editor:', {
-              pendingId,
-              cameraId: effectiveCameraId,
-              zoneMode,
-              snapshotUrl
-            });
             try {
               await openZoneEditorInBubble(pendingId, effectiveCameraId, zoneMode, snapshotUrl);
-              console.log('[ChatbotCore] Zone editor opened successfully');
             } catch (err) {
-              console.error('[ChatbotCore] Error opening zone editor:', err);
               // Show user-friendly error message in chat
               const errorMsg = `⚠️ Failed to load zone editor. Please check console for details. Camera ID: ${effectiveCameraId}`;
               const errorBubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
@@ -837,9 +1014,6 @@
               }
             }
           } else if (shouldShowZoneEditor && !effectiveCameraId) {
-            console.warn('[ChatbotCore] Zone UI needed but camera_id is missing. Response:', {
-              needsZoneUi
-            });
             const helpMsg = '⚠️ Zone editor needs a camera. Please provide the camera name or camera ID in your message (e.g. "TEST", "Front Gate", or CAM-xxx).';
             const helpBubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
             if (helpBubble) {
@@ -877,6 +1051,26 @@
         }
       }
     }
+
+    // Copy message to clipboard (delegated: user and AI messages)
+    messagesEl.addEventListener('click', function (e) {
+      const copyUser = e.target.closest?.('[data-copy-user-message]');
+      if (copyUser) {
+        const wrapper = copyUser.closest?.('.user-message-wrapper');
+        const msgEl = wrapper?.querySelector?.('.user-message');
+        if (msgEl && navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(msgEl.textContent.trim()).catch(function () {});
+        }
+        return;
+      }
+      const copyAi = e.target.closest?.('[data-copy-ai-message]');
+      if (copyAi) {
+        const bubble = copyAi.closest?.('.d-flex')?.querySelector?.('.ai-message-transparent, .markdown-content');
+        if (bubble && navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(bubble.textContent.trim()).catch(function () {});
+        }
+      }
+    });
 
     // Handle tab click events (switch tab or close tab)
     tabsEl.addEventListener('click', (e) => {
@@ -1014,10 +1208,7 @@
       videoUploadInput.addEventListener('change', async function () {
         const file = this.files?.[0];
         if (!file || getMode() !== 'agent') return;
-        if (!window.visionAPI || typeof window.visionAPI.uploadVideo !== 'function') {
-          console.warn('[ChatbotCore] visionAPI.uploadVideo not available');
-          return;
-        }
+        if (!window.visionAPI || typeof window.visionAPI.uploadVideo !== 'function') return;
         const active = getActive();
         const mode = getMode();
         if (!active) return;
@@ -1034,7 +1225,6 @@
             updateAttachedVideoIndicator();
           }
         } catch (err) {
-          console.error('[ChatbotCore] Video upload failed:', err);
           if (typeof window.toastService !== 'undefined' && window.toastService.error) {
             window.toastService.error(err.message || 'Video upload failed');
           } else {
@@ -1101,7 +1291,6 @@
             }
           }
         } catch (err) {
-          console.error('[ChatbotCore] Video upload failed:', err);
           if (typeof window.toastService !== 'undefined' && window.toastService.error) {
             window.toastService.error(err.message || 'Video upload failed');
           } else {
@@ -1137,21 +1326,13 @@
     }
 
     // Initialize zone editor module with dependencies
-    console.log('[ChatbotCore] About to initialize zone editor');
-    console.log('[ChatbotCore] window.ChatbotZoneEditor exists?', !!window.ChatbotZoneEditor);
-    console.log('[ChatbotCore] sendTextMessage type:', typeof sendTextMessage);
-    
     if (window.ChatbotZoneEditor && typeof ChatbotZoneEditor.init === 'function') {
-      console.log('[ChatbotCore] ✅ Calling ChatbotZoneEditor.init()');
       ChatbotZoneEditor.init({
         messagesEl,
         sendTextMessage,
         escapeHtml
       });
-      console.log('[ChatbotCore] ✅ ChatbotZoneEditor.init() completed');
     } else {
-      console.warn('[ChatbotCore] ⚠️ ChatbotZoneEditor not loaded yet, saving deps for later');
-      // Zone editor will load after this - save dependencies for it to pick up
       window.ChatbotZoneEditorPendingDeps = {
         messagesEl,
         sendTextMessage,

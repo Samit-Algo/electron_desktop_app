@@ -37,9 +37,7 @@
     const purifySrc = vendorPath('dompurify/purify.min.js');
     return loadScriptOnce(markedSrc)
       .then(() => loadScriptOnce(purifySrc))
-      .catch((e) => {
-        console.warn('Markdown deps load failed:', e);
-      });
+      .catch(function () {});
   }
 
   // Sanitize markdown text for safe streaming rendering (prevents broken syntax from causing errors)
@@ -181,25 +179,17 @@
             KEEP_CONTENT: true
           });
 
-          // Debug logging
-          console.log('[Markdown Debug] rawHtml:', rawHtml);
-          console.log('[Markdown Debug] sanitizedHtml:', cleanHtml);
-
-          // Automatically append authentication token to vision backend images
           const token = localStorage.getItem('visionai_token');
           let processedHtml = cleanHtml;
           if (token) {
             processedHtml = cleanHtml.replace(
               /src="([^"]*\/api\/v1\/events\/[^"]*\/image)"/g,
-              (match, p1) => {
-                const finalUrl = `${p1}${p1.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
-                console.log('[Markdown Debug] Injecting token into URL:', finalUrl);
-                return `src="${finalUrl}"`;
+              function (match, urlPath) {
+                const finalUrl = urlPath + (urlPath.indexOf('?') !== -1 ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                return 'src="' + finalUrl + '"';
               }
             );
           }
-
-          console.log('[Markdown Debug] finalProcessedHtml:', processedHtml);
           bubble.innerHTML = processedHtml;
           // Make all links open in new tab with security attributes
           bubble.querySelectorAll?.('a[href]')?.forEach(a => {
@@ -255,8 +245,7 @@
           } else {
             rawHtml = msgWithoutFlow;
           }
-        } catch (e) {
-          console.warn('Markdown parsing failed:', e);
+        } catch (_) {
           rawHtml = msgWithoutFlow;
         }
         const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
@@ -266,25 +255,17 @@
           ADD_ATTR: ['id', 'style', 'class', 'src', 'alt']
         });
 
-        // Debug logging
-        console.log('[Markdown Debug Final] rawHtml:', rawHtml);
-        console.log('[Markdown Debug Final] sanitizedHtml:', cleanHtml);
-
-        // Automatically append authentication token to vision backend images
         const token = localStorage.getItem('visionai_token');
         let processedHtml = cleanHtml;
         if (token) {
           processedHtml = cleanHtml.replace(
             /src="([^"]*\/api\/v1\/events\/[^"]*\/image)"/g,
-            (match, p1) => {
-              const finalUrl = `${p1}${p1.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
-              console.log('[Markdown Debug Final] Injecting token into URL:', finalUrl);
-              return `src="${finalUrl}"`;
+            function (match, urlPath) {
+              const finalUrl = urlPath + (urlPath.indexOf('?') !== -1 ? '&' : '?') + 'token=' + encodeURIComponent(token);
+              return 'src="' + finalUrl + '"';
             }
           );
         }
-
-        console.log('[Markdown Debug Final] finalProcessedHtml:', processedHtml);
         bubble.innerHTML = processedHtml;
         // Make all links open in new tab with security attributes
         bubble.querySelectorAll?.('a[href]')?.forEach(a => {
@@ -292,27 +273,16 @@
           a.setAttribute('rel', 'noopener noreferrer');
         });
 
-        // Add action buttons (copy, like, dislike, share, refresh, more) after message content
         const actionsHtml = `
           <div class="ai-message-actions mt-2">
-            <button type="button" title="Copy" onclick="navigator.clipboard.writeText(this.closest('.d-flex').querySelector('.ai-message-transparent').textContent.trim()).then(() => console.log('Copied'))">
+            <button type="button" title="Copy" aria-label="Copy" data-copy-ai-message>
               <span class="far fa-copy"></span>
             </button>
-            <button type="button" title="Like" onclick="console.log('Like clicked')">
-              <span class="far fa-thumbs-up"></span>
-            </button>
-            <button type="button" title="Dislike" onclick="console.log('Dislike clicked')">
-              <span class="far fa-thumbs-down"></span>
-            </button>
-            <button type="button" title="Share" onclick="console.log('Share clicked')">
-              <span class="fas fa-share-alt"></span>
-            </button>
-            <button type="button" title="Refresh" onclick="console.log('Refresh clicked')">
-              <span class="fas fa-redo-alt"></span>
-            </button>
-            <button type="button" title="More" onclick="console.log('More clicked')">
-              <span class="fas fa-ellipsis-h"></span>
-            </button>
+            <button type="button" title="Like" aria-label="Like"><span class="far fa-thumbs-up"></span></button>
+            <button type="button" title="Dislike" aria-label="Dislike"><span class="far fa-thumbs-down"></span></button>
+            <button type="button" title="Share" aria-label="Share"><span class="fas fa-share-alt"></span></button>
+            <button type="button" title="Refresh" aria-label="Refresh"><span class="fas fa-redo-alt"></span></button>
+            <button type="button" title="More" aria-label="More"><span class="fas fa-ellipsis-h"></span></button>
           </div>
         `;
         node.insertAdjacentHTML('beforeend', actionsHtml);
@@ -320,8 +290,7 @@
         // Fallback: plain text if markdown libraries not loaded
         bubble.textContent = msg;
       }
-    } catch (e) {
-      console.warn('Markdown render failed:', e);
+    } catch (_) {
       bubble.textContent = msg;
     }
   }
@@ -345,11 +314,7 @@
 
   // Auto-initialize if dependencies were stashed before module loaded
   if (window.ChatbotMarkdownPendingDeps) {
-    try {
-      init(window.ChatbotMarkdownPendingDeps);
-    } catch (e) {
-      console.error('[ChatbotMarkdown] Init failed:', e);
-    }
+    try { init(window.ChatbotMarkdownPendingDeps); } catch (_) {}
     window.ChatbotMarkdownPendingDeps = null;
   }
 })();

@@ -551,9 +551,7 @@
               oldScript.parentNode.replaceChild(newScript, oldScript);
             });
           })
-          .catch(error => {
-            console.error('Error loading chatbot component:', error);
-          });
+          .catch(function () {});
       }
 
       // Wait for DOM and other scripts to be ready before loading chatbot
