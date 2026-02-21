@@ -66,10 +66,7 @@
     const chatbotOffcanvas = document.getElementById('chatbot-offcanvas');
     const freshMessagesEl = chatbotOffcanvas?.querySelector?.('.chat-messages');
     
-    if (freshMessagesEl) {
-      cachedMessagesEl = freshMessagesEl;
-      console.log('[ZoneEditor] Refreshed messagesEl reference');
-    }
+    if (freshMessagesEl) cachedMessagesEl = freshMessagesEl;
     
     return cachedMessagesEl;
   }
@@ -98,10 +95,7 @@
     if (allAssistant.length > 0) {
       const lastMsg = allAssistant[allAssistant.length - 1];
       const lastBubble = lastMsg.querySelector('.ai-message-transparent, .markdown-content, div');
-      if (lastBubble) {
-        console.log('[ZoneEditor] Using fallback: last assistant message');
-        return { node: lastMsg, bubble: lastBubble };
-      }
+      if (lastBubble) return { node: lastMsg, bubble: lastBubble };
     }
     
     return { node: null, bubble: null };
@@ -124,8 +118,6 @@
 
     // Build the URL
     const url = snapshotUrl || `/api/v1/cameras/${encodeURIComponent(cameraId)}/snapshot`;
-    
-    console.log('[ZoneEditor] Fetching snapshot:', url);
 
     try {
       // Use the API service method
@@ -160,12 +152,6 @@
       }
 
       const imageUrl = URL.createObjectURL(blob);
-      
-      console.log('[ZoneEditor] Snapshot loaded:', {
-        width: data.width,
-        height: data.height,
-        blobSize: blob.size
-      });
 
       return {
         imageUrl,
@@ -174,8 +160,6 @@
       };
 
     } catch (error) {
-      console.error('[ZoneEditor] Snapshot fetch error:', error);
-      
       // Check for common error types
       const errorMsg = error?.message || 'Failed to load camera snapshot';
       if (errorMsg.includes('404') || errorMsg.includes('No frame') || errorMsg.includes('not found')) {
@@ -198,9 +182,10 @@
    * @param {string} editorId - Unique editor ID
    * @param {string} cameraId - Camera ID
    * @param {string} mode - 'polygon', 'line', or 'motion_rois'
+   * @param {function|null} saveWithResumeFn - If set, on Save call this with zoneData (for HITL resume) instead of sendTextMessage
    * @returns {HTMLElement}
    */
-  function createZoneEditorElement(editorId, cameraId, mode) {
+  function createZoneEditorElement(editorId, cameraId, mode, saveWithResumeFn = null) {
     const isLineMode = mode === 'line';
     const isRoiMode = mode === 'motion_rois';
 
@@ -253,6 +238,7 @@
           </div>
         `;
 
+    if (saveWithResumeFn) container._saveWithResumeFn = saveWithResumeFn;
     return container;
   }
 
@@ -287,25 +273,13 @@
     const canvasWrap = container.querySelector('[data-canvas-wrap]');
     const hint = container.querySelector('[data-zone-hint]');
     const actions = container.querySelector('[data-zone-actions]');
-    
-    console.log('[ZoneEditor] showDrawingCanvas called:', {
-      hasStatus: !!statusEl,
-      hasCanvasWrap: !!canvasWrap,
-      hasHint: !!hint,
-      hasActions: !!actions,
-      canvasWrapClassesBefore: canvasWrap?.className
-    });
-    
+
     if (statusEl) statusEl.classList.add('d-none');
     if (canvasWrap) {
       canvasWrap.classList.remove('d-none');
-      // Force visibility even if inherited styles temporarily hide dynamic content.
       canvasWrap.style.display = 'block';
       canvasWrap.style.visibility = 'visible';
       canvasWrap.style.minHeight = '220px';
-      console.log('[ZoneEditor] ✅ Canvas wrap d-none removed, classes now:', canvasWrap.className);
-      console.log('[ZoneEditor] Canvas wrap display:', window.getComputedStyle(canvasWrap).display);
-      console.log('[ZoneEditor] Canvas wrap visible:', canvasWrap.offsetHeight > 0 && canvasWrap.offsetWidth > 0);
     }
     if (hint) hint.classList.remove('d-none');
     if (actions) actions.classList.remove('d-none');
@@ -569,6 +543,7 @@
    * @param {number|null} imageHeight - Original image height
    */
   function initializeDrawingCanvas(container, mode, cameraId, imageWidth, imageHeight) {
+    const saveWithResumeFn = container._saveWithResumeFn || null;
     const imgEl = container.querySelector('[data-zone-img]');
     const canvasEl = container.querySelector('[data-zone-canvas]');
     const btnUndo = container.querySelector('[data-zone-undo]');
@@ -576,10 +551,7 @@
     const btnSave = container.querySelector('[data-zone-save]');
     const statusEl = container.querySelector('[data-zone-status]');
 
-    if (!canvasEl || !imgEl) {
-      console.error('[ZoneEditor] Canvas or image element not found');
-      return;
-    }
+    if (!canvasEl || !imgEl) return;
 
     // -------------------------------------------------------------------------
     // MOTION ROIs MODE (multiple rectangles, one per machine)
@@ -817,36 +789,24 @@
         camera_id: cameraId
       };
 
-      console.log('[ZoneEditor] Saving zone:', zoneData);
-      console.log('[ZoneEditor] Checking sendTextMessageFn:', {
-        exists: !!sendTextMessageFn,
-        type: typeof sendTextMessageFn,
-        isFunction: typeof sendTextMessageFn === 'function'
-      });
-
       // Disable editor and send message
       setDisabled(true);
       
       try {
-        const confirmMessage = isLineMode 
-          ? 'Counting line selected. Please continue.'
-          : 'Zone selected. Please continue.';
-        
-        if (sendTextMessageFn && typeof sendTextMessageFn === 'function') {
-          console.log('[ZoneEditor] ✅ Calling sendTextMessage with:', confirmMessage);
-          await sendTextMessageFn(confirmMessage, { zoneData });
-          console.log('[ZoneEditor] ✅ sendTextMessage call completed');
+        if (saveWithResumeFn && typeof saveWithResumeFn === 'function') {
+          await saveWithResumeFn(zoneData);
         } else {
-          console.error('[ZoneEditor] ❌ sendTextMessage function not available!', {
-            sendTextMessageFn: sendTextMessageFn,
-            type: typeof sendTextMessageFn,
-            windowChatbotZoneEditor: typeof window.ChatbotZoneEditor
-          });
-          showStatus('Could not send zone data. Please try again.', 'error');
-          setDisabled(false);
+          const confirmMessage = isLineMode
+            ? 'Counting line selected. Please continue.'
+            : 'Zone selected. Please continue.';
+          if (sendTextMessageFn && typeof sendTextMessageFn === 'function') {
+            await sendTextMessageFn(confirmMessage, { zoneData });
+          } else {
+            showStatus('Could not send zone data. Please try again.', 'error');
+            setDisabled(false);
+          }
         }
       } catch (err) {
-        console.error('[ZoneEditor] ❌ Error sending zone:', err);
         showStatus('Failed to save zone. Please try again.', 'error');
         setDisabled(false);
       }
@@ -863,14 +823,9 @@
         requestAnimationFrame(resizeCanvas);
       });
     }
-    imgEl.addEventListener('load', () => {
-      console.log('[ZoneEditor] Image loaded successfully');
-      onImageReady();
-    });
+    imgEl.addEventListener('load', onImageReady);
 
-    // Image error handler
-    imgEl.addEventListener('error', () => {
-      console.error('[ZoneEditor] Image failed to load');
+    imgEl.addEventListener('error', function () {
       showEditorError(container, 'Failed to display camera image. Please try again.');
     });
 
@@ -903,20 +858,12 @@
    * @param {string} cameraId - Camera ID
    * @param {string} zoneMode - 'polygon' or 'line'
    * @param {string|null} snapshotUrl - Optional snapshot URL
+   * @param {{ saveWithResume?: function }|null} options - Optional. saveWithResume(zoneData) used for HITL resume instead of sendTextMessage
    */
-  async function openZoneEditorInBubble(pendingId, cameraId, zoneMode = 'polygon', snapshotUrl = null) {
-    console.log('[ZoneEditor] openZoneEditorInBubble called:', {
-      pendingId,
-      cameraId,
-      zoneMode,
-      snapshotUrl
-    });
+  async function openZoneEditorInBubble(pendingId, cameraId, zoneMode = 'polygon', snapshotUrl = null, options = null) {
+    const saveWithResumeFn = (options && options.saveWithResume) ? options.saveWithResume : null;
 
-    // Validate inputs
-    if (!cameraId) {
-      console.error('[ZoneEditor] No camera ID provided');
-        return;
-      }
+    if (!cameraId) return;
 
     // Find the assistant bubble
     let bubble = null;
@@ -929,21 +876,11 @@
       
       if (!bubble) {
         attempts++;
-        console.log(`[ZoneEditor] Bubble lookup attempt ${attempts}/${maxAttempts} for pendingId: ${pendingId}`);
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } else {
-        console.log('[ZoneEditor] ✅ Found assistant bubble:', {
-          pendingId,
-          bubbleElement: bubble,
-          bubbleHTML: bubble.outerHTML.substring(0, 200)
-        });
+        await new Promise(function (resolve) { setTimeout(resolve, 100); });
       }
     }
 
     if (!bubble) {
-      console.error('[ZoneEditor] ❌ Could not find assistant bubble for:', pendingId);
-      console.log('[ZoneEditor] Creating standalone editor as fallback...');
-      // Fallback: create standalone editor
       await createStandaloneEditor(cameraId, zoneMode, snapshotUrl);
       return;
     }
@@ -951,29 +888,16 @@
     // Check if editor already exists
     const editorId = generateEditorId();
     const existingEditor = bubble.querySelector('[data-zone-editor]');
-    if (existingEditor) {
-      console.log('[ZoneEditor] Editor already exists in bubble');
-      return;
-    }
+    if (existingEditor) return;
 
     // Create and append editor (preserve motion_rois; default to polygon for unknown types)
     const mode = zoneMode === 'line' ? 'line' : (zoneMode === 'motion_rois' ? 'motion_rois' : 'polygon');
-    const editorEl = createZoneEditorElement(editorId, cameraId, mode);
+    const editorEl = createZoneEditorElement(editorId, cameraId, mode, saveWithResumeFn);
     bubble.appendChild(editorEl);
-    
-    console.log('[ZoneEditor] ✅ Editor element appended to bubble:', {
-      editorId,
-      mode,
-      editorVisible: editorEl.offsetHeight > 0 && editorEl.offsetWidth > 0,
-      editorDisplay: window.getComputedStyle(editorEl).display,
-      editorHTML: editorEl.outerHTML.substring(0, 300)
-    });
 
-    // Scroll to editor
-    const messagesEl = getMessagesEl();
-    if (messagesEl) {
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-      console.log('[ZoneEditor] Scrolled to bottom of messages');
+    const messagesContainer = getMessagesEl();
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
     editorEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 
@@ -987,15 +911,8 @@
       initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
 
       const imgEl = editorEl.querySelector('[data-zone-img]');
-      if (imgEl) {
-        imgEl.src = snapshot.imageUrl;
-      }
-      
-      console.log('[ZoneEditor] Zone editor initialized successfully');
-      
+      if (imgEl) imgEl.src = snapshot.imageUrl;
     } catch (error) {
-      console.error('[ZoneEditor] Failed to initialize:', error);
-      
       const isStreamingError = error.message?.includes('not streaming') || 
                                error.message?.includes('start the camera');
       showEditorError(editorEl, error.message, isStreamingError);
@@ -1009,13 +926,8 @@
    * @param {string|null} snapshotUrl - Optional snapshot URL
    */
   async function createStandaloneEditor(cameraId, zoneMode, snapshotUrl) {
-    console.log('[ZoneEditor] Creating standalone editor');
-    
-    const messagesEl = getMessagesEl();
-    if (!messagesEl) {
-      console.error('[ZoneEditor] Cannot create standalone editor: no messages container');
-      return;
-    }
+    const messagesContainer = getMessagesEl();
+    if (!messagesContainer) return;
     
     // Create container
     const wrapper = document.createElement('div');
@@ -1025,14 +937,14 @@
     bubble.className = 'ai-message-transparent fs-9 text-body-emphasis';
     bubble.style.width = '100%';
     wrapper.appendChild(bubble);
-    
-    messagesEl.appendChild(wrapper);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
 
-    // Create and add editor (preserve motion_rois; default to polygon for unknown types)
+    messagesContainer.appendChild(wrapper);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Create and add editor (standalone fallback does not use saveWithResume; preserve motion_rois)
     const editorId = generateEditorId();
     const mode = zoneMode === 'line' ? 'line' : (zoneMode === 'motion_rois' ? 'motion_rois' : 'polygon');
-    const editorEl = createZoneEditorElement(editorId, cameraId, mode);
+    const editorEl = createZoneEditorElement(editorId, cameraId, mode, null);
     bubble.appendChild(editorEl);
 
     // Load snapshot and initialize (init before setting src so load listener is never missed)
@@ -1060,27 +972,10 @@
    * @param {Function} deps.sendTextMessage - Function to send chat messages
    */
   function init(deps) {
-    console.log('[ZoneEditor] init() called with deps:', {
-      hasMessagesEl: !!deps?.messagesEl,
-      hasSendTextMessage: !!deps?.sendTextMessage,
-      sendTextMessageType: typeof deps?.sendTextMessage
-    });
-    
-    if (deps?.messagesEl) {
-      cachedMessagesEl = deps.messagesEl;
-    }
-    
+    if (deps?.messagesEl) cachedMessagesEl = deps.messagesEl;
     if (deps?.sendTextMessage && typeof deps.sendTextMessage === 'function') {
       sendTextMessageFn = deps.sendTextMessage;
-      console.log('[ZoneEditor] ✅ sendTextMessage function stored successfully');
-    } else {
-      console.error('[ZoneEditor] ❌ sendTextMessage function NOT provided or invalid!', {
-        provided: !!deps?.sendTextMessage,
-        type: typeof deps?.sendTextMessage
-      });
     }
-    
-    console.log('[ZoneEditor] Module initialized. sendTextMessageFn is now:', typeof sendTextMessageFn);
   }
 
   // ============================================================
@@ -1092,13 +987,9 @@
     openZoneEditorInBubble
   };
 
-  // Check for pending dependencies (if core loaded before this module)
   if (window.ChatbotZoneEditorPendingDeps) {
-    console.log('[ZoneEditor] ⚠️ Found pending dependencies, initializing now');
     init(window.ChatbotZoneEditorPendingDeps);
     delete window.ChatbotZoneEditorPendingDeps;
-  } else {
-    console.log('[ZoneEditor] ℹ️ No pending dependencies found (will wait for explicit init call)');
   }
 
 })();

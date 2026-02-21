@@ -624,14 +624,8 @@
     let audioBlob = null;
 
     try {
-      console.log('[Voice] Starting voice chat stream...');
-      await window.visionAPI.voiceChatStream(file, state.sessionId, (eventType, data) => {
-        console.log('[Voice] Event received:', eventType, data ? Object.keys(data) : 'no data');
-        
-        // Handle STT result event (PHASE 1 - Replace placeholder with actual transcribed text)
+      await window.visionAPI.voiceChatStream(file, state.sessionId, function (eventType, data) {
         if (eventType === 'stt_result' && data.text) {
-          console.log('[Voice] STT result:', data.text.substring(0, 50) + '...');
-          // Replace the placeholder '[Voice message]' with actual transcribed text
           if (replaceLastUserBubbleText) {
             replaceLastUserBubbleText(data.text);
             saveActiveHtml();
@@ -662,10 +656,7 @@
           }
         }
         
-        // Handle TTS audio chunks
         if (eventType === 'tts_chunk' && data.audio) {
-          console.log('[Voice] Received TTS chunk - base64 length:', data.audio.length);
-          // Decode base64 audio chunk
           try {
             const binaryString = atob(data.audio);
             const bytes = new Uint8Array(binaryString.length);
@@ -673,15 +664,7 @@
               bytes[i] = binaryString.charCodeAt(i);
             }
             audioChunks.push(bytes);
-            console.log('[Voice] Decoded audio chunk - size:', bytes.length, 'bytes, total chunks:', audioChunks.length);
-          } catch (e) {
-            console.error('[Voice] ERROR: Failed to decode TTS audio chunk:', e);
-          }
-        }
-        
-        // Handle TTS done event
-        if (eventType === 'tts_done') {
-          console.log('[Voice] TTS done event received - total chunks:', audioChunks.length);
+          } catch (_) {}
         }
         
         // Handle done event
@@ -705,73 +688,39 @@
         state.sessionId = finalSessionId;
       }
 
-      // Combine audio chunks into single blob
-      console.log('[Voice] Combining audio chunks - count:', audioChunks.length);
       if (audioChunks.length > 0) {
-        const combinedAudio = new Blob(audioChunks, { type: 'audio/wav' });
-        audioBlob = combinedAudio;
-        console.log('[Voice] Audio blob created - size:', audioBlob.size, 'bytes, type:', audioBlob.type);
-      } else {
-        console.warn('[Voice] WARNING: No audio chunks received!');
+        audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
       }
 
       // Update final state
       state.html = messagesEl.innerHTML;
       messagesEl.scrollTop = messagesEl.scrollHeight;
 
-      // Play audio response if available
       if (audioBlob) {
-        console.log('[Voice] Attempting to play audio - blob size:', audioBlob.size);
         const url = URL.createObjectURL(audioBlob);
-        console.log('[Voice] Created object URL:', url.substring(0, 50) + '...');
         const audio = new Audio(url);
         speakingAudio = audio;
-        
-        // Add event listeners for debugging
-        audio.addEventListener('loadstart', () => console.log('[Voice] Audio loadstart'));
-        audio.addEventListener('loadeddata', () => console.log('[Voice] Audio loadeddata'));
-        audio.addEventListener('canplay', () => console.log('[Voice] Audio canplay'));
-        audio.addEventListener('canplaythrough', () => console.log('[Voice] Audio canplaythrough'));
-        audio.addEventListener('error', (e) => {
-          console.error('[Voice] ERROR: Audio playback error:', e);
-          console.error('[Voice] Audio error details:', {
-            code: audio.error?.code,
-            message: audio.error?.message,
-            networkState: audio.networkState,
-            readyState: audio.readyState
-          });
-        });
-        
-        audio.play().then(() => {
-          console.log('[Voice] Audio playback started successfully');
+        audio.play().then(function () {
           setVoiceState(VOICE_STATE.SPEAKING);
           startOrbAudioReactiveFromAudioElement(audio);
-        }).catch((err) => {
-          console.error('[Voice] ERROR: Failed to play audio:', err);
+        }).catch(function () {
           speakingAudio = null;
           URL.revokeObjectURL(url);
-          // On play error, go to LISTENING state for next conversation
           setVoiceState(VOICE_STATE.LISTENING);
-          startVoiceRecording().catch(() => { });
+          startVoiceRecording().catch(function () {});
         });
-        audio.onended = () => {
-          console.log('[Voice] Audio playback ended');
+        audio.onended = function () {
           URL.revokeObjectURL(url);
           speakingAudio = null;
           stopOrbAudioReactive();
-          // After speaking completes, go to LISTENING state (not IDLE) for next conversation
-          // Voice assistant stays active until user clicks stop button
           setVoiceState(VOICE_STATE.LISTENING);
-          startVoiceRecording().catch(() => { });
+          startVoiceRecording().catch(function () {});
         };
       } else {
-        console.warn('[Voice] WARNING: No audio blob available to play');
-        // No TTS audio returned: go to LISTENING state for next conversation
         setVoiceState(VOICE_STATE.LISTENING);
-        startVoiceRecording().catch(() => { });
+        startVoiceRecording().catch(function () {});
       }
     } catch (err) {
-      console.error('Voice chat stream error:', err);
       // On error, go to LISTENING state (not IDLE) - keep voice assistant active
       setVoiceState(VOICE_STATE.LISTENING);
       if (replaceAssistantPending) {
@@ -921,11 +870,7 @@
 
   // Auto-initialize if dependencies were stashed before module loaded
   if (window.ChatbotVoicePendingDeps) {
-    try {
-      init(window.ChatbotVoicePendingDeps);
-    } catch (e) {
-      console.warn('[ChatbotVoice] Init failed:', e);
-    }
+    try { init(window.ChatbotVoicePendingDeps); } catch (_) {}
     window.ChatbotVoicePendingDeps = null;
   }
 })();

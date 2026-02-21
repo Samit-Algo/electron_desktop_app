@@ -478,12 +478,12 @@
   #chatbot-offcanvas .chatbot-input-container {
     background-color: var(--phoenix-emphasis-bg);
     border: 1px solid var(--phoenix-border-color);
-    border-radius: 1.25rem;
+    border-radius: 0.5rem;
     padding: 0.75rem 1rem;
     position: relative;
     /* Context for absolute controls */
     display: block;
-    min-height: 84px;
+    min-height: 120px;
     /* Sufficient height for textarea + controls */
     transition: background-color 0.2s, border-color 0.2s;
   }
@@ -499,7 +499,7 @@
     box-shadow: none !important;
     padding: 0;
     resize: none;
-    min-height: 24px;
+    min-height: 44px;
     max-height: 200px;
     width: 100%;
     /* Reserve space for the absolute position controls below */

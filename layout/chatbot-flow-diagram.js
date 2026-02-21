@@ -11,33 +11,18 @@
   async function renderFlowDiagram(pendingId, flowDiagramData) {
     try {
       // Validate flow diagram data structure
-      if (!window.flowTransforms || !window.flowTransforms.isValid(flowDiagramData)) {
-        console.warn('[ChatbotFlowDiagram] Invalid flow diagram data');
-        return;
-      }
+      if (!window.flowTransforms || !window.flowTransforms.isValid(flowDiagramData)) return;
 
-      // Find the pending message container element
       const pendingNode = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
-      if (!pendingNode) {
-        console.warn('[ChatbotFlowDiagram] Pending node not found:', pendingId);
-        return;
-      }
+      if (!pendingNode) return;
 
-      // Get the assistant bubble div inside the pending container
       const bubble = pendingNode.querySelector?.('div');
-      if (!bubble) {
-        console.warn('[ChatbotFlowDiagram] Bubble element not found');
-        return;
-      }
+      if (!bubble) return;
 
       // Create unique container ID for this diagram instance
       const diagramId = `flow-diagram-${pendingId}`;
 
-      // Prevent duplicate renders if diagram already exists
-      if (document.getElementById(diagramId)) {
-        console.warn('[ChatbotFlowDiagram] Diagram already rendered:', pendingId);
-        return;
-      }
+      if (document.getElementById(diagramId)) return;
 
       // Create and append diagram container div to the bubble
       const container = document.createElement('div');
@@ -75,9 +60,7 @@
         minScale: 0.5,
         maxScale: 1.6
       });
-    } catch (e) {
-      console.error('[ChatbotFlowDiagram] Render failed:', e);
-    }
+    } catch (_) {}
   }
 
   // Initialize module with dependencies from chatbot-core.js
@@ -94,11 +77,7 @@
 
   // Auto-initialize if dependencies were stashed before module loaded
   if (window.ChatbotFlowDiagramPendingDeps) {
-    try {
-      init(window.ChatbotFlowDiagramPendingDeps);
-    } catch (e) {
-      console.error('[ChatbotFlowDiagram] Init failed:', e);
-    }
+    try { init(window.ChatbotFlowDiagramPendingDeps); } catch (_) {}
     window.ChatbotFlowDiagramPendingDeps = null;
   }
 })();
