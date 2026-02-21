@@ -808,7 +808,7 @@
           
           if (shouldShowZoneEditor && effectiveCameraId) {
             // Determine zone mode from backend response (defaults to 'polygon' for backward compatibility)
-            // Backend can specify: 'line' for counting line, 'polygon' for restricted zone, or omit for default
+            // Backend can specify: 'line' (counting line), 'polygon' (restricted zone), 'motion_rois' (machine idle ROIs), or omit for default
             const zoneMode = finalPayload?.zone_type || finalPayload?.zone_mode || 'polygon';
             // Use frame_snapshot_url if provided, otherwise fall back to camera ID
             const snapshotUrl = finalPayload?.frame_snapshot_url || null;
