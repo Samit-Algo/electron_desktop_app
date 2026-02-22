@@ -1080,7 +1080,113 @@
   }
 
   /* -----------------------------
-     Zone drawing (snapshot + polygon)
+     Zone draw bubble (image + Draw button; drawing in modal)
+     ----------------------------- */
+  .zone-draw-bubble {
+    margin-top: 0.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: var(--phoenix-body-bg, #fff);
+    padding: 0.75rem;
+  }
+
+  .zone-draw-bubble__status {
+    font-size: 0.9rem;
+  }
+
+  .zone-draw-bubble__content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .zone-draw-bubble__img-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 360px;
+    border-radius: 0.6rem;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .zone-draw-bubble__img {
+    display: block;
+    width: 100%;
+    height: auto;
+    vertical-align: top;
+  }
+
+  .zone-draw-bubble__hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+
+  .zone-draw-bubble__img-wrap:hover .zone-draw-bubble__hint {
+    opacity: 1;
+  }
+
+  [data-bs-theme="dark"] .zone-draw-bubble {
+    background: var(--phoenix-emphasis-bg, #1e1e1e);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  [data-bs-theme="dark"] .zone-draw-bubble__img-wrap {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  [data-bs-theme="dark"] .zone-draw-bubble__hint {
+    background: rgba(0, 0, 0, 0.65);
+  }
+
+  /* Zone editor modal (centered; larger; drawing happens here) */
+  #zone-editor-modal .zone-editor-modal__dialog {
+    width: 90vw;
+    max-width: 1200px;
+    height: 85vh;
+    min-width: 500px;
+    min-height: 400px;
+    margin: 1.75rem auto;
+  }
+
+  #zone-editor-modal .modal-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  #zone-editor-modal .zone-editor-modal__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  #zone-editor-modal .zone-editor {
+    border: none;
+    border-radius: 0;
+    margin-top: 0;
+  }
+
+  #zone-editor-modal .zone-editor__header {
+    padding-top: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* -----------------------------
+     Zone drawing (snapshot + polygon) – used inside modal
      ----------------------------- */
   .zone-editor {
     margin-top: 0.75rem;

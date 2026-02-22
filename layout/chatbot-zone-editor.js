@@ -160,21 +160,170 @@
       };
 
     } catch (error) {
-      // Check for common error types
       const errorMsg = error?.message || 'Failed to load camera snapshot';
-      if (errorMsg.includes('404') || errorMsg.includes('No frame') || errorMsg.includes('not found')) {
-        throw new Error('Camera is not streaming. Please start the camera stream first.');
-      }
       if (errorMsg.includes('401') || errorMsg.includes('unauthorized')) {
         throw new Error('Authentication failed. Please log in again.');
       }
-      
+      if (errorMsg.includes('404') || errorMsg.includes('No frame') || errorMsg.includes('not found') ||
+          errorMsg.includes('offline') || errorMsg.includes('unreachable') || errorMsg.includes('503')) {
+        throw new Error('Camera is offline or unreachable. Please check the connection and try again.');
+      }
+
       throw new Error(errorMsg);
     }
   }
 
   // ============================================================
-  // ZONE EDITOR UI BUILDER
+  // ZONE DRAW BUBBLE (image + Draw button; drawing happens in modal)
+  // ============================================================
+
+  /**
+   * Create the bubble content: image, hover hint "Click Draw to draw a zone", and Draw button.
+   * Clicking Draw opens the zone editor in a centered modal.
+   * @param {string} editorId - Unique ID
+   * @param {string} cameraId - Camera ID
+   * @param {string} mode - 'polygon' or 'line'
+   * @returns {HTMLElement}
+   */
+  function createZoneDrawBubbleElement(editorId, cameraId, mode) {
+    const container = document.createElement('div');
+    container.className = 'zone-draw-bubble';
+    container.setAttribute('data-zone-draw-bubble', editorId);
+    container.setAttribute('data-zone-mode', mode);
+    container.setAttribute('data-camera-id', cameraId);
+
+    container.innerHTML = `
+      <div class="zone-draw-bubble__status" data-zone-draw-status>
+        <div class="d-flex align-items-center gap-2">
+          <span class="spinner-border spinner-border-sm text-primary"></span>
+          <span>Loading camera snapshot...</span>
+        </div>
+      </div>
+      <div class="zone-draw-bubble__content d-none" data-zone-draw-content>
+        <div class="zone-draw-bubble__img-wrap" data-zone-draw-img-wrap>
+          <img class="zone-draw-bubble__img" alt="Camera snapshot" data-zone-draw-img />
+          <div class="zone-draw-bubble__hint" data-zone-draw-hint>Click Draw to draw a zone</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary mt-2" data-zone-draw-btn>
+          <span class="fas fa-draw-polygon me-1"></span>Draw
+        </button>
+      </div>
+    `;
+    return container;
+  }
+
+  /**
+   * Show error in zone-draw-bubble (e.g. snapshot failed)
+   * @param {HTMLElement} container - zone-draw-bubble container
+   * @param {string} message - Error message
+   * @param {function|null} onRetry - Optional retry callback
+   */
+  function showZoneDrawBubbleError(container, message, onRetry = null) {
+    const statusEl = container.querySelector('[data-zone-draw-status]');
+    if (!statusEl) return;
+    statusEl.innerHTML = `
+      <div class="text-danger d-flex flex-column gap-2">
+        <div><span class="fas fa-times-circle me-2"></span>${escapeHtml(message)}</div>
+        ${onRetry ? '<button type="button" class="btn btn-sm btn-outline-primary align-self-start" data-zone-draw-retry><span class="fas fa-redo me-1"></span>Retry</button>' : ''}
+      </div>
+    `;
+    const retryBtn = statusEl.querySelector('[data-zone-draw-retry]');
+    if (retryBtn && typeof onRetry === 'function') {
+      retryBtn.addEventListener('click', function () {
+        retryBtn.disabled = true;
+        retryBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Retrying...';
+        onRetry().catch(() => {
+          retryBtn.disabled = false;
+          retryBtn.innerHTML = '<span class="fas fa-redo me-1"></span>Retry';
+        });
+      });
+    }
+  }
+
+  /**
+   * Get or create the zone editor modal (centered, appended to body)
+   * @returns {{ modalEl: HTMLElement, bodyEl: HTMLElement, show: function, hide: function }}
+   */
+  function getOrCreateZoneEditorModal() {
+    const id = 'zone-editor-modal';
+    let modalEl = document.getElementById(id);
+    if (modalEl) {
+      const bodyEl = modalEl.querySelector('.zone-editor-modal__body');
+      const bsModal = window.bootstrap?.Modal?.getOrCreateInstance?.(modalEl);
+      return {
+        modalEl,
+        bodyEl: bodyEl || modalEl.querySelector('.modal-body'),
+        show: () => bsModal?.show?.(),
+        hide: () => bsModal?.hide?.()
+      };
+    }
+
+    modalEl = document.createElement('div');
+    modalEl.className = 'modal fade';
+    modalEl.id = id;
+    modalEl.setAttribute('tabindex', '-1');
+    modalEl.setAttribute('aria-labelledby', id + '-label');
+    modalEl.setAttribute('aria-hidden', 'true');
+    const isLineMode = false; // title set when we open
+    modalEl.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered zone-editor-modal__dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="${id}-label" data-zone-modal-title>Draw Monitoring Zone</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body zone-editor-modal__body"></div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modalEl);
+    const bodyEl = modalEl.querySelector('.zone-editor-modal__body');
+    const bsModal = window.bootstrap ? new window.bootstrap.Modal(modalEl) : null;
+    if (bsModal) {
+      modalEl.addEventListener('hidden.bs.modal', function () {
+        bsModal.dispose();
+      });
+    }
+    return {
+      modalEl,
+      bodyEl,
+      show: () => bsModal?.show?.(),
+      hide: () => bsModal?.hide?.()
+    };
+  }
+
+  /**
+   * Open the zone editor inside the centered modal. Image and canvas load here so drawing is stable.
+   * @param {Object} snapshot - { imageUrl, width, height }
+   * @param {string} cameraId - Camera ID
+   * @param {string} mode - 'polygon' or 'line'
+   * @param {function|null} saveWithResumeFn - On save (HITL) callback
+   */
+  function openModalWithZoneEditor(snapshot, cameraId, mode, saveWithResumeFn) {
+    const modal = getOrCreateZoneEditorModal();
+    if (!modal.bodyEl) return;
+
+    const editorId = generateEditorId();
+    const isLineMode = mode === 'line';
+    const titleEl = modal.modalEl.querySelector('[data-zone-modal-title]');
+    if (titleEl) titleEl.textContent = isLineMode ? 'Draw Counting Line' : 'Draw Monitoring Zone';
+
+    modal.bodyEl.innerHTML = '';
+    const editorEl = createZoneEditorElement(editorId, cameraId, mode, saveWithResumeFn);
+    editorEl._onSaveDone = () => modal.hide();
+
+    modal.bodyEl.appendChild(editorEl);
+
+    showDrawingCanvas(editorEl);
+    const imgEl = editorEl.querySelector('[data-zone-img]');
+    if (imgEl) imgEl.src = snapshot.imageUrl;
+    initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
+
+    modal.show();
+  }
+
+  // ============================================================
+  // ZONE EDITOR UI BUILDER (used inside modal)
   // ============================================================
 
   /**
@@ -244,10 +393,10 @@
   function showEditorError(container, message, isWarning = false) {
     const statusEl = container.querySelector('[data-zone-status]');
     if (!statusEl) return;
-    
+
     const colorClass = isWarning ? 'text-warning' : 'text-danger';
     const icon = isWarning ? 'fa-exclamation-triangle' : 'fa-times-circle';
-    
+
     statusEl.innerHTML = `
       <div class="${colorClass}">
         <span class="fas ${icon} me-2"></span>
@@ -255,6 +404,47 @@
       </div>
     `;
     statusEl.classList.remove('d-none');
+  }
+
+  /**
+   * Show error state with Retry button (for camera offline / snapshot fetch failure)
+   * @param {HTMLElement} container - Zone editor container
+   * @param {string} message - Error message (e.g. "Camera is offline or unreachable.")
+   * @param {function(): Promise<void>} onRetry - Async function to call when Retry is clicked
+   */
+  function showEditorErrorWithRetry(container, message, onRetry) {
+    const statusEl = container.querySelector('[data-zone-status]');
+    if (!statusEl) return;
+
+    const userMsg = message || 'Camera is offline or unreachable. Please check the connection and try again.';
+
+    statusEl.innerHTML = `
+      <div class="text-danger d-flex flex-column gap-2">
+        <div>
+          <span class="fas fa-times-circle me-2"></span>
+          ${escapeHtml(userMsg)}
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-primary align-self-start" data-zone-retry>
+          <span class="fas fa-redo me-1"></span>Retry
+        </button>
+      </div>
+    `;
+    statusEl.classList.remove('d-none');
+
+    const retryBtn = statusEl.querySelector('[data-zone-retry]');
+    if (retryBtn && typeof onRetry === 'function') {
+      retryBtn.addEventListener('click', async function () {
+        retryBtn.disabled = true;
+        retryBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Retrying...';
+        try {
+          await onRetry();
+        } catch (err) {
+          retryBtn.disabled = false;
+          retryBtn.innerHTML = '<span class="fas fa-redo me-1"></span>Retry';
+          showEditorErrorWithRetry(container, err?.message || userMsg, onRetry);
+        }
+      });
+    }
   }
 
   /**
@@ -321,14 +511,8 @@
       const oldH = canvasEl.height;
       const sizeChanged = (oldW !== w || oldH !== h);
       
-      if (sizeChanged && points.length > 0 && oldW > 0 && oldH > 0) {
-        // Scale existing points so they stay in the same place after resize
-        const scaleX = w / oldW;
-        const scaleY = h / oldH;
-        for (const p of points) {
-          p.x = p.x * scaleX;
-          p.y = p.y * scaleY;
-        }
+      if (sizeChanged && oldW > 0 && oldH > 0) {
+        points.length = 0;
       }
       
       if (canvasEl.width !== w) canvasEl.width = w;
@@ -544,7 +728,11 @@
           } else {
             showStatus('Could not send zone data. Please try again.', 'error');
             setDisabled(false);
+            return;
           }
+        }
+        if (container._onSaveDone && typeof container._onSaveDone === 'function') {
+          container._onSaveDone();
         }
       } catch (err) {
         showStatus('Failed to save zone. Please try again.', 'error');
@@ -573,11 +761,11 @@
     const resizeHandler = () => requestAnimationFrame(resizeCanvas);
     window.addEventListener('resize', resizeHandler, { passive: true });
 
-    // When chat panel width is changed (drag handle), image/canvas display size changes but
-    // window resize does not fire. ResizeObserver keeps canvas in sync so click position = dot position.
+    // When modal or container is resized, ResizeObserver fires: we clear points and redraw (fresh canvas).
     let resizeObserver = null;
     if (typeof ResizeObserver !== 'undefined') {
       resizeObserver = new ResizeObserver(() => {
+        points.length = 0;
         requestAnimationFrame(resizeCanvas);
       });
       resizeObserver.observe(imgEl);
@@ -593,7 +781,8 @@
   // ============================================================
 
   /**
-   * Open zone editor in an assistant message bubble
+   * Open zone draw UI in an assistant message bubble: image + hover hint + Draw button.
+   * Clicking Draw opens the zone editor in a centered modal (stable, no layout issues).
    * @param {string} pendingId - Pending message ID
    * @param {string} cameraId - Camera ID
    * @param {string} zoneMode - 'polygon' or 'line'
@@ -621,87 +810,101 @@
     }
 
     if (!bubble) {
-      await createStandaloneEditor(cameraId, zoneMode, snapshotUrl);
+      await createStandaloneEditor(cameraId, zoneMode, snapshotUrl, saveWithResumeFn);
       return;
     }
 
-    // Check if editor already exists
-    const editorId = generateEditorId();
-    const existingEditor = bubble.querySelector('[data-zone-editor]');
-    if (existingEditor) return;
+    // Remove existing draw bubble so second open gets a fresh one (new fetch, working Draw button)
+    const existingDrawBubble = bubble.querySelector('[data-zone-draw-bubble]');
+    if (existingDrawBubble) existingDrawBubble.remove();
 
-    // Create and append editor
+    const editorId = generateEditorId();
     const mode = zoneMode === 'line' ? 'line' : 'polygon';
-    const editorEl = createZoneEditorElement(editorId, cameraId, mode, saveWithResumeFn);
-    bubble.appendChild(editorEl);
+    const drawBubbleEl = createZoneDrawBubbleElement(editorId, cameraId, mode);
+    bubble.appendChild(drawBubbleEl);
 
     const messagesContainer = getMessagesEl();
     if (messagesContainer) {
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
-    editorEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    drawBubbleEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 
-    // Load snapshot and initialize canvas
-    try {
+    const statusEl = drawBubbleEl.querySelector('[data-zone-draw-status]');
+    const contentEl = drawBubbleEl.querySelector('[data-zone-draw-content]');
+    const imgEl = drawBubbleEl.querySelector('[data-zone-draw-img]');
+    const drawBtn = drawBubbleEl.querySelector('[data-zone-draw-btn]');
+
+    const loadAndShow = async () => {
       const snapshot = await fetchCameraSnapshot(cameraId, snapshotUrl);
-      
-      // Show canvas and init drawing first so the image load listener is attached
-      // before we set src (avoids missing load when image is cached / loads instantly)
-      showDrawingCanvas(editorEl);
-      initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
-
-      const imgEl = editorEl.querySelector('[data-zone-img]');
+      if (statusEl) statusEl.classList.add('d-none');
+      if (contentEl) contentEl.classList.remove('d-none');
       if (imgEl) imgEl.src = snapshot.imageUrl;
+      drawBubbleEl._snapshot = snapshot;
+      drawBtn.onclick = function () {
+        if (drawBubbleEl._snapshot) {
+          openModalWithZoneEditor(drawBubbleEl._snapshot, cameraId, mode, saveWithResumeFn);
+        }
+      };
+    };
+
+    try {
+      await loadAndShow();
     } catch (error) {
-      const isStreamingError = error.message?.includes('not streaming') || 
-                               error.message?.includes('start the camera');
-      showEditorError(editorEl, error.message, isStreamingError);
+      const isOffline = error.message?.includes('offline') || error.message?.includes('unreachable') ||
+                       error.message?.includes('not streaming') || error.message?.includes('503');
+      showZoneDrawBubbleError(drawBubbleEl, error.message, isOffline ? loadAndShow : null);
     }
   }
 
   /**
-   * Create a standalone zone editor when bubble lookup fails
+   * Create a standalone zone-draw bubble when bubble lookup fails (same image + Draw → modal flow)
    * @param {string} cameraId - Camera ID
    * @param {string} zoneMode - 'polygon' or 'line'
    * @param {string|null} snapshotUrl - Optional snapshot URL
+   * @param {function|null} saveWithResumeFn - Optional HITL save callback
    */
-  async function createStandaloneEditor(cameraId, zoneMode, snapshotUrl) {
+  async function createStandaloneEditor(cameraId, zoneMode, snapshotUrl, saveWithResumeFn = null) {
     const messagesContainer = getMessagesEl();
     if (!messagesContainer) return;
-    
-    // Create container
+
+    const mode = zoneMode === 'line' ? 'line' : 'polygon';
+    const editorId = generateEditorId();
+    const drawBubbleEl = createZoneDrawBubbleElement(editorId, cameraId, mode);
+
     const wrapper = document.createElement('div');
     wrapper.className = 'd-flex flex-column align-items-start mt-3';
-    
     const bubble = document.createElement('div');
     bubble.className = 'ai-message-transparent fs-9 text-body-emphasis';
     bubble.style.width = '100%';
     wrapper.appendChild(bubble);
-
+    bubble.appendChild(drawBubbleEl);
     messagesContainer.appendChild(wrapper);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-    // Create and add editor (standalone fallback does not use saveWithResume)
-    const editorId = generateEditorId();
-    const mode = zoneMode === 'line' ? 'line' : 'polygon';
-    const editorEl = createZoneEditorElement(editorId, cameraId, mode, null);
-    bubble.appendChild(editorEl);
+    const statusEl = drawBubbleEl.querySelector('[data-zone-draw-status]');
+    const contentEl = drawBubbleEl.querySelector('[data-zone-draw-content]');
+    const imgEl = drawBubbleEl.querySelector('[data-zone-draw-img]');
+    const drawBtn = drawBubbleEl.querySelector('[data-zone-draw-btn]');
 
-    // Load snapshot and initialize (init before setting src so load listener is never missed)
-    try {
+    const loadAndShow = async () => {
       const snapshot = await fetchCameraSnapshot(cameraId, snapshotUrl);
-      
-      showDrawingCanvas(editorEl);
-      initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
+      if (statusEl) statusEl.classList.add('d-none');
+      if (contentEl) contentEl.classList.remove('d-none');
+      if (imgEl) imgEl.src = snapshot.imageUrl;
+      drawBubbleEl._snapshot = snapshot;
+      drawBtn.onclick = function () {
+        if (drawBubbleEl._snapshot) {
+          openModalWithZoneEditor(drawBubbleEl._snapshot, cameraId, mode, saveWithResumeFn);
+        }
+      };
+    };
 
-      const imgEl = editorEl.querySelector('[data-zone-img]');
-      if (imgEl) {
-        imgEl.src = snapshot.imageUrl;
-      }
-      
+    try {
+      await loadAndShow();
     } catch (error) {
-      const isStreamingError = error.message?.includes('not streaming');
-      showEditorError(editorEl, error.message, isStreamingError);
+      const isOffline = error.message?.includes('offline') || error.message?.includes('unreachable') ||
+                       error.message?.includes('not streaming') || error.message?.includes('503');
+      showZoneDrawBubbleError(drawBubbleEl, error.message, isOffline ? loadAndShow : null);
     }
   }
 
