@@ -330,23 +330,38 @@
    * Create the zone editor HTML structure
    * @param {string} editorId - Unique editor ID
    * @param {string} cameraId - Camera ID
-   * @param {string} mode - 'polygon' or 'line'
+   * @param {string} mode - 'polygon', 'line', or 'motion_rois'
    * @param {function|null} saveWithResumeFn - If set, on Save call this with zoneData (for HITL resume) instead of sendTextMessage
    * @returns {HTMLElement}
    */
   function createZoneEditorElement(editorId, cameraId, mode, saveWithResumeFn = null) {
     const isLineMode = mode === 'line';
-    
+    const isRoiMode = mode === 'motion_rois';
+
+    let title = isLineMode ? 'Draw Counting Line' : 'Draw Monitoring Zone';
+    let hint = isLineMode
+      ? 'Click to set start point, then click again to set end point.'
+      : 'Click to add polygon points. Use "Undo" to remove last point. Save needs at least 3 points.';
+    let saveLabel = isLineMode ? 'Line' : 'Zone';
+
+    if (isRoiMode) {
+      title = 'Draw Motion ROIs (one per machine)';
+      hint = 'Draw a polygon around each machine (like restricted zone). Click to add points. Use "Complete this ROI" when done with one machine, then draw the next. Save when all machines are marked.';
+      saveLabel = 'ROIs';
+    }
+
+    var actionsHtml = '<button type="button" class="btn btn-sm btn-outline-secondary" data-zone-undo><span class="fas fa-undo me-1"></span>Undo</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary" data-zone-clear><span class="fas fa-trash-alt me-1"></span>Clear</button>';
+    if (isRoiMode) {
+      actionsHtml += '<button type="button" class="btn btn-sm btn-outline-primary" data-zone-complete-roi><span class="fas fa-plus-circle me-1"></span>Complete this ROI</button>';
+    }
+    actionsHtml += '<button type="button" class="btn btn-sm btn-primary" data-zone-save><span class="fas fa-check me-1"></span>Save ' + saveLabel + '</button>';
+
     const container = document.createElement('div');
     container.className = 'zone-editor';
     container.setAttribute('data-zone-editor', editorId);
     container.setAttribute('data-zone-mode', mode);
-    
-    const title = isLineMode ? 'Draw Counting Line' : 'Draw Monitoring Zone';
-    const hint = isLineMode
-      ? 'Click to set start point, then click again to set end point.'
-      : 'Click to add polygon points. Use "Undo" to remove last point. Save needs at least 3 points.';
-    
+
     container.innerHTML = `
       <div class="zone-editor__header">
         <div class="zone-editor__title">${title}</div>
@@ -367,15 +382,7 @@
         </div>
         <div class="zone-editor__hint d-none" data-zone-hint>${hint}</div>
         <div class="zone-editor__actions d-none" data-zone-actions>
-          <button type="button" class="btn btn-sm btn-outline-secondary" data-zone-undo>
-            <span class="fas fa-undo me-1"></span>Undo
-          </button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" data-zone-clear>
-            <span class="fas fa-trash-alt me-1"></span>Clear
-          </button>
-          <button type="button" class="btn btn-sm btn-primary" data-zone-save>
-            <span class="fas fa-check me-1"></span>Save ${isLineMode ? 'Line' : 'Zone'}
-          </button>
+          ${actionsHtml}
         </div>
           </div>
         `;
@@ -469,13 +476,258 @@
   }
 
   // ============================================================
+  // MOTION ROIs DRAWING LOGIC (multiple rectangles, one per machine)
+  // ============================================================
+
+  /**
+   * Initialize canvas for motion_rois mode: draw multiple polygons (one per machine), like restricted zone.
+   * Each polygon is converted to a bounding box [x1,y1,x2,y2] for the backend.
+   * @private
+   */
+  function initializeDrawingCanvasMotionRois(container, canvasEl, imgEl, btnUndo, btnClear, btnSave, statusEl, cameraId, imageWidth, imageHeight) {
+    var polygons = []; // each: array of { x, y } in canvas coordinates
+    var currentPolygon = []; // points for the ROI being drawn
+    var isDisabled = false;
+    var btnCompleteRoi = container.querySelector('[data-zone-complete-roi]');
+
+    function getClickPoint(ev) {
+      var rect = canvasEl.getBoundingClientRect();
+      var x = ev.clientX - rect.left;
+      var y = ev.clientY - rect.top;
+      return {
+        x: Math.max(0, Math.min(rect.width, x)),
+        y: Math.max(0, Math.min(rect.height, y))
+      };
+    }
+
+    function setDisabled(disabled) {
+      isDisabled = disabled;
+      [btnUndo, btnClear, btnSave, btnCompleteRoi].forEach(function (btn) {
+        if (btn) btn.disabled = disabled;
+      });
+      canvasEl.style.pointerEvents = disabled ? 'none' : 'auto';
+    }
+
+    function showStatus(message, type) {
+      if (!statusEl) return;
+      var colors = { error: 'text-danger', warning: 'text-warning', success: 'text-success' };
+      statusEl.innerHTML = '<span class="' + (colors[type] || colors.error) + '">' + escapeHtml(message) + '</span>';
+      statusEl.classList.remove('d-none');
+      if (type !== 'error') {
+        setTimeout(function () { statusEl.classList.add('d-none'); }, 3000);
+      }
+    }
+
+    function resizeCanvas() {
+      if (!imgEl.naturalWidth || !imgEl.naturalHeight) return;
+      var rect = imgEl.getBoundingClientRect();
+      var w = Math.max(1, Math.round(rect.width));
+      var h = Math.max(1, Math.round(rect.height));
+      var oldW = canvasEl.width;
+      var oldH = canvasEl.height;
+      var sizeChanged = (oldW !== w || oldH !== h);
+      if (sizeChanged && oldW > 0 && oldH > 0 && (polygons.length > 0 || currentPolygon.length > 0)) {
+        var scaleX = w / oldW;
+        var scaleY = h / oldH;
+        polygons.forEach(function (pts) {
+          pts.forEach(function (p) {
+            p.x *= scaleX;
+            p.y *= scaleY;
+          });
+        });
+        currentPolygon.forEach(function (p) {
+          p.x *= scaleX;
+          p.y *= scaleY;
+        });
+      }
+      if (canvasEl.width !== w) canvasEl.width = w;
+      if (canvasEl.height !== h) canvasEl.height = h;
+      draw();
+    }
+
+    function draw() {
+      var ctx = canvasEl.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+      var strokeStyle = 'rgba(42, 123, 228, 0.95)';
+      var fillStyle = 'rgba(42, 123, 228, 0.20)';
+
+      function drawPolygon(pts) {
+        if (pts.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (var i = 1; i < pts.length; i++) {
+          ctx.lineTo(pts[i].x, pts[i].y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      polygons.forEach(drawPolygon);
+      drawPolygon(currentPolygon);
+
+      // Draw points for current polygon
+      ctx.fillStyle = 'rgba(42, 123, 228, 1)';
+      currentPolygon.forEach(function (p) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+    }
+
+    function polygonToBoundingBox(pts) {
+      if (pts.length === 0) return null;
+      var x1 = pts[0].x, y1 = pts[0].y, x2 = pts[0].x, y2 = pts[0].y;
+      pts.forEach(function (p) {
+        if (p.x < x1) x1 = p.x;
+        if (p.x > x2) x2 = p.x;
+        if (p.y < y1) y1 = p.y;
+        if (p.y > y2) y2 = p.y;
+      });
+      return { x1: x1, y1: y1, x2: x2, y2: y2 };
+    }
+
+    canvasEl.addEventListener('click', function (ev) {
+      if (isDisabled) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      currentPolygon.push(getClickPoint(ev));
+      draw();
+    });
+
+    btnUndo && btnUndo.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (currentPolygon.length > 0) {
+        currentPolygon.pop();
+      } else if (polygons.length > 0) {
+        polygons.pop();
+      }
+      draw();
+    });
+
+    btnClear && btnClear.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      polygons = [];
+      currentPolygon = [];
+      draw();
+    });
+
+    btnCompleteRoi && btnCompleteRoi.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (currentPolygon.length < 3) {
+        showStatus('Add at least 3 points for this ROI, then click "Complete this ROI".', 'warning');
+        return;
+      }
+      polygons.push(currentPolygon.slice());
+      currentPolygon = [];
+      showStatus('ROI added. Draw the next machine or click Save.', 'success');
+      draw();
+    });
+
+    btnSave && btnSave.addEventListener('click', async function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      var allPolygons = polygons.slice();
+      if (currentPolygon.length >= 3) {
+        allPolygons.push(currentPolygon.slice());
+      }
+      if (allPolygons.length < 1) {
+        showStatus('Draw at least one polygon (one per machine). Use "Complete this ROI" after each, then Save.', 'warning');
+        return;
+      }
+
+      var iw = imageWidth || imgEl.naturalWidth || 0;
+      var ih = imageHeight || imgEl.naturalHeight || 0;
+      if (!iw || !ih) {
+        showStatus('Image dimensions unknown. Please try again.', 'error');
+        return;
+      }
+      var cw = canvasEl.width;
+      var ch = canvasEl.height;
+      if (cw <= 0 || ch <= 0) {
+        showStatus('Canvas not ready. Please try again.', 'error');
+        return;
+      }
+
+      var looms = allPolygons.map(function (pts, i) {
+        var box = polygonToBoundingBox(pts);
+        var ix1 = Math.round((box.x1 / cw) * iw);
+        var iy1 = Math.round((box.y1 / ch) * ih);
+        var ix2 = Math.round((box.x2 / cw) * iw);
+        var iy2 = Math.round((box.y2 / ch) * ih);
+        ix1 = Math.max(0, Math.min(iw, ix1));
+        iy1 = Math.max(0, Math.min(ih, iy1));
+        ix2 = Math.max(0, Math.min(iw, ix2));
+        iy2 = Math.max(0, Math.min(ih, iy2));
+        if (ix2 <= ix1) ix2 = ix1 + 1;
+        if (iy2 <= iy1) iy2 = iy1 + 1;
+        return {
+          loom_id: 'loom-' + String(i + 1).padStart(2, '0'),
+          name: 'Machine ' + (i + 1),
+          motion_roi: [ix1, iy1, ix2, iy2]
+        };
+      });
+
+      var zoneData = {
+        zone: { type: 'motion_rois', looms: looms },
+        image: { width: iw, height: ih },
+        camera_id: cameraId
+      };
+
+      console.log('[ZoneEditor] Saving motion_rois zone (polygon → bbox):', zoneData);
+      setDisabled(true);
+      try {
+        var confirmMessage = 'Motion ROIs selected (' + looms.length + ' machine(s)). Please continue.';
+        if (sendTextMessageFn && typeof sendTextMessageFn === 'function') {
+          await sendTextMessageFn(confirmMessage, { zoneData });
+        } else {
+          showStatus('Could not send zone data. Please try again.', 'error');
+          setDisabled(false);
+        }
+      } catch (err) {
+        console.error('[ZoneEditor] Error sending motion_rois zone:', err);
+        showStatus('Failed to save. Please try again.', 'error');
+        setDisabled(false);
+      }
+    });
+
+    imgEl.addEventListener('load', function () {
+      var canvasWrap = container.querySelector('[data-canvas-wrap]');
+      if (canvasWrap) canvasWrap.style.minHeight = '';
+      requestAnimationFrame(resizeCanvas);
+      requestAnimationFrame(resizeCanvas);
+    });
+    imgEl.addEventListener('error', function () {
+      showEditorError(container, 'Failed to display camera image. Please try again.');
+    });
+    window.addEventListener('resize', function () { requestAnimationFrame(resizeCanvas); }, { passive: true });
+    if (typeof ResizeObserver !== 'undefined') {
+      var ro = new ResizeObserver(function () { requestAnimationFrame(resizeCanvas); });
+      ro.observe(imgEl);
+    }
+    setTimeout(resizeCanvas, 100);
+    setTimeout(resizeCanvas, 500);
+  }
+
+  // ============================================================
   // POLYGON/LINE DRAWING LOGIC
   // ============================================================
 
   /**
    * Initialize the drawing canvas and event handlers
    * @param {HTMLElement} container - Zone editor container
-   * @param {string} mode - 'polygon' or 'line'
+   * @param {string} mode - 'polygon', 'line', or 'motion_rois'
    * @param {string} cameraId - Camera ID
    * @param {number|null} imageWidth - Original image width
    * @param {number|null} imageHeight - Original image height
@@ -488,8 +740,16 @@
     const btnClear = container.querySelector('[data-zone-clear]');
     const btnSave = container.querySelector('[data-zone-save]');
     const statusEl = container.querySelector('[data-zone-status]');
-    
+
     if (!canvasEl || !imgEl) return;
+
+    // -------------------------------------------------------------------------
+    // MOTION ROIs MODE (multiple rectangles, one per machine)
+    // -------------------------------------------------------------------------
+    if (mode === 'motion_rois') {
+      initializeDrawingCanvasMotionRois(container, canvasEl, imgEl, btnUndo, btnClear, btnSave, statusEl, cameraId, imageWidth, imageHeight);
+      return;
+    }
 
     const isLineMode = mode === 'line';
     const points = [];
@@ -818,10 +1078,10 @@
     const existingDrawBubble = bubble.querySelector('[data-zone-draw-bubble]');
     if (existingDrawBubble) existingDrawBubble.remove();
 
-    const editorId = generateEditorId();
-    const mode = zoneMode === 'line' ? 'line' : 'polygon';
-    const drawBubbleEl = createZoneDrawBubbleElement(editorId, cameraId, mode);
-    bubble.appendChild(drawBubbleEl);
+    // Create and append editor (preserve motion_rois; default to polygon for unknown types)
+    const mode = zoneMode === 'line' ? 'line' : (zoneMode === 'motion_rois' ? 'motion_rois' : 'polygon');
+    const editorEl = createZoneEditorElement(editorId, cameraId, mode, saveWithResumeFn);
+    bubble.appendChild(editorEl);
 
     const messagesContainer = getMessagesEl();
     if (messagesContainer) {
@@ -867,7 +1127,7 @@
     const messagesContainer = getMessagesEl();
     if (!messagesContainer) return;
 
-    const mode = zoneMode === 'line' ? 'line' : 'polygon';
+    const mode = zoneMode === 'line' ? 'line' : (zoneMode === 'motion_rois' ? 'motion_rois' : 'polygon');
     const editorId = generateEditorId();
     const drawBubbleEl = createZoneDrawBubbleElement(editorId, cameraId, mode);
 
@@ -885,6 +1145,9 @@
     const contentEl = drawBubbleEl.querySelector('[data-zone-draw-content]');
     const imgEl = drawBubbleEl.querySelector('[data-zone-draw-img]');
     const drawBtn = drawBubbleEl.querySelector('[data-zone-draw-btn]');
+    // Create and add editor (standalone fallback does not use saveWithResume; preserve motion_rois)
+    const editorEl = createZoneEditorElement(editorId, cameraId, mode, null);
+    bubble.appendChild(editorEl);
 
     const loadAndShow = async () => {
       const snapshot = await fetchCameraSnapshot(cameraId, snapshotUrl);
