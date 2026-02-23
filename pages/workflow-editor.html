@@ -1,0 +1,2052 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workflow Editor - ComplySure</title>
+
+  <!-- Layout Loader - Must be loaded early -->
+  <script src="../custom_js/layout-loader.js"></script>
+</head>
+
+<body>
+  <!-- Page Content Container - This will be replaced by layout loader -->
+  <div id="page-content" style="display:none;">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drawflow@0.0.47/dist/drawflow.min.css" />
+        <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+        <style>
+        /* Node card CSS variables for theming */
+        :root {
+          --lf-card-bg: #0d0d0d;
+          --lf-card-border: #2a2a2a;
+          --lf-card-color: #ffffff;
+          --lf-header-border: #1a1a1a;
+          --lf-input-bg: #141414;
+          --lf-input-border: #2a2a2a;
+          --lf-input-focus-bg: #1a1a1a;
+          --lf-placeholder-color: #525252;
+          --lf-label-color: #9ca3af;
+          --lf-icon-color: #6b7280;
+          --lf-footer-color: #9ca3af;
+          --lf-play-btn-border: #3a3a3a;
+          --lf-play-btn-hover-bg: #1a1a1a;
+          --lf-provider-badge-bg: #1a1a1a;
+          --lf-provider-badge-color: #d1d5db;
+          --lf-select-option-bg: #1a1a1a;
+          --wf-canvas-bg: #020617;
+          --wf-sidebar-bg: #020617;
+          --wf-designer-color: #e5e7eb;
+          --wf-canvas-border: #111827;
+          --wf-grid-color: #1f2937;
+        }
+
+        [data-bs-theme="light"] {
+          --lf-card-bg: #ffffff;
+          --lf-card-border: #e5e7eb;
+          --lf-card-color: #111827;
+          --lf-header-border: #f3f4f6;
+          --lf-input-bg: #f9fafb;
+          --lf-input-border: #d1d5db;
+          --lf-input-focus-bg: #ffffff;
+          --lf-placeholder-color: #9ca3af;
+          --lf-label-color: #6b7280;
+          --lf-icon-color: #9ca3af;
+          --lf-footer-color: #6b7280;
+          --lf-play-btn-border: #d1d5db;
+          --lf-play-btn-hover-bg: #f3f4f6;
+          --lf-provider-badge-bg: #f3f4f6;
+          --lf-provider-badge-color: #4b5563;
+          --lf-select-option-bg: #ffffff;
+          --wf-canvas-bg: #f8fafc;
+          --wf-sidebar-bg: #f1f5f9;
+          --wf-designer-color: #374151;
+          --wf-canvas-border: #e2e8f0;
+          --wf-grid-color: #cbd5e1;
+        }
+
+        /* Full screen layout - no wasted space */
+        .workflow-designer { 
+          display: grid; 
+          grid-template-columns: 220px 1fr; 
+          height: calc(100vh - 60px); 
+          color: var(--wf-designer-color); 
+          background: var(--wf-canvas-bg);
+          overflow: hidden;
+        }
+        
+        /* Top navigation bar like screenshot */
+        .wf-topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 20px;
+          background: var(--wf-sidebar-bg);
+          border-bottom: 1px solid var(--wf-canvas-border);
+          height: 60px;
+        }
+        .wf-topbar-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .wf-topbar-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .wf-search-box {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: var(--wf-canvas-bg);
+          border: 1px solid var(--wf-canvas-border);
+          border-radius: 8px;
+          padding: 8px 12px;
+          color: var(--wf-designer-color);
+          font-size: 14px;
+          min-width: 200px;
+        }
+        .wf-search-box i {
+          color: var(--lf-icon-color);
+          font-size: 12px;
+        }
+        .wf-btn-primary {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: #6366f1;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 8px 16px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .wf-btn-primary:hover {
+          background: #4f46e5;
+        }
+        .wf-btn-secondary {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: transparent;
+          color: var(--wf-designer-color);
+          border: 1px solid var(--wf-canvas-border);
+          border-radius: 8px;
+          padding: 8px 16px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .wf-btn-secondary:hover {
+          background: var(--lf-play-btn-hover-bg);
+        }
+        
+        /* Sidebar - Component library style */
+        .wf-sidebar { 
+          background: var(--wf-sidebar-bg); 
+          color: var(--wf-designer-color); 
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          border-right: 1px solid var(--wf-canvas-border);
+        }
+        .wf-sidebar-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 16px;
+          border-bottom: 1px solid var(--wf-canvas-border);
+        }
+        .wf-sidebar-header i {
+          font-size: 18px;
+          color: var(--lf-icon-color);
+        }
+        .wf-sidebar-header h3 {
+          font-size: 14px;
+          font-weight: 600;
+          margin: 0;
+          color: var(--wf-designer-color);
+        }
+        .wf-sidebar-content {
+          flex: 1;
+          overflow-y: auto;
+          padding: 8px 0;
+        }
+        
+        /* Collapsible sections like screenshot */
+        .wf-section {
+          margin-bottom: 4px;
+        }
+        .wf-section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 16px;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+        .wf-section-header:hover {
+          background: rgba(99, 102, 241, 0.1);
+        }
+        .wf-section-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .wf-section-left i {
+          font-size: 14px;
+          color: var(--lf-icon-color);
+          width: 20px;
+          text-align: center;
+        }
+        .wf-section-title {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--wf-designer-color);
+        }
+        .wf-section-arrow {
+          font-size: 10px;
+          color: var(--lf-icon-color);
+          transition: transform 0.2s ease;
+        }
+        .wf-section.expanded .wf-section-arrow {
+          transform: rotate(90deg);
+        }
+        .wf-section-content {
+          display: none;
+          padding: 4px 16px 8px 46px;
+        }
+        .wf-section.expanded .wf-section-content {
+          display: block;
+        }
+        .wf-section-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 12px;
+          border-radius: 6px;
+          cursor: grab;
+          transition: all 0.2s ease;
+          margin-bottom: 4px;
+          font-size: 13px;
+        }
+        .wf-section-item:hover {
+          background: rgba(99, 102, 241, 0.15);
+        }
+        .wf-section-item i {
+          font-size: 12px;
+          color: var(--lf-icon-color);
+        }
+        
+        /* Bottom actions */
+        .wf-sidebar-footer {
+          padding: 12px 16px;
+          border-top: 1px solid var(--wf-canvas-border);
+        }
+        .wf-new-component-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 10px;
+          background: transparent;
+          border: 1px dashed var(--wf-canvas-border);
+          border-radius: 8px;
+          color: var(--lf-icon-color);
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .wf-new-component-btn:hover {
+          border-color: #6366f1;
+          color: #6366f1;
+        }
+        
+        /* Canvas area */
+        .wf-canvas { 
+          position: relative; 
+          background: var(--wf-canvas-bg); 
+          overflow: hidden;
+        }
+        .wf-canvas::before { 
+          content: ""; 
+          position: absolute; 
+          inset: 0; 
+          pointer-events: none; 
+          background-image: radial-gradient(var(--wf-grid-color) 0.7px, transparent 0.8px); 
+          background-size: 18px 18px; 
+          opacity: .45; 
+        }
+        
+        /* Floating toolbar on canvas */
+        .wf-floating-toolbar {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          display: flex;
+          gap: 8px;
+          z-index: 10;
+          background: var(--lf-card-bg);
+          padding: 6px;
+          border-radius: 10px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          border: 1px solid var(--wf-canvas-border);
+        }
+        .wf-floating-toolbar button { 
+          background: transparent; 
+          color: var(--lf-icon-color); 
+          border: none; 
+          border-radius: 6px; 
+          padding: 8px 10px; 
+          cursor: pointer; 
+          transition: all 0.2s ease;
+          font-size: 14px;
+        }
+
+/* Canvas wrapper */
+#drawflow { 
+  width: 100%; 
+  height: 100%; 
+  border-radius: 10px; 
+}
+.drawflow .drawflow-node {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  min-width: 240px;
+  min-height: 80px;
+  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.drawflow .drawflow-node.selected {
+  filter: drop-shadow(0 0 0 1px #4f46e5) drop-shadow(0 0 0 4px rgba(79,70,229,0.35));
+}
+
+/* Node card CSS variables for theming */
+:root {
+  --lf-card-bg: #0d0d0d;
+  --lf-card-border: #2a2a2a;
+  --lf-card-color: #ffffff;
+  --lf-header-border: #1a1a1a;
+  --lf-input-bg: #141414;
+  --lf-input-border: #2a2a2a;
+  --lf-input-focus-bg: #1a1a1a;
+  --lf-placeholder-color: #525252;
+  --lf-label-color: #9ca3af;
+  --lf-icon-color: #6b7280;
+  --lf-footer-color: #9ca3af;
+  --lf-play-btn-border: #3a3a3a;
+  --lf-play-btn-hover-bg: #1a1a1a;
+  --lf-provider-badge-bg: #1a1a1a;
+  --lf-provider-badge-color: #d1d5db;
+  --lf-select-option-bg: #1a1a1a;
+}
+
+[data-bs-theme="light"] {
+  --lf-card-bg: #ffffff;
+  --lf-card-border: #e5e7eb;
+  --lf-card-color: #111827;
+  --lf-header-border: #f3f4f6;
+  --lf-input-bg: #f9fafb;
+  --lf-input-border: #d1d5db;
+  --lf-input-focus-bg: #ffffff;
+  --lf-placeholder-color: #9ca3af;
+  --lf-label-color: #6b7280;
+  --lf-icon-color: #9ca3af;
+  --lf-footer-color: #6b7280;
+  --lf-play-btn-border: #d1d5db;
+  --lf-play-btn-hover-bg: #f3f4f6;
+  --lf-provider-badge-bg: #f3f4f6;
+  --lf-provider-badge-color: #4b5563;
+  --lf-select-option-bg: #ffffff;
+}
+
+        /* Node card styling with CSS variables */
+        .lf-card {
+          width: 240px;
+          background: var(--lf-card-bg);
+          border-radius: 10px;
+          padding: 0;
+          color: var(--lf-card-color);
+          box-shadow: 0 0 0 1px var(--lf-card-border), 0 4px 20px rgba(0,0,0,0.15);
+          position: relative;
+          overflow: hidden;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          transition: background 0.2s ease, color 0.2s ease;
+        }
+        
+        /* Header */
+        .lf-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 12px;
+          border-bottom: 1px solid var(--lf-header-border);
+        }
+        .lf-title {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-weight: 600;
+          font-size: 13px;
+          color: var(--lf-card-color);
+        }
+        .lf-header-icon {
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 5px;
+          background: #6366f1;
+          font-size: 10px;
+          color: #ffffff;
+        }
+        .lf-play-btn {
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 5px;
+          background: transparent;
+          border: 1px solid var(--lf-play-btn-border);
+          color: var(--lf-icon-color);
+          cursor: pointer;
+          font-size: 9px;
+          transition: all 0.2s ease;
+        }
+        .lf-play-btn:hover {
+          background: var(--lf-play-btn-hover-bg);
+          color: var(--lf-card-color);
+        }
+        
+        /* Node Body */
+        .lf-card-body {
+          padding: 8px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        /* Form Group - Section with colored indicator */
+        .lf-section {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+        }
+        .lf-section-indicator {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          margin-top: 6px;
+          flex-shrink: 0;
+        }
+        .lf-section-indicator.purple { background: #6366f1; }
+        .lf-section-indicator.cyan { background: #06b6d4; }
+        .lf-section-indicator.blue { background: #3b82f6; }
+        .lf-section-content {
+          flex: 1;
+          min-width: 0;
+        }
+        
+        /* Field styling */
+        .lf-field {
+          margin-bottom: 4px;
+        }
+        .lf-field:last-child {
+          margin-bottom: 0;
+        }
+        .lf-field-label {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10px;
+          font-weight: 500;
+          color: var(--lf-label-color);
+          margin-bottom: 4px;
+        }
+        .lf-field-label i {
+          font-size: 9px;
+          color: var(--lf-icon-color);
+        }
+        
+        /* Input wrapper with icons */
+        .lf-input-wrapper {
+          position: relative;
+        }
+        .lf-input-wrapper input,
+        .lf-input-wrapper select,
+        .lf-input-wrapper textarea {
+          width: 100%;
+          padding: 6px 8px;
+          border-radius: 6px;
+          border: 1px solid var(--lf-input-border);
+          background-color: var(--lf-input-bg);
+          color: var(--lf-card-color);
+          font-size: 11px;
+          outline: none;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+        .lf-input-wrapper input::placeholder,
+        .lf-input-wrapper textarea::placeholder {
+          color: var(--lf-placeholder-color);
+        }
+        .lf-input-wrapper input:focus,
+        .lf-input-wrapper select:focus,
+        .lf-input-wrapper textarea:focus {
+          border-color: #6366f1;
+          background-color: var(--lf-input-focus-bg);
+        }
+        .lf-input-wrapper input[type="password"] {
+          padding-right: 50px;
+        }
+        .lf-input-wrapper.with-icon-left input,
+        .lf-input-wrapper.with-icon-left select {
+          padding-left: 28px;
+        }
+        .lf-input-wrapper.with-icon-right input {
+          padding-right: 28px;
+        }
+        
+        /* Input icons */
+        .lf-input-icon-left {
+          position: absolute;
+          left: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--lf-icon-color);
+          font-size: 10px;
+          pointer-events: none;
+        }
+        .lf-input-icon-right {
+          position: absolute;
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--lf-icon-color);
+          font-size: 10px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .lf-input-icon-right i {
+          cursor: pointer;
+          transition: color 0.2s ease;
+        }
+        .lf-input-icon-right i:hover {
+          color: var(--lf-card-color);
+        }
+        .lf-dropdown-arrow {
+          font-size: 10px;
+          color: var(--lf-label-color);
+        }
+        
+        /* Select styling */
+        .lf-input-wrapper select {
+          appearance: none;
+          cursor: pointer;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          padding-right: 32px;
+        }
+        .lf-input-wrapper select option {
+          background-color: var(--lf-select-option-bg);
+          color: var(--lf-card-color);
+        }
+        
+        /* Textarea */
+        .lf-input-wrapper textarea {
+          min-height: 36px;
+          resize: vertical;
+          padding: 6px 8px;
+        }
+        
+        /* Footer */
+        .lf-footer {
+          padding: 6px 12px;
+          border-top: 1px solid var(--lf-header-border);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 10px;
+          color: var(--lf-footer-color);
+        }
+        .lf-footer-left {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .lf-footer-icon {
+          font-size: 10px;
+        }
+        
+        /* Provider badge */
+        .lf-provider-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          background: var(--lf-provider-badge-bg);
+          border-radius: 6px;
+          font-size: 12px;
+          color: var(--lf-provider-badge-color);
+        }
+        .lf-provider-badge i {
+          font-size: 12px;
+          color: #10b981;
+        }
+
+        /* Port styling to mimic Langflow rounded connectors */
+        .drawflow .drawflow-node .input,
+        .drawflow .drawflow-node .output {
+          width: 14px;
+          height: 14px;
+          border-radius: 999px;
+          background: #6366f1;
+          border: 2px solid transparent;
+        }
+        /* Pull ports tight against the node card edges */
+        .drawflow .drawflow-node .input {
+          left: -9px !important;
+        }
+        .drawflow .drawflow-node .output {
+          right: 1.5px !important;
+        } 
+
+        /* Connector animation */
+        .drawflow .connection .main-path { stroke: #4f46e5 !important; stroke-width: 3px !important; stroke-linecap: round; stroke-dasharray: 10 8 !important; animation: wf-flow 2.5s linear infinite; opacity: .9; }
+        @keyframes wf-flow { to { stroke-dashoffset: -180; } }
+
+        /* Applicable nodes styling */
+        .wf-node.compatible { display: none; }
+        .wf-node.incompatible { display: none; }
+        .wf-node.neutral { display: none; }
+        
+        .wf-section-item.compatible { 
+          border: 1px solid #22c55e !important; 
+          background: rgba(34, 197, 94, 0.15) !important; 
+        }
+        .wf-section-item.incompatible { 
+          border: 1px solid #ef4444 !important; 
+          background: rgba(239, 68, 68, 0.15) !important; 
+          opacity: 0.5; 
+        }
+        .wf-section-item.neutral { opacity: 1; }
+
+        /* Connection preview */
+        .connection-preview { stroke: #22c55e !important; stroke-width: 2px !important; stroke-dasharray: 5 5 !important; opacity: 0.7; }
+        .connection-invalid { stroke: #ef4444 !important; stroke-width: 2px !important; stroke-dasharray: 5 5 !important; opacity: 0.7; }
+
+        /* Ports visibility control */
+        .drawflow .drawflow-node .input,
+        .drawflow .drawflow-node .output { transition: opacity .15s ease; }
+        .drawflow .drawflow-node .hidden-port { visibility: hidden; opacity: 0; pointer-events: none; }
+
+        /* Footer helper text */
+        .wf-help {
+          font-size: 11px;
+          color: inherit;
+          opacity: 0.7;
+        }
+        </style>
+
+        <!-- Top Bar -->
+        <div class="wf-topbar">
+          <div class="wf-topbar-left">
+            <div class="wf-search-box">
+              <i class="fa-solid fa-search"></i>
+              <span>Search</span>
+            </div>
+          </div>
+          <div class="wf-topbar-right">
+            <button class="wf-btn-secondary" id="btn-run-workflow">
+              <i class="fa-solid fa-play"></i>
+              Run Workflow
+            </button>
+            <button class="wf-btn-secondary" id="btn-export">
+              <i class="fa-solid fa-download"></i>
+              Export
+            </button>
+            <button class="wf-btn-primary" id="btn-save">
+              <i class="fa-solid fa-floppy-disk"></i>
+              Save
+            </button>
+            <input type="file" id="file-import" accept="application/json" style="display:none;" />
+          </div>
+        </div>
+
+        <div class="workflow-designer">
+          <!-- New Sidebar with collapsible sections -->
+          <div class="wf-sidebar">
+            <div class="wf-sidebar-header">
+              <i class="fa-solid fa-layer-group"></i>
+              <h3>Components</h3>
+            </div>
+            
+            <div class="wf-sidebar-content">
+              <!-- Input/Output Section -->
+              <div class="wf-section expanded" data-section="io">
+                <div class="wf-section-header" onclick="toggleSection(this)">
+                  <div class="wf-section-left">
+                    <i class="fa-solid fa-right-left"></i>
+                    <span class="wf-section-title">Input / Output</span>
+                  </div>
+                  <i class="fa-solid fa-chevron-right wf-section-arrow"></i>
+                </div>
+                <div class="wf-section-content">
+                  <div class="wf-section-item" draggable="true" data-node-key="start" data-category="start">
+                    <i class="fa-solid fa-circle-play"></i>
+                    <span>Start</span>
+                  </div>
+                  <div class="wf-section-item" draggable="true" data-node-key="end" data-category="end">
+                    <i class="fa-solid fa-flag-checkered"></i>
+                    <span>End</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Agents Section -->
+              <div class="wf-section" data-section="agents">
+                <div class="wf-section-header" onclick="toggleSection(this)">
+                  <div class="wf-section-left">
+                    <i class="fa-solid fa-robot"></i>
+                    <span class="wf-section-title">Agents</span>
+                  </div>
+                  <i class="fa-solid fa-chevron-right wf-section-arrow"></i>
+                </div>
+                <div class="wf-section-content">
+                  <div class="wf-section-item" draggable="true" data-node-key="agent" data-category="activity">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>Agent</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Models Section -->
+              <div class="wf-section" data-section="models">
+                <div class="wf-section-header" onclick="toggleSection(this)">
+                  <div class="wf-section-left">
+                    <i class="fa-solid fa-brain"></i>
+                    <span class="wf-section-title">Models</span>
+                  </div>
+                  <i class="fa-solid fa-chevron-right wf-section-arrow"></i>
+                </div>
+                <div class="wf-section-content">
+                  <div class="wf-section-item" draggable="true" data-node-key="camera" data-category="activity">
+                    <i class="fa-solid fa-video"></i>
+                    <span>Camera</span>
+                  </div>
+                  <div class="wf-section-item" draggable="true" data-node-key="classMonitor" data-category="activity">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span>Class Monitor</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Data Section -->
+              <div class="wf-section" data-section="data">
+                <div class="wf-section-header" onclick="toggleSection(this)">
+                  <div class="wf-section-left">
+                    <i class="fa-solid fa-database"></i>
+                    <span class="wf-section-title">Data</span>
+                  </div>
+                  <i class="fa-solid fa-chevron-right wf-section-arrow"></i>
+                </div>
+                <div class="wf-section-content">
+                  <div class="wf-section-item" draggable="true" data-node-key="scheduler" data-category="trigger">
+                    <i class="fa-solid fa-clock"></i>
+                    <span>Scheduler</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Helpers Section -->
+              <div class="wf-section" data-section="helpers">
+                <div class="wf-section-header" onclick="toggleSection(this)">
+                  <div class="wf-section-left">
+                    <i class="fa-solid fa-wrench"></i>
+                    <span class="wf-section-title">Helpers</span>
+                  </div>
+                  <i class="fa-solid fa-chevron-right wf-section-arrow"></i>
+                </div>
+                <div class="wf-section-content">
+                  <div class="wf-section-item" draggable="true" data-node-key="notification" data-category="activity">
+                    <i class="fa-solid fa-envelope"></i>
+                    <span>Notification</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="wf-sidebar-footer">
+              <button class="wf-new-component-btn" onclick="alert('Custom component creation coming soon!')">
+                <i class="fa-solid fa-plus"></i>
+                <span>New Custom Component</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Canvas with floating toolbar -->
+          <div class="wf-canvas">
+            <div class="wf-floating-toolbar">
+              <button type="button" id="btn-zoom-in" title="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+              <button type="button" id="btn-zoom-out" title="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+              <button type="button" id="btn-zoom-reset" title="Reset Zoom"><i class="fa-solid fa-expand"></i></button>
+              <button type="button" id="btn-clear" title="Clear Canvas"><i class="fa-solid fa-trash"></i></button>
+              <button type="button" id="btn-new" title="New Workflow"><i class="fa-solid fa-file-circle-plus"></i></button>
+              <button type="button" id="btn-import" title="Import JSON"><i class="fa-solid fa-file-import"></i></button>
+            </div>
+            <div id="drawflow"></div>
+          </div>
+        </div>
+
+        <script type="text/visionai-page-script">
+(function () {
+  'use strict';
+
+  const DRAWFLOW_SRC = 'https://cdn.jsdelivr.net/npm/drawflow@0.0.47/dist/drawflow.min.js';
+
+  function ensureDrawflow() {
+    return new Promise((resolve, reject) => {
+      if (typeof window.Drawflow !== 'undefined') {
+        resolve();
+        return;
+      }
+
+      // If a script is already loading, wait for it
+      const existing = document.querySelector('script[data-drawflow="true"]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve());
+        existing.addEventListener('error', () => reject(new Error('Failed to load Drawflow')));
+        return;
+      }
+
+      const s = document.createElement('script');
+      s.src = DRAWFLOW_SRC;
+      s.defer = true;
+      s.setAttribute('data-drawflow', 'true');
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed to load Drawflow'));
+      document.head.appendChild(s);
+    });
+  }
+
+  function navigateTo(href) {
+    if (!href) return;
+    if (window.visionaiSpa && typeof window.visionaiSpa.navigate === 'function') {
+      window.visionaiSpa.navigate(href).catch?.(() => {
+        window.location.href = href;
+      });
+    } else {
+      window.location.href = href;
+    }
+  }
+
+  // Toggle sidebar section collapse/expand
+  window.toggleSection = function(header) {
+    const section = header.closest('.wf-section');
+    section.classList.toggle('expanded');
+  };
+
+  // Toggle password visibility
+  window.togglePasswordVisibility = function(icon) {
+    const wrapper = icon.closest('.lf-input-wrapper');
+    const input = wrapper.querySelector('input');
+    const eyeIcon = wrapper.querySelector('.fa-eye');
+    const eyeSlashIcon = wrapper.querySelector('.fa-eye-slash');
+    
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (eyeIcon) eyeIcon.style.display = 'none';
+      if (eyeSlashIcon) eyeSlashIcon.style.display = 'inline';
+    } else {
+      input.type = 'password';
+      if (eyeIcon) eyeIcon.style.display = 'inline';
+      if (eyeSlashIcon) eyeSlashIcon.style.display = 'none';
+    }
+  };
+
+  async function initWorkflowEditor() {
+    try {
+      await ensureDrawflow();
+    } catch (e) {
+      console.error('Drawflow failed to load', e);
+      alert('Workflow editor engine failed to load. Please check your network connection.');
+      return;
+    }
+
+    const container = document.getElementById('drawflow');
+    const urlParams = new URLSearchParams(window.location.search);
+    const editFlowKey = urlParams.get('flow_key');
+    const workflowName = urlParams.get('name') || '';
+    const workflowOwner = urlParams.get('owner') || '';
+    const workflowDescription = urlParams.get('description') || '';
+    let isEditMode = !!editFlowKey;
+    const zoomInBtn = document.getElementById('btn-zoom-in');
+    const zoomOutBtn = document.getElementById('btn-zoom-out');
+    const zoomResetBtn = document.getElementById('btn-zoom-reset');
+    const clearBtn = document.getElementById('btn-clear');
+    const exportBtn = document.getElementById('btn-export');
+    const newBtn = document.getElementById('btn-new');
+    const saveBtn = document.getElementById('btn-save');
+    const importBtn = document.getElementById('btn-import');
+    const importFile = document.getElementById('file-import');
+
+    const NODE_COMPATIBILITY = {
+      // Start of the workflow can only connect to Camera
+      start: ['camera'],
+      // Camera feeds frames into the Agent
+      camera: ['agent'],
+      // Agent sends results to the Class Monitor node
+      agent: ['classMonitor'],
+      // Class Monitor outputs to Scheduler
+      classMonitor: ['scheduler'],
+      // Scheduler controls when notifications are sent
+      scheduler: ['notification'],
+      // Notification is typically the last step before End
+      notification: ['end'],
+      // End has no outgoing connections
+      end: []
+    };
+
+    const NODE_DEFINITIONS = {
+      start: {
+        label: 'Start',
+        category: 'start',
+        inputs: 0,
+        outputs: 1,
+        icon: 'fa-circle-play',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'Start' },
+          {
+            key: 'description',
+            type: 'textarea',
+            label: 'Description',
+            placeholder: 'Describe the purpose of this workflow entry point.'
+          }
+        ]
+      },
+      camera: {
+        label: 'Camera',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-video',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'Camera' },
+          {
+            key: 'selection_mode',
+            type: 'select',
+            label: 'Selection mode',
+            options: ['Single camera', 'Multiple cameras'],
+            default: 'Single camera'
+          },
+          {
+            key: 'camera_ids',
+            type: 'text',
+            label: 'Camera identifier(s)',
+            placeholder: 'Enter camera IDs or names, comma-separated'
+          },
+          {
+            key: 'stream_url',
+            type: 'text',
+            label: 'Default stream URL',
+            placeholder: 'Optional RTSP/HTTP URL used when a camera does not override it'
+          },
+          {
+            key: 'frame_rate',
+            type: 'number',
+            label: 'Frame rate (fps)',
+            default: 25
+          }
+        ]
+      },
+      agent: {
+        label: 'Agent',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-robot',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'Agent' },
+          {
+            key: 'agent_name',
+            type: 'text',
+            label: 'Agent name',
+            placeholder: 'Human-readable name, e.g. “Safety monitor agent”'
+          },
+          {
+            key: 'model_provider',
+            type: 'select',
+            label: 'Model provider',
+            options: ['OpenAI', 'Azure OpenAI', 'Anthropic', 'Google', 'Custom HTTP'],
+            default: 'OpenAI'
+          },
+          {
+            key: 'model_name',
+            type: 'text',
+            label: 'Model name',
+            placeholder: 'e.g. gpt-4.1, gpt-4o-mini'
+          },
+          {
+            key: 'api_base_url',
+            type: 'text',
+            label: 'API base URL',
+            placeholder: 'Override default endpoint if required'
+          },
+          {
+            key: 'api_key',
+            type: 'text',
+            label: 'API key',
+            placeholder: 'Key will be stored securely server-side'
+          },
+          {
+            key: 'temperature',
+            type: 'number',
+            label: 'Temperature',
+            default: 0.3
+          },
+          {
+            key: 'max_tokens',
+            type: 'number',
+            label: 'Max tokens',
+            default: 1024
+          },
+          {
+            key: 'agent_instructions',
+            type: 'textarea',
+            label: 'Agent instructions',
+            placeholder: 'System-level directions describing how this agent should behave.'
+          },
+          {
+            key: 'tools',
+            type: 'textarea',
+            label: 'Tools / capabilities',
+            placeholder: 'Optional JSON or comma-separated tool names this agent can use.'
+          }
+        ]
+      },
+      classMonitor: {
+        label: 'Class Monitor',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-layer-group',
+        fields: [
+          {
+            key: 'label',
+            type: 'text',
+            label: 'Node label',
+            default: 'Class Monitor'
+          },
+          {
+            key: 'classes',
+            type: 'text',
+            label: 'Classes to monitor',
+            placeholder: 'e.g. Person, Vehicle, Helmet'
+          },
+          {
+            key: 'confidence_threshold',
+            type: 'number',
+            label: 'Minimum confidence (%)',
+            default: 60
+          },
+          {
+            key: 'min_duration_seconds',
+            type: 'number',
+            label: 'Min duration (seconds)',
+            default: 0
+          },
+          {
+            key: 'notes',
+            type: 'textarea',
+            label: 'Business rule notes',
+            placeholder: 'Optional explanation of how these classes are used in this workflow.'
+          }
+        ]
+      },
+      scheduler: {
+        label: 'Scheduler',
+        category: 'trigger',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-clock',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'Scheduler' },
+          {
+            key: 'schedule_type',
+            type: 'select',
+            label: 'Schedule type',
+            options: ['Run once', 'Fixed interval', 'Cron expression'],
+            default: 'Fixed interval'
+          },
+          {
+            key: 'start_date',
+            type: 'date',
+            label: 'Start date'
+          },
+          {
+            key: 'start_time',
+            type: 'time',
+            label: 'Start time'
+          },
+          {
+            key: 'interval_value',
+            type: 'number',
+            label: 'Interval value',
+            default: 5
+          },
+          {
+            key: 'interval_unit',
+            type: 'select',
+            label: 'Interval unit',
+            options: ['seconds', 'minutes', 'hours'],
+            default: 'minutes'
+          },
+          {
+            key: 'cron_expression',
+            type: 'text',
+            label: 'Cron expression',
+            placeholder: 'Used only when “Cron expression” is selected.'
+          }
+        ]
+      },
+      notification: {
+        label: 'Notification',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-envelope',
+        fields: [
+          {
+            key: 'label',
+            type: 'text',
+            label: 'Node label',
+            default: 'Notification'
+          },
+          {
+            key: 'channel',
+            type: 'select',
+            label: 'Primary channel',
+            options: ['Email', 'SMS', 'Webhook'],
+            default: 'Email'
+          },
+          {
+            key: 'recipients',
+            type: 'text',
+            label: 'Recipient(s)',
+            placeholder: 'Email addresses or phone numbers, comma-separated'
+          },
+          {
+            key: 'subject',
+            type: 'text',
+            label: 'Subject / title',
+            placeholder: 'Short, descriptive subject line'
+          },
+          {
+            key: 'body',
+            type: 'textarea',
+            label: 'Message body',
+            placeholder: 'Rich free‑text body. You can use placeholders like {{camera_name}} or {{class_name}}.'
+          },
+          {
+            key: 'importance',
+            type: 'select',
+            label: 'Importance',
+            options: ['Low', 'Normal', 'High'],
+            default: 'Normal'
+          }
+        ]
+      },
+      end: {
+        label: 'End',
+        category: 'end',
+        inputs: 1,
+        outputs: 0,
+        icon: 'fa-flag-checkered',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'End' },
+          {
+            key: 'result_summary',
+            type: 'textarea',
+            label: 'Expected outcome',
+            placeholder: 'Describe what it means for this workflow to complete successfully.'
+          }
+        ]
+      }
+    };
+
+    function categoryTagClass(category) {
+      switch (category) {
+        case 'start': return 'tag-start';
+        case 'trigger': return 'tag-trigger';
+        case 'activity': return 'tag-activity';
+        case 'decision': return 'tag-decision';
+        case 'utility': return 'tag-utility';
+        case 'end': return 'tag-end';
+        default: return '';
+      }
+    }
+
+    function createNodeContentHtml(def, data, nodeId) {
+      const title = (data && data.__label) || def.label;
+      
+      // Generate inline form fields based on node definition
+      const fieldsHtml = (def.fields || []).map((field, index) => {
+        return renderInlineField(field, data[field.key], index, def.name);
+      }).join('');
+      
+      // Special sections for Agent node to match screenshot
+      let bodyContent = fieldsHtml;
+      if (def.name === 'agent') {
+        bodyContent = renderAgentSections(data, nodeId);
+      }
+
+      return `
+        <div class="lf-card" data-node-id="${nodeId || ''}">
+          <div class="lf-card-header">
+            <div class="lf-title">
+              <span class="lf-header-icon"><i class="fa-solid ${def.icon}" aria-hidden="true"></i></span>
+              <span>${title}</span>
+            </div>
+            <button class="lf-play-btn" title="Run Node"><i class="fa-solid fa-play"></i></button>
+          </div>
+          <div class="lf-card-body">
+            ${bodyContent}
+          </div>
+          <div class="lf-footer">
+            <div class="lf-footer-left">
+              <span class="lf-section-indicator blue"></span>
+              <span>Response</span>
+            </div>
+            <span class="lf-footer-icon"><i class="fa-solid fa-bars"></i></span>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderAgentSections(data, nodeId) {
+      const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
+      const provider = data.model_provider || 'OpenAI';
+      const modelName = data.model_name || 'gpt-4o-mini';
+      const apiKey = data.api_key || '';
+      const instructions = data.agent_instructions || '';
+      const tools = data.tools || '';
+      
+      return `
+        <!-- Model Provider Section -->
+        <div class="lf-section">
+          <span class="lf-section-indicator purple"></span>
+          <div class="lf-section-content">
+            <div class="lf-field">
+              <div class="lf-field-label">
+                <span>Model Provider</span>
+                <i class="fa-regular fa-circle-question" title="Select the AI model provider"></i>
+              </div>
+              <div class="lf-input-wrapper with-icon-left">
+                <span class="lf-input-icon-left"><i class="fa-solid fa-brain"></i></span>
+                <select class="lf-node-input" data-field="model_provider" data-node-id="${nodeId || ''}">
+                  <option value="OpenAI" ${provider === 'OpenAI' ? 'selected' : ''}>OpenAI</option>
+                  <option value="Azure OpenAI" ${provider === 'Azure OpenAI' ? 'selected' : ''}>Azure OpenAI</option>
+                  <option value="Anthropic" ${provider === 'Anthropic' ? 'selected' : ''}>Anthropic</option>
+                  <option value="Google" ${provider === 'Google' ? 'selected' : ''}>Google</option>
+                  <option value="Custom HTTP" ${provider === 'Custom HTTP' ? 'selected' : ''}>Custom HTTP</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Name Section -->
+        <div class="lf-section">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="lf-section-content">
+            <div class="lf-field">
+              <div class="lf-field-label">
+                <span>Model Name</span>
+                <i class="fa-regular fa-circle-question" title="Enter the model identifier"></i>
+              </div>
+              <div class="lf-input-wrapper with-icon-right">
+                <input type="text" class="lf-node-input" data-field="model_name" data-node-id="${nodeId || ''}" 
+                  placeholder="gpt-4o-mini" value="${safe(modelName)}" />
+                <span class="lf-input-icon-right"><i class="fa-solid fa-chevron-down"></i></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Key Section -->
+        <div class="lf-section">
+          <span class="lf-section-indicator purple"></span>
+          <div class="lf-section-content">
+            <div class="lf-field">
+              <div class="lf-field-label">
+                <span>OpenAI API Key</span>
+                <i class="fa-regular fa-circle-question" title="Your API key will be stored securely"></i>
+              </div>
+              <div class="lf-input-wrapper with-icon-left with-icon-right">
+                <span class="lf-input-icon-left"><i class="fa-solid fa-globe"></i></span>
+                <input type="password" class="lf-node-input" data-field="api_key" data-node-id="${nodeId || ''}" 
+                  placeholder="Type something..." value="${safe(apiKey)}" />
+                <span class="lf-input-icon-right">
+                  <i class="fa-solid fa-eye" onclick="togglePasswordVisibility(this)"></i>
+                  <i class="fa-solid fa-eye-slash" style="display:none;" onclick="togglePasswordVisibility(this)"></i>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agent Instructions Section -->
+        <div class="lf-section">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="lf-section-content">
+            <div class="lf-field">
+              <div class="lf-field-label">
+                <span>Agent Instructions</span>
+                <i class="fa-regular fa-circle-question" title="System instructions for the agent"></i>
+              </div>
+              <div class="lf-input-wrapper">
+                <textarea class="lf-node-input" data-field="agent_instructions" data-node-id="${nodeId || ''}" 
+                  placeholder="You are a helpful assistant that can use tools to complete tasks...">${safe(instructions)}</textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tools Section -->
+        <div class="lf-section">
+          <span class="lf-section-indicator purple"></span>
+          <div class="lf-section-content">
+            <div class="lf-field">
+              <div class="lf-field-label">
+                <span>Tools</span>
+                <i class="fa-regular fa-circle-question" title="Tools available to this agent"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Section -->
+        <div class="lf-section">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="lf-section-content">
+            <div class="lf-field">
+              <div class="lf-field-label">
+                <span>Input</span>
+                <i class="fa-regular fa-circle-question" title="Input configuration"></i>
+              </div>
+              <div class="lf-input-wrapper">
+                <input type="text" class="lf-node-input" data-field="input_value" data-node-id="${nodeId || ''}" 
+                  placeholder="Type something..." value="${safe(data.input_value || '')}" />
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderInlineField(field, value, index, nodeName) {
+      const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
+      const indicatorColor = index % 2 === 0 ? 'purple' : 'cyan';
+      
+      let inputHtml = '';
+      const placeholder = field.placeholder || '';
+      
+      switch (field.type) {
+        case 'text':
+        case 'date':
+        case 'time':
+          inputHtml = `<input type="${field.type}" class="lf-node-input" data-field="${field.key}" placeholder="${placeholder}" value="${safe(value)}" />`;
+          break;
+        case 'number':
+          inputHtml = `<input type="number" class="lf-node-input" data-field="${field.key}" placeholder="${placeholder}" value="${safe(value)}" step="any" />`;
+          break;
+        case 'select':
+          const options = (field.options || []).map(opt => 
+            `<option value="${opt}" ${String(value) === String(opt) ? 'selected' : ''}>${opt}</option>`
+          ).join('');
+          inputHtml = `<select class="lf-node-input" data-field="${field.key}">${options}</select>`;
+          break;
+        case 'textarea':
+          inputHtml = `<textarea class="lf-node-input" data-field="${field.key}" placeholder="${placeholder}">${safe(value)}</textarea>`;
+          break;
+        default:
+          inputHtml = `<input type="text" class="lf-node-input" data-field="${field.key}" placeholder="${placeholder}" value="${safe(value)}" />`;
+      }
+      
+      return `
+        <div class="lf-section">
+          <span class="lf-section-indicator ${indicatorColor}"></span>
+          <div class="lf-section-content">
+            <div class="lf-field">
+              <div class="lf-field-label">
+                <span>${field.label || field.key}</span>
+                ${field.help ? `<i class="fa-regular fa-circle-question" title="${field.help}"></i>` : ''}
+              </div>
+              <div class="lf-input-wrapper">
+                ${inputHtml}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    window.togglePasswordVisibility = function(icon) {
+      const wrapper = icon.closest('.lf-input-wrapper');
+      const input = wrapper.querySelector('input');
+      const eyeIcon = wrapper.querySelector('.fa-eye');
+      const eyeSlashIcon = wrapper.querySelector('.fa-eye-slash');
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        eyeIcon.style.display = 'none';
+        eyeSlashIcon.style.display = 'inline';
+      } else {
+        input.type = 'password';
+        eyeIcon.style.display = 'inline';
+        eyeSlashIcon.style.display = 'none';
+      }
+    };
+
+    function initialDataFor(def) {
+      const data = {};
+      (def.fields || []).forEach(f => {
+        if (f.default !== undefined) data[f.key] = f.default;
+      });
+      data.__label = def.label;
+
+      if (isCommunicationActivity(def.category, def.label)) {
+        const messageField = getMessageFieldName(def.label);
+        if (messageField && !data[messageField]) {
+          data[messageField] = generateDefaultMessage();
+        }
+      }
+
+      return data;
+    }
+
+    function isCommunicationActivity(category, label) {
+      if (category !== 'activity') return false;
+      const commActivities = ['Send Email', 'Send SMS', 'Send Telegram', 'Send Teams Chat',
+        'Send Whatsapp', 'Send Twitter', 'Send Fax', 'Send Notification'];
+      return commActivities.some(activity => label.includes(activity.replace('Send ', '')));
+    }
+
+    function getMessageFieldName(label) {
+      if (label.includes('SMS')) return 'message';
+      if (label.includes('Email')) return 'body';
+      if (label.includes('Telegram')) return 'body';
+      if (label.includes('Teams')) return 'body';
+      if (label.includes('Whatsapp')) return 'body';
+      if (label.includes('Twitter')) return 'body';
+      if (label.includes('Fax')) return 'body';
+      if (label.includes('Notification')) return 'body';
+      return null;
+    }
+
+    function generateDefaultMessage() {
+      const name = window.currentWorkflowName || workflowName || 'Workflow';
+      const owner = window.currentWorkflowOwner || workflowOwner || 'System';
+      return `(${name}) Hi, this is ${owner} sending.`;
+    }
+
+    function areNodesCompatible(sourceNodeKey, targetNodeKey) {
+      const compatibleNodes = NODE_COMPATIBILITY[sourceNodeKey] || [];
+      return compatibleNodes.includes(targetNodeKey);
+    }
+
+    function updateNodeCompatibility(selectedNodeKey) {
+      const allNodes = document.querySelectorAll('.wf-section-item[data-node-key]');
+
+      if (!selectedNodeKey) {
+        allNodes.forEach(node => {
+          node.classList.remove('compatible', 'incompatible');
+          node.classList.add('neutral');
+        });
+        return;
+      }
+
+      const compatibleNodes = NODE_COMPATIBILITY[selectedNodeKey] || [];
+
+      allNodes.forEach(node => {
+        const nodeKey = node.getAttribute('data-node-key');
+        node.classList.remove('compatible', 'incompatible', 'neutral');
+
+        if (nodeKey === selectedNodeKey) {
+          node.classList.add('neutral');
+        } else if (compatibleNodes.includes(nodeKey)) {
+          node.classList.add('compatible');
+        } else {
+          node.classList.add('incompatible');
+        }
+      });
+    }
+
+    function resetPortsVisibility() {
+      document.querySelectorAll('.drawflow-node .input, .drawflow-node .output').forEach(el => {
+        el.classList.remove('hidden-port');
+      });
+    }
+
+    function showOnlyApplicablePorts(sourceNodeKey) {
+      if (!sourceNodeKey) { resetPortsVisibility(); return; }
+
+      const compatibleTargets = new Set(NODE_COMPATIBILITY[sourceNodeKey] || []);
+      const data = editor?.drawflow?.drawflow?.Home?.data || {};
+      Object.keys(data).forEach(id => {
+        const dfNode = data[id];
+        const nodeEl = document.querySelector(`#node-${id}`);
+        if (!nodeEl) return;
+
+        const inputs = nodeEl.querySelectorAll('.input');
+        const outputs = nodeEl.querySelectorAll('.output');
+        const nodeKey = dfNode?.name;
+
+        if (nodeKey === sourceNodeKey) {
+          inputs.forEach(i => i.classList.add('hidden-port'));
+          outputs.forEach(o => o.classList.remove('hidden-port'));
+          return;
+        }
+
+        if (compatibleTargets.has(nodeKey)) {
+          inputs.forEach(i => i.classList.remove('hidden-port'));
+          outputs.forEach(o => o.classList.add('hidden-port'));
+        } else {
+          inputs.forEach(i => i.classList.add('hidden-port'));
+          outputs.forEach(o => o.classList.add('hidden-port'));
+        }
+      });
+    }
+
+    function resetNodeCompatibility() {
+      updateNodeCompatibility(null);
+    }
+
+    function getNodeKeyFromCanvasNode(nodeId) {
+      const node = editor.getNodeFromId(nodeId);
+      return node ? node.name : null;
+    }
+
+    function validateConnection(sourceNodeId, targetNodeId) {
+      const sourceNodeKey = getNodeKeyFromCanvasNode(sourceNodeId);
+      const targetNodeKey = getNodeKeyFromCanvasNode(targetNodeId);
+
+      if (!sourceNodeKey || !targetNodeKey) return false;
+
+      return areNodesCompatible(sourceNodeKey, targetNodeKey);
+    }
+
+    function getBindEvent(exportedFlow) {
+      if (!exportedFlow || !exportedFlow.drawflow || !exportedFlow.drawflow.Home || !exportedFlow.drawflow.Home.data) return null;
+
+      const startNodeId = exportedFlow?.meta?.start_node;
+      if (startNodeId) {
+        const startNode = exportedFlow.drawflow.Home.data[startNodeId];
+        if (startNode) {
+          const cat = NODE_DEFINITIONS[startNode.name]?.category;
+          if (cat === 'trigger') {
+            return startNode.name;
+          }
+          if (cat === 'start') {
+            const outs = startNode.outputs || {};
+            for (const key of Object.keys(outs)) {
+              const conns = outs[key]?.connections || [];
+              if (conns.length > 0) {
+                const nextId = conns[0].node;
+                const next = exportedFlow.drawflow.Home.data[nextId];
+                if (next) return next.name;
+              }
+            }
+          }
+        }
+      }
+
+      const nodes = exportedFlow.drawflow.Home.data;
+      let fallbackFirstRoot = null;
+      for (const id of Object.keys(nodes)) {
+        const n = nodes[id];
+        const inputs = n.inputs || {};
+        let incoming = 0;
+        for (const key of Object.keys(inputs)) {
+          incoming += (inputs[key]?.connections || []).length;
+        }
+        if (incoming === 0) {
+          if (!fallbackFirstRoot) fallbackFirstRoot = n;
+          const cat = NODE_DEFINITIONS[n.name]?.category;
+          if (cat === 'start') {
+            const outs = n.outputs || {};
+            for (const ok of Object.keys(outs)) {
+              const conns = outs[ok]?.connections || [];
+              if (conns.length > 0) {
+                const nextId = conns[0].node;
+                const next = nodes[nextId];
+                if (next) return next.name;
+              }
+            }
+          }
+          if (cat === 'trigger') return n.name;
+        }
+      }
+
+      if (fallbackFirstRoot) return fallbackFirstRoot.name;
+      return null;
+    }
+
+    function findStartNodeId(exportedFlow) {
+      try {
+        const nodes = exportedFlow?.drawflow?.Home?.data || {};
+        for (const id of Object.keys(nodes)) {
+          const n = nodes[id];
+          if (NODE_DEFINITIONS[n.name]?.category === 'start') return id;
+        }
+      } catch (e) { }
+      return undefined;
+    }
+
+    function prepareWorkflowData(flowData) {
+      flowData.meta = flowData.meta || {};
+      const maybeStartId = findStartNodeId(flowData);
+      if (maybeStartId) flowData.meta.start_node = maybeStartId;
+
+      const actualEdges = extractActualEdges(flowData);
+      const nodeMetadata = extractNodeMetadata(flowData);
+
+      flowData.meta.edges = actualEdges;
+      flowData.meta.nodes = nodeMetadata;
+
+      return flowData;
+    }
+
+    function extractActualEdges(exportedFlow) {
+      const edges = [];
+      try {
+        const nodes = exportedFlow?.drawflow?.Home?.data || {};
+        for (const nodeId of Object.keys(nodes)) {
+          const node = nodes[nodeId];
+          if (node.outputs) {
+            for (const outputKey of Object.keys(node.outputs)) {
+              const output = node.outputs[outputKey];
+              if (output.connections && Array.isArray(output.connections)) {
+                for (const conn of output.connections) {
+                  edges.push([nodeId, conn.node]);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error extracting edges:', e);
+      }
+      return edges;
+    }
+
+    function extractNodeMetadata(exportedFlow) {
+      const nodeMetadata = {};
+      try {
+        const nodes = exportedFlow?.drawflow?.Home?.data || {};
+        for (const nodeId of Object.keys(nodes)) {
+          const node = nodes[nodeId];
+          const def = NODE_DEFINITIONS[node.name];
+          nodeMetadata[nodeId] = {
+            name: node.name,
+            original_name: node.name,
+            props: node.data || {}
+          };
+        }
+      } catch (e) {
+        console.error('Error extracting node metadata:', e);
+      }
+      return nodeMetadata;
+    }
+
+    const editor = new Drawflow(container);
+    editor.reroute = true;
+    editor.start();
+
+    let dragNodeKey = null;
+    let selectedNodeForConnection = null;
+
+    document.querySelectorAll('.wf-section-item[draggable="true"]').forEach(el => {
+      el.addEventListener('dragstart', ev => {
+        dragNodeKey = el.getAttribute('data-node-key');
+        ev.dataTransfer.setData('node', dragNodeKey);
+      });
+
+      el.addEventListener('click', () => {
+        const nodeKey = el.getAttribute('data-node-key');
+        if (selectedNodeForConnection === nodeKey) {
+          selectedNodeForConnection = null;
+          resetNodeCompatibility();
+        } else {
+          selectedNodeForConnection = nodeKey;
+          updateNodeCompatibility(nodeKey);
+        }
+      });
+    });
+
+    container.addEventListener('dragover', ev => ev.preventDefault());
+    container.addEventListener('drop', ev => {
+      ev.preventDefault();
+      const key = ev.dataTransfer.getData('node') || dragNodeKey;
+      if (!key || !NODE_DEFINITIONS[key]) return;
+      const def = NODE_DEFINITIONS[key];
+      const position = container.getBoundingClientRect();
+      const posX = (ev.clientX - position.left) / editor.zoom;
+      const posY = (ev.clientY - position.top) / editor.zoom;
+      const data = initialDataFor(def);
+      const html = createNodeContentHtml(def, data);
+      editor.addNode(key, def.inputs, def.outputs, posX, posY, key, data, html);
+
+      resetNodeCompatibility();
+      selectedNodeForConnection = null;
+    });
+
+    container.addEventListener('click', ev => {
+      if (ev.target === container || ev.target.id === 'drawflow') {
+        resetNodeCompatibility();
+        resetPortsVisibility();
+        selectedNodeForConnection = null;
+      }
+    });
+
+    function setupNodeInputHandlers(nodeId) {
+      const nodeElement = document.getElementById(`node-${nodeId}`);
+      if (!nodeElement) return;
+      if (nodeElement.getAttribute('data-input-handlers') === 'true') return;
+      
+      const contentNode = nodeElement.querySelector('.drawflow_content_node');
+      if (!contentNode) return;
+      
+      // Handle input changes in real-time
+      contentNode.addEventListener('input', function(e) {
+        const target = e.target;
+        if (target.classList.contains('lf-node-input')) {
+          const fieldKey = target.getAttribute('data-field');
+          const value = target.value;
+          
+          // Update node data
+          const node = editor.getNodeFromId(nodeId);
+          if (node && node.data) {
+            node.data[fieldKey] = value;
+            editor.drawflow.drawflow.Home.data[nodeId].data[fieldKey] = value;
+          }
+        }
+      });
+      
+      // Handle select changes
+      contentNode.addEventListener('change', function(e) {
+        const target = e.target;
+        if (target.classList.contains('lf-node-input')) {
+          const fieldKey = target.getAttribute('data-field');
+          const value = target.value;
+          
+          const node = editor.getNodeFromId(nodeId);
+          if (node && node.data) {
+            node.data[fieldKey] = value;
+            editor.drawflow.drawflow.Home.data[nodeId].data[fieldKey] = value;
+          }
+        }
+      });
+      
+      // Prevent node dragging when interacting with inputs
+      contentNode.addEventListener('mousedown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+          e.stopPropagation();
+        }
+      });
+      
+      nodeElement.setAttribute('data-input-handlers', 'true');
+    }
+    
+    function setupAllNodeInputHandlers() {
+      const allNodes = document.querySelectorAll('.drawflow-node[id^="node-"]');
+      allNodes.forEach(nodeElement => {
+        const nodeId = nodeElement.id.replace('node-', '');
+        if (nodeId) {
+          setupNodeInputHandlers(nodeId);
+        }
+      });
+    }
+
+    const originalAddNode = editor.addNode;
+    editor.addNode = function (name, inputs, outputs, posX, posY, className, data, html, typenode) {
+      const nodeId = originalAddNode.call(this, name, inputs, outputs, posX, posY, className, data, html, typenode);
+      const nodeDef = NODE_DEFINITIONS[name];
+      const nodeElement = document.getElementById(`node-${nodeId}`);
+      if (nodeDef && nodeElement) {
+        nodeElement.classList.add(`node-cat-${nodeDef.category}`);
+        // Regenerate HTML with nodeId for inline editing
+        const updatedHtml = createNodeContentHtml(nodeDef, data, nodeId);
+        const contentNode = nodeElement.querySelector('.drawflow_content_node');
+        if (contentNode) {
+          contentNode.innerHTML = updatedHtml;
+        }
+        // Update node data reference
+        if (editor.drawflow.drawflow.Home.data[nodeId]) {
+          editor.drawflow.drawflow.Home.data[nodeId].html = updatedHtml;
+        }
+      }
+      setupNodeInputHandlers(nodeId);
+      return nodeId;
+    };
+
+    editor.on('connectionStart', function (connection) {
+      const sourceNodeKey = getNodeKeyFromCanvasNode(connection.output_id);
+      if (sourceNodeKey) {
+        updateNodeCompatibility(sourceNodeKey);
+        showOnlyApplicablePorts(sourceNodeKey);
+      }
+    });
+
+    editor.on('connectionCancel', function () {
+      resetNodeCompatibility();
+      resetPortsVisibility();
+    });
+
+    editor.on('connectionCreated', function (connection) {
+      resetNodeCompatibility();
+      resetPortsVisibility();
+
+      const isValid = validateConnection(connection.output_id, connection.input_id);
+      if (!isValid) {
+        editor.removeSingleConnection(connection.output_id, connection.input_id, connection.output_class, connection.input_class);
+
+        const sourceNode = editor.getNodeFromId(connection.output_id);
+        const targetNode = editor.getNodeFromId(connection.input_id);
+        const sourceDef = NODE_DEFINITIONS[sourceNode.name];
+        const targetDef = NODE_DEFINITIONS[targetNode.name];
+
+        alert(`Invalid connection: "${sourceDef.label}" cannot connect to "${targetDef.label}". Please check the node compatibility rules.`);
+      }
+    });
+
+    editor.on('nodeSelected', function (id) {
+      const nodeKey = getNodeKeyFromCanvasNode(id);
+      if (nodeKey) {
+        updateNodeCompatibility(nodeKey);
+        showOnlyApplicablePorts(nodeKey);
+      }
+    });
+
+    editor.on('nodeUnselected', function () {
+      resetNodeCompatibility();
+      resetPortsVisibility();
+    });
+
+    zoomInBtn.addEventListener('click', () => editor.zoom_in());
+    zoomOutBtn.addEventListener('click', () => editor.zoom_out());
+    zoomResetBtn.addEventListener('click', () => editor.zoom_reset());
+    clearBtn.addEventListener('click', () => {
+      editor.clear();
+    });
+    exportBtn.addEventListener('click', () => {
+      const data = editor.export();
+      prepareWorkflowData(data);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'workflow.json'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    newBtn.addEventListener('click', () => {
+      editor.clear();
+      addExample();
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      let shouldUpdate = false;
+      if (isEditMode) {
+        const userChoice = confirm(
+          `Choose how to save:\n\n` +
+          `OK = Update existing workflow (${editFlowKey})\n` +
+          `Cancel = Create new workflow with current changes`
+        );
+        shouldUpdate = userChoice;
+      }
+
+      const exportedFlow = editor.export();
+      prepareWorkflowData(exportedFlow);
+
+      const bindEvent = getBindEvent(exportedFlow) || "Unbound";
+
+      const payload = {
+        drawflow: exportedFlow,
+        name: window.currentWorkflowName || workflowName || 'Unnamed Workflow',
+        description: window.currentWorkflowDescription || workflowDescription || '',
+        bind_to_event: bindEvent,
+        owner: window.currentWorkflowOwner || workflowOwner || 'Unknown',
+      };
+
+      if (isEditMode && shouldUpdate) {
+        payload.flow_key = editFlowKey;
+      }
+
+      try {
+        const res = await fetch('http://localhost:8000/flow/workflow/register_flow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          const message = isEditMode && shouldUpdate ?
+            `Workflow updated successfully! Updated: ${result.updated_flow_key || editFlowKey}` :
+            `Workflow created successfully! Flow Key: ${result.flow_key}`;
+          alert(message);
+          console.log(result);
+
+          setTimeout(() => {
+            navigateTo('workflow-list.html');
+          }, 1500);
+        } else {
+          alert('Failed to send workflow.');
+          console.error(result);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error while saving workflow.');
+      }
+    });
+
+    // Import file handler - updated to use new input handlers
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', async (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const data = parsed && parsed.data ? parsed.data : parsed;
+        editor.clear();
+        editor.import(data);
+        setupAllNodeInputHandlers();
+      } catch (err) {
+        console.error(err);
+        alert('Invalid workflow JSON.');
+      } finally {
+        importFile.value = '';
+      }
+    });
+
+    function addExample() {
+      const add = (key, x, y, overrides) => {
+        const def = NODE_DEFINITIONS[key];
+        const data = Object.assign(initialDataFor(def), overrides || {});
+        const html = createNodeContentHtml(def, data);
+        editor.addNode(key, def.inputs, def.outputs, x, y, key, data, html);
+        return editor.getLastId();
+      };
+
+      // Example: Start -> Camera -> Agent -> Class Monitor -> Scheduler -> Notification -> End
+      const nStart = add('start', 40, 120, { __label: 'Start' });
+      const nCamera = add('camera', 260, 120, {
+        __label: 'Entry cameras',
+        camera_ids: 'Cam-1, Cam-2'
+      });
+      const nAgent = add('agent', 520, 120, {
+        __label: 'Safety agent',
+        agent_name: 'PPE safety agent',
+        model_provider: 'OpenAI',
+        model_name: 'gpt-4.1-mini'
+      });
+      const nClass = add('classMonitor', 800, 120, {
+        __label: 'PPE classes',
+        classes: 'Person, Helmet, Vest'
+      });
+      const nScheduler = add('scheduler', 1080, 120, {
+        __label: 'Every 1 min',
+        schedule_type: 'Fixed interval',
+        interval_value: 1,
+        interval_unit: 'minutes'
+      });
+      const nNotification = add('notification', 1360, 120, {
+        __label: 'Ops email',
+        channel: 'Email',
+        subject: 'Safety alert from camera workflow'
+      });
+      const nEnd = add('end', 1640, 120, { __label: 'End' });
+
+      editor.addConnection(nStart, nCamera, 'output_1', 'input_1');
+      editor.addConnection(nCamera, nAgent, 'output_1', 'input_1');
+      editor.addConnection(nAgent, nClass, 'output_1', 'input_1');
+      editor.addConnection(nClass, nScheduler, 'output_1', 'input_1');
+      editor.addConnection(nScheduler, nNotification, 'output_1', 'input_1');
+      editor.addConnection(nNotification, nEnd, 'output_1', 'input_1');
+
+      setupAllNodeInputHandlers();
+    }
+
+    async function loadWorkflowForEdit(flowKey) {
+      try {
+        const response = await fetch(`http://localhost:8000/flow/workflow/get_flow/${flowKey}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+          const workflowData = await response.json();
+          console.log('Loading workflow:', workflowData);
+
+          window.currentWorkflowName = workflowData.meta?.name || workflowData.flow_key || '';
+          window.currentWorkflowOwner = workflowData.flow_owner || '';
+          window.currentWorkflowDescription = workflowData.meta?.description || '';
+
+          editor.clear();
+
+          if (workflowData.drawflow) {
+            editor.import(workflowData.drawflow);
+            setupAllNodeInputHandlers();
+          }
+
+          document.title = `Edit Workflow: ${window.currentWorkflowName}`;
+
+          return true;
+        } else {
+          console.error('Failed to load workflow:', response.statusText);
+          alert('Failed to load workflow for editing');
+          return false;
+        }
+      } catch (error) {
+        console.error('Error loading workflow:', error);
+        alert('Error loading workflow for editing');
+        return false;
+      }
+    }
+
+    if (isEditMode && editFlowKey) {
+      loadWorkflowForEdit(editFlowKey);
+    } else {
+      addExample();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      initWorkflowEditor().catch(console.error);
+    });
+  } else {
+    setTimeout(function () {
+      initWorkflowEditor().catch(console.error);
+    }, 0);
+  }
+})();
+        </script>
+  </div>
+</body>
+
+</html>
+
