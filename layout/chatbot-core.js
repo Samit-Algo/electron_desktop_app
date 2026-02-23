@@ -604,7 +604,7 @@
       if (!inner) return;
       const summary = approvalData?.summary || {};
       const ruleId = summary.rule_id || '—';
-      const config = summary.config || {};
+      const config = summary.agent_rule_config || {};
       const configStr = typeof config === 'object' ? JSON.stringify(config, null, 2) : String(config);
       inner.innerHTML = `
         <div class="chatbot-approval-card border rounded p-3 bg-light">
@@ -661,6 +661,7 @@
                 saveWithResume: (zoneData) => sendZoneResumeAndHandleStream(pendingId, state.sessionId, zoneData, state)
               });
             } catch (err) {
+              console.error('[Chatbot] Zone editor error:', err);
               replaceAssistantPending(pendingId, 'Zone editor failed. Please try again.', true);
             }
           } else {
@@ -728,6 +729,7 @@
                 saveWithResume: (zd) => sendZoneResumeAndHandleStream(pendingId, state.sessionId, zd, state)
               });
             } catch (err) {
+              console.error('[Chatbot] Zone editor error:', err);
               replaceAssistantPending(pendingId, 'Zone editor failed. Please try again.', true);
             }
           } else {
@@ -963,6 +965,7 @@
                 saveWithResume: (zoneData) => sendZoneResumeAndHandleStream(pendingId, state.sessionId, zoneData, state)
               });
             } catch (err) {
+              console.error('[Chatbot] Zone editor error:', err);
               replaceAssistantPending(pendingId, 'Zone editor failed. Please try again.', true);
             }
           } else {

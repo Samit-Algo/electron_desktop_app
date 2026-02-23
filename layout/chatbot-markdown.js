@@ -7,6 +7,47 @@
   let messagesEl = null;
   let escapeHtml = null;
 
+  /**
+   * Rewrite relative API image URLs (events, general-chat evidence) to absolute backend URL with auth token.
+   * Evidence images use /api/v1/general-chat/evidence/<id> and must be loaded from the backend (e.g. port 8000),
+   * not from the frontend origin (e.g. port 3000), otherwise the image 404s.
+   */
+  function rewriteApiImageUrls(html) {
+    if (!html || typeof html !== 'string') return html;
+    const baseURL = (typeof window !== 'undefined' && window.visionAPI && window.visionAPI.baseURL) ? window.visionAPI.baseURL : '';
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('visionai_token') : null;
+    const separator = (url) => (url.indexOf('?') !== -1 ? '&' : '?');
+    const withToken = (url) => (token ? url + separator(url) + 'token=' + encodeURIComponent(token) : url);
+
+    // Match both event images and general-chat evidence (relative /api/v1/... or full URL containing same path)
+    const rewritten = html.replace(
+      /src="([^"]*\/api\/v1\/(?:events\/[^"]*\/image|general-chat\/evidence\/[^"]+))"/g,
+      function (match, urlPath) {
+        const isAbsolute = /^https?:\/\//i.test(urlPath);
+        const fullUrl = isAbsolute ? urlPath : (baseURL ? (baseURL.replace(/\/$/, '') + (urlPath.startsWith('/') ? urlPath : '/' + urlPath)) : urlPath);
+        const finalUrl = withToken(fullUrl);
+        console.log('[ChatbotMarkdown] Rewriting image src:', urlPath, '->', finalUrl);
+        return 'src="' + finalUrl + '"';
+      }
+    );
+    return rewritten;
+  }
+
+  /** Attach console logs to images in the bubble to debug load/error. */
+  function logImageLoadErrors(container) {
+    if (!container || !container.querySelectorAll) return;
+    container.querySelectorAll('img').forEach(function (img, i) {
+      const src = img.getAttribute('src');
+      console.log('[ChatbotMarkdown] Image #' + (i + 1) + ' src set:', src);
+      img.addEventListener('load', function () {
+        console.log('[ChatbotMarkdown] Image loaded OK:', src);
+      });
+      img.addEventListener('error', function () {
+        console.warn('[ChatbotMarkdown] Image failed to load:', src);
+      });
+    });
+  }
+
   // Generate root-relative vendor path for script loading
   function vendorPath(relFromVendors) {
     return new URL('/vendors/' + relFromVendors, window.location.origin).toString();
@@ -179,18 +220,9 @@
             KEEP_CONTENT: true
           });
 
-          const token = localStorage.getItem('visionai_token');
-          let processedHtml = cleanHtml;
-          if (token) {
-            processedHtml = cleanHtml.replace(
-              /src="([^"]*\/api\/v1\/events\/[^"]*\/image)"/g,
-              function (match, urlPath) {
-                const finalUrl = urlPath + (urlPath.indexOf('?') !== -1 ? '&' : '?') + 'token=' + encodeURIComponent(token);
-                return 'src="' + finalUrl + '"';
-              }
-            );
-          }
+          let processedHtml = rewriteApiImageUrls(cleanHtml);
           bubble.innerHTML = processedHtml;
+          logImageLoadErrors(bubble);
           // Make all links open in new tab with security attributes
           bubble.querySelectorAll?.('a[href]')?.forEach(a => {
             a.setAttribute('target', '_blank');
@@ -255,18 +287,9 @@
           ADD_ATTR: ['id', 'style', 'class', 'src', 'alt']
         });
 
-        const token = localStorage.getItem('visionai_token');
-        let processedHtml = cleanHtml;
-        if (token) {
-          processedHtml = cleanHtml.replace(
-            /src="([^"]*\/api\/v1\/events\/[^"]*\/image)"/g,
-            function (match, urlPath) {
-              const finalUrl = urlPath + (urlPath.indexOf('?') !== -1 ? '&' : '?') + 'token=' + encodeURIComponent(token);
-              return 'src="' + finalUrl + '"';
-            }
-          );
-        }
+        let processedHtml = rewriteApiImageUrls(cleanHtml);
         bubble.innerHTML = processedHtml;
+        logImageLoadErrors(bubble);
         // Make all links open in new tab with security attributes
         bubble.querySelectorAll?.('a[href]')?.forEach(a => {
           a.setAttribute('target', '_blank');

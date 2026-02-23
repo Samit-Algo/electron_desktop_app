@@ -1077,11 +1077,15 @@
     // Remove existing draw bubble so second open gets a fresh one (new fetch, working Draw button)
     const existingDrawBubble = bubble.querySelector('[data-zone-draw-bubble]');
     if (existingDrawBubble) existingDrawBubble.remove();
+    // Remove any full zone-editor (canvas) from chat so only Draw → modal flow is used; canvas must not appear in chat
+    const existingZoneEditor = bubble.querySelector('.zone-editor[data-zone-editor]');
+    if (existingZoneEditor) existingZoneEditor.remove();
 
-    // Create and append editor (preserve motion_rois; default to polygon for unknown types)
+    // Only append draw bubble (thumbnail + Draw button). Full canvas loads in modal when user clicks Draw.
     const mode = zoneMode === 'line' ? 'line' : (zoneMode === 'motion_rois' ? 'motion_rois' : 'polygon');
-    const editorEl = createZoneEditorElement(editorId, cameraId, mode, saveWithResumeFn);
-    bubble.appendChild(editorEl);
+    const editorId = generateEditorId();
+    const drawBubbleEl = createZoneDrawBubbleElement(editorId, cameraId, mode);
+    bubble.appendChild(drawBubbleEl);
 
     const messagesContainer = getMessagesEl();
     if (messagesContainer) {
@@ -1145,9 +1149,7 @@
     const contentEl = drawBubbleEl.querySelector('[data-zone-draw-content]');
     const imgEl = drawBubbleEl.querySelector('[data-zone-draw-img]');
     const drawBtn = drawBubbleEl.querySelector('[data-zone-draw-btn]');
-    // Create and add editor (standalone fallback does not use saveWithResume; preserve motion_rois)
-    const editorEl = createZoneEditorElement(editorId, cameraId, mode, null);
-    bubble.appendChild(editorEl);
+    // Full editor (canvas) loads only in modal when user clicks Draw
 
     const loadAndShow = async () => {
       const snapshot = await fetchCameraSnapshot(cameraId, snapshotUrl);
