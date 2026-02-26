@@ -83,14 +83,10 @@
             <table class="table fs-9 mb-0 border-top border-translucent">
               <thead>
                 <tr>
-                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:10%;">WORKFLOW NAME</th>
-                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:10%;">VERSION</th>
-                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:10%;">OWNER</th>
-                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:10%;">FLOW KEY</th>
-                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:10%;">INSTANCE COUNT</th>
-                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:10%;">COMPLETED INSTANCE</th>
-                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:10%;">WAITING INSTANCE</th>
-                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:10%;">ACTIVE STATUS</th>
+                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:25%;">WORKFLOW NAME</th>
+                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:35%;">DESCRIPTION</th>
+                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:15%;">STATUS</th>
+                  <th class="sort white-space-nowrap align-middle ps-0" scope="col" style="width:15%;">CREATED</th>
                   <th class="sort align-middle text-center" scope="col" style="width:10%;">ACTIONS</th>
                 </tr>
               </thead>
@@ -110,20 +106,38 @@
 (function () {
   'use strict';
 
+  // Helper to get auth token - uses same key as api-service.js (visionai_token)
+  function getAuthToken() {
+    return localStorage.getItem('visionai_token') || '';
+  }
+
   async function loadWorkflow() {
     try {
-      const res = await fetch('http://localhost:8000/flow/workflow/get_flows', {
+      const token = getAuthToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const res = await fetch('http://localhost:8000/api/v1/workflows/', {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
       });
+      
+      if (res.status === 401) {
+        console.error('Authentication required. Please login again.');
+        alert('Session expired. Please login again.');
+        return;
+      }
+      
       const result = await res.json();
 
       if (res.ok) {
         console.log(result);
-        displayWorkflows(result);
+        // API returns { workflows: [...] } not a plain array
+        const workflows = result.workflows || result;
+        displayWorkflows(workflows);
       } else {
         console.error(result);
-        alert('Failed to load workflows');
+        alert('Failed to load workflows: ' + (result.detail || 'Unknown error'));
       }
     } catch (err) {
       console.error(err);
@@ -147,14 +161,12 @@
     }
 
     data.forEach(workflow => {
-      const workflow_status = workflow.workflow_status || 'N/A';
-      const flowName = workflow.meta?.name || workflow.flow_key || 'Unnamed Workflow';
-      const creator = workflow.flow_owner || 'N/A';
-      const instance_count = workflow.instance_count || 'N/A';
-      const status_completed = workflow.status_completed || 'N/A';
-      const status_waiting = workflow.status_waiting || 'N/A';
-      const version = workflow.version || 'N/A';
-      const status = workflow_status === 'active' || workflow_status === 'running' || workflow_status === 'enabled' ? 'Active' : 'Inactive';
+      const workflowId = workflow.id || 'N/A';
+      const flowName = workflow.name || 'Unnamed Workflow';
+      const description = workflow.description || '-';
+      const isActive = workflow.is_active !== false;
+      const status = isActive ? 'Active' : 'Inactive';
+      const createdAt = workflow.created_at ? new Date(workflow.created_at).toLocaleDateString() : '-';
 
       const row = document.createElement("tr");
       row.innerHTML = `
@@ -168,33 +180,21 @@
           </div>
         </td>
         <td class="align-middle ps-0">
-          <span class="text-body-secondary">${version}</span>
-        </td>
-        <td class="align-middle ps-0">
-          <span class="text-body-secondary">${creator}</span>
-        </td>
-        <td class="align-middle ps-0">
-          <span class="badge bg-info fs-9">${workflow.flow_key}</span>
-        </td>
-        <td class="align-middle ps-0">
-          <span class="text-body-secondary">${instance_count}</span>
-        </td>
-        <td class="align-middle ps-0">
-          <span class="text-body-secondary">${status_completed}</span>
-        </td>
-        <td class="align-middle ps-0">
-          <span class="text-body-secondary">${status_waiting}</span>
+          <span class="text-body-secondary">${description}</span>
         </td>
         <td class="align-middle ps-0">
           <span class="badge fs-9 ${status === 'Active' ? 'bg-success' : 'bg-danger'}">${status}</span>
         </td>
+        <td class="align-middle ps-0">
+          <span class="text-body-secondary">${createdAt}</span>
+        </td>
         <td class="align-middle text-center">
           <div class="d-flex justify-content-center gap-2">
-            <button class="btn btn-primary btn-sm px-3" data-action="delete" data-flow-key="${workflow.flow_key}">
-              <i class="fas fa-trash me-1"></i>Delete
-            </button>
-            <button class="btn btn-secondary btn-sm px-3" data-action="edit" data-flow-key="${workflow.flow_key}">
+            <button class="btn btn-secondary btn-sm px-3" data-action="edit" data-workflow-id="${workflowId}">
               <i class="fas fa-edit me-1"></i>Edit
+            </button>
+            <button class="btn btn-danger btn-sm px-3" data-action="delete" data-workflow-id="${workflowId}">
+              <i class="fas fa-trash me-1"></i>Delete
             </button>
           </div>
         </td>
@@ -206,14 +206,14 @@
     tbody.addEventListener('click', function (e) {
       const btn = e.target.closest('button[data-action]');
       if (!btn) return;
-      const flowKey = btn.getAttribute('data-flow-key');
+      const workflowId = btn.getAttribute('data-workflow-id');
       const action = btn.getAttribute('data-action');
-      if (!flowKey || !action) return;
+      if (!workflowId || !action) return;
 
       if (action === 'delete') {
-        deleteWorkflow(flowKey);
+        deleteWorkflow(workflowId);
       } else if (action === 'edit') {
-        editWorkflow(flowKey);
+        editWorkflow(workflowId);
       }
     }, { once: true });
   }
@@ -229,42 +229,50 @@
     }
   }
 
-  function editWorkflow(flowKey) {
-    const workflowData = window.currentWorkflowData?.find(w => w.flow_key === flowKey);
+  function editWorkflow(workflowId) {
+    const workflowData = window.currentWorkflowData?.find(w => w.id === workflowId);
 
     let target = 'workflow-editor.html';
     if (workflowData) {
       const params = new URLSearchParams({
-        flow_key: flowKey,
-        name: workflowData.meta?.name || workflowData.flow_key || '',
-        owner: workflowData.flow_owner || '',
-        description: workflowData.meta?.description || ''
+        workflow_id: workflowId,
+        name: workflowData.name || '',
+        description: workflowData.description || ''
       });
       target += `?${params.toString()}`;
     } else {
-      target += `?flow_key=${encodeURIComponent(flowKey)}`;
+      target += `?workflow_id=${encodeURIComponent(workflowId)}`;
     }
 
     navigateTo(target);
   }
 
-  async function deleteWorkflow(flowKey) {
+  async function deleteWorkflow(workflowId) {
     if (!confirm('Delete this workflow?')) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/flow/workflow/delete/${flowKey}`, {
+      const token = getAuthToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const response = await fetch(`http://localhost:8000/api/v1/workflows/${workflowId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
       });
-      const result = await response.json();
+
+      if (response.status === 401) {
+        alert('Session expired. Please login again.');
+        return;
+      }
 
       if (response.ok) {
-        console.log(result);
+        console.log('Workflow deleted:', workflowId);
         loadWorkflow();
         alert('Workflow deleted successfully');
       } else {
+        const result = await response.json();
         console.error(result);
-        alert('Failed to delete workflow');
+        alert('Failed to delete workflow: ' + (result.detail || 'Unknown error'));
       }
     } catch (err) {
       console.error(err);
