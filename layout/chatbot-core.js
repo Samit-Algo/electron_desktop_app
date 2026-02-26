@@ -597,6 +597,12 @@
     }
 
     // Human-in-the-loop: show approval card (config summary + Approve / Reject), then send resume on button click
+    // Renders config as key-value rows (no scroll); uses Phoenix theme components for theme + RTL support
+    function formatConfigValue(val) {
+      if (val === null) return '—';
+      if (typeof val === 'object') return JSON.stringify(val);
+      return String(val);
+    }
     function renderApprovalCardInBubble(pendingId, approvalData, state) {
       const bubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
       if (!bubble) return;
@@ -605,24 +611,45 @@
       const summary = approvalData?.summary || {};
       const ruleId = summary.rule_id || '—';
       const config = summary.agent_rule_config || {};
-      const configStr = typeof config === 'object' ? JSON.stringify(config, null, 2) : String(config);
+      const configEntries = typeof config === 'object' && config !== null ? Object.entries(config) : [];
+      const configRowsHtml = configEntries.length
+        ? configEntries
+            .map(
+              function (kv) {
+                const k = escapeHtml(String(kv[0]));
+                const v = escapeHtml(formatConfigValue(kv[1]));
+                return `<div class="d-flex flex-wrap align-items-baseline gap-1 py-1 border-bottom border-translucent"><span class="fw-semibold text-body-emphasis fs-9">${k}</span><span class="text-body-tertiary fs-9">${v}</span></div>`;
+              }
+            )
+            .join('')
+        : `<div class="py-1 text-body-tertiary fs-9">${escapeHtml(typeof config === 'object' ? 'No configuration' : formatConfigValue(config))}</div>`;
       inner.innerHTML = `
-        <div class="chatbot-approval-card border rounded p-3 bg-light">
-          <p class="mb-2 fw-semibold">Save agent configuration?</p>
-          <p class="mb-1 small text-body-secondary"><strong>Rule:</strong> ${escapeHtml(ruleId)}</p>
-          <pre class="small bg-white border rounded p-2 mb-3 overflow-auto" style="max-height: 120px;">${escapeHtml(configStr)}</pre>
-          <div class="d-flex gap-2">
-            <button type="button" class="btn btn-success btn-sm chatbot-approve-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">Approve</button>
-            <button type="button" class="btn btn-outline-secondary btn-sm chatbot-reject-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">Reject</button>
+        <div class="chatbot-approval-card card border border-translucent shadow-sm">
+          <div class="card-header bg-body-emphasis d-flex align-items-center border-bottom border-translucent py-2 px-3">
+            <span class="fa-solid fa-circle-check text-primary me-2 fs-9"></span>
+            <span class="fw-semibold text-body-emphasis fs-9">Save agent configuration?</span>
+          </div>
+          <div class="card-body p-3">
+            <div class="mb-3">
+              <span class="text-body-tertiary fs-10 text-uppercase fw-semibold mb-1 d-block">Rule</span>
+              <span class="badge badge-phoenix badge-phoenix-primary fs-10">${escapeHtml(ruleId)}</span>
+            </div>
+            <div>
+              <span class="text-body-tertiary fs-10 text-uppercase fw-semibold mb-1 d-block">Configuration</span>
+              <div class="bg-body-emphasis rounded-2 p-2">${configRowsHtml}</div>
+            </div>
+          </div>
+          <div class="card-footer bg-body-emphasis border-top border-translucent d-flex flex-wrap gap-2 justify-content-end py-2 px-3">
+            <button type="button" class="btn btn-phoenix-secondary btn-sm chatbot-reject-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">
+              <span class="fa-solid fa-times me-1"></span>Reject
+            </button>
+            <button type="button" class="btn btn-phoenix-primary btn-sm chatbot-approve-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">
+              <span class="fa-solid fa-check me-1"></span>Approve
+            </button>
           </div>
         </div>
       `;
-      bubble.querySelector?.('.chatbot-approve-btn')?.addEventListener?.('click', function () {
-        sendResumeAndHandleStream(pendingId, state.sessionId, { decisions: [{ type: 'approve' }] }, state);
-      });
-      bubble.querySelector?.('.chatbot-reject-btn')?.addEventListener?.('click', function () {
-        sendResumeAndHandleStream(pendingId, state.sessionId, { decisions: [{ type: 'reject' }] }, state);
-      });
+      // Buttons are handled via delegated click on messagesEl (see below) so they work even if DOM is re-rendered
     }
 
     async function sendResumeAndHandleStream(pendingId, sessionId, resume, state) {
@@ -1057,8 +1084,30 @@
       }
     }
 
-    // Copy message to clipboard (delegated: user and AI messages)
+    // Approve/Reject (delegated) and copy message to clipboard (delegated: user and AI messages)
     messagesEl.addEventListener('click', function (e) {
+      const approveBtn = e.target.closest?.('.chatbot-approve-btn');
+      if (approveBtn) {
+        e.preventDefault();
+        const pendingId = approveBtn.getAttribute('data-chatbot-pending-id');
+        const active = getActive();
+        const state = active?.mode[getMode()];
+        if (pendingId && state?.sessionId) {
+          sendResumeAndHandleStream(pendingId, state.sessionId, { decisions: [{ type: 'approve' }] }, state);
+        }
+        return;
+      }
+      const rejectBtn = e.target.closest?.('.chatbot-reject-btn');
+      if (rejectBtn) {
+        e.preventDefault();
+        const pendingId = rejectBtn.getAttribute('data-chatbot-pending-id');
+        const active = getActive();
+        const state = active?.mode[getMode()];
+        if (pendingId && state?.sessionId) {
+          sendResumeAndHandleStream(pendingId, state.sessionId, { decisions: [{ type: 'reject' }] }, state);
+        }
+        return;
+      }
       const copyUser = e.target.closest?.('[data-copy-user-message]');
       if (copyUser) {
         const wrapper = copyUser.closest?.('.user-message-wrapper');
