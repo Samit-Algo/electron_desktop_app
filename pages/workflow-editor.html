@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workflow Editor - ComplySure</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <!-- Drawflow CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drawflow@0.0.47/dist/drawflow.min.css" />
+  <!-- Font Awesome for existing icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Layout Loader - Must be loaded early -->
+  <script src="../custom_js/layout-loader.js"></script>
+</head>
+
+<body>
+  <!-- Page Content Container - This will be replaced by layout loader -->
+  <div id="page-content" style="display:none;">
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+    /* CSS Variables for theming - Compatible with Bootstrap */
+    :root {
+      --lf-card-bg: #0d0d0d;
+      --lf-card-border: #2a2a2a;
+      --lf-card-color: #ffffff;
+      --lf-header-border: #1a1a1a;
+      --lf-input-bg: #141414;
+      --lf-input-border: #2a2a2a;
+      --lf-input-focus-bg: #1a1a1a;
+      --lf-placeholder-color: #525252;
+      --lf-label-color: #9ca3af;
+      --lf-icon-color: #6b7280;
+      --lf-footer-color: #9ca3af;
+      --lf-play-btn-border: #3a3a3a;
+      --lf-play-btn-hover-bg: #1a1a1a;
+      --lf-provider-badge-bg: #1a1a1a;
+      --lf-provider-badge-color: #d1d5db;
+      --lf-select-option-bg: #1a1a1a;
+      --wf-canvas-bg: #020617;
+      --wf-sidebar-bg: #020617;
+      --wf-designer-color: #e5e7eb;
+      --wf-canvas-border: #111827;
+      --wf-grid-color: #1f2937;
+      --bs-primary: #6366f1;
+      --bs-primary-rgb: 99, 102, 241;
+    }
+
+    [data-bs-theme="light"] {
+      --lf-card-bg: #ffffff;
+      --lf-card-border: #e5e7eb;
+      --lf-card-color: #111827;
+      --lf-header-border: #f3f4f6;
+      --lf-input-bg: #f9fafb;
+      --lf-input-border: #d1d5db;
+      --lf-input-focus-bg: #ffffff;
+      --lf-placeholder-color: #9ca3af;
+      --lf-label-color: #6b7280;
+      --lf-icon-color: #9ca3af;
+      --lf-footer-color: #6b7280;
+      --lf-play-btn-border: #d1d5db;
+      --lf-play-btn-hover-bg: #f3f4f6;
+      --lf-provider-badge-bg: #f3f4f6;
+      --lf-provider-badge-color: #4b5563;
+      --lf-select-option-bg: #ffffff;
+      --wf-canvas-bg: #f8fafc;
+      --wf-sidebar-bg: #f1f5f9;
+      --wf-designer-color: #374151;
+      --wf-canvas-border: #e2e8f0;
+      --wf-grid-color: #cbd5e1;
+    }
+
+    /* Workflow Designer Layout using Bootstrap utility classes with custom extensions */
+    .workflow-designer {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      height: calc(100vh - 60px);
+      background: var(--wf-canvas-bg);
+      overflow: hidden;
+    }
+
+    /* Canvas Grid Background - Custom style needed */
+    .wf-canvas::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: radial-gradient(var(--wf-grid-color) 0.7px, transparent 0.8px);
+      background-size: 18px 18px;
+      opacity: .45;
+    }
+
+    /* Node Card Styles - Minimal custom CSS where Bootstrap is insufficient */
+    .lf-card {
+      width: 240px;
+      background: var(--lf-card-bg);
+      border-radius: 10px;
+      color: var(--lf-card-color);
+      box-shadow: 0 0 0 1px var(--lf-card-border), 0 4px 20px rgba(0,0,0,0.15);
+      overflow: hidden;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .lf-card-header {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--lf-header-border);
+    }
+
+    .lf-title {
+      gap: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--lf-card-color);
+    }
+
+    .lf-header-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 5px;
+      background: #6366f1;
+      font-size: 10px;
+      color: #ffffff;
+    }
+
+    .lf-play-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      background: transparent;
+      border: 1px solid var(--lf-play-btn-border);
+      color: var(--lf-icon-color);
+      font-size: 9px;
+      transition: all 0.2s ease;
+    }
+
+    .lf-play-btn:hover {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+
+    .lf-card-body {
+      padding: 8px 12px;
+    }
+
+    /* Form Sections with Indicators */
+    .lf-section-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .lf-section-indicator.purple { background: #6366f1; }
+    .lf-section-indicator.cyan { background: #06b6d4; }
+    .lf-section-indicator.blue { background: #3b82f6; }
+
+    .lf-field-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--lf-label-color);
+    }
+
+    .lf-field-label i {
+      font-size: 9px;
+      color: var(--lf-icon-color);
+    }
+
+    /* Custom Input Styling for Node Cards */
+    .lf-input-wrapper input,
+    .lf-input-wrapper select,
+    .lf-input-wrapper textarea {
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--lf-input-border);
+      background-color: var(--lf-input-bg);
+      color: var(--lf-card-color);
+      font-size: 11px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .lf-input-wrapper input::placeholder,
+    .lf-input-wrapper textarea::placeholder {
+      color: var(--lf-placeholder-color);
+    }
+
+    .lf-input-wrapper input:focus,
+    .lf-input-wrapper select:focus,
+    .lf-input-wrapper textarea:focus {
+      border-color: #6366f1;
+      background-color: var(--lf-input-focus-bg);
+    }
+
+    .lf-input-wrapper input[type="password"] {
+      padding-right: 50px;
+    }
+
+    .lf-input-wrapper.with-icon-left input,
+    .lf-input-wrapper.with-icon-left select {
+      padding-left: 28px;
+    }
+
+    .lf-input-wrapper.with-icon-right input {
+      padding-right: 28px;
+    }
+
+    .lf-input-icon-left {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--lf-icon-color);
+      font-size: 10px;
+      pointer-events: none;
+    }
+
+    .lf-input-icon-right {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--lf-icon-color);
+      font-size: 10px;
+    }
+
+    .lf-input-icon-right i {
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+
+    .lf-input-icon-right i:hover {
+      color: var(--lf-card-color);
+    }
+
+    .lf-input-wrapper select {
+      appearance: none;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    .lf-input-wrapper select option {
+      background-color: var(--lf-select-option-bg);
+      color: var(--lf-card-color);
+    }
+
+    .lf-input-wrapper textarea {
+      min-height: 36px;
+      resize: vertical;
+    }
+
+    .lf-footer {
+      padding: 6px 12px;
+      border-top: 1px solid var(--lf-header-border);
+      font-size: 10px;
+      color: var(--lf-footer-color);
+    }
+
+    .lf-footer-icon {
+      font-size: 10px;
+    }
+
+    .lf-provider-badge {
+      padding: 4px 10px;
+      background: var(--lf-provider-badge-bg);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--lf-provider-badge-color);
+    }
+
+    /* Drawflow Specific Styles */
+    #drawflow {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      position: relative;
+    }
+
+    .drawflow {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drawflow .drawflow-node {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      margin: 0;
+      min-width: 240px;
+      min-height: 80px;
+      position: absolute;
+      z-index: 2;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .drawflow .drawflow-node:active {
+      cursor: grabbing;
+    }
+
+    .drawflow .drawflow-node .drawflow_content_node {
+      pointer-events: auto;
+    }
+
+    .drawflow .drawflow-node.selected {
+      filter: drop-shadow(0 0 0 1px #4f46e5) drop-shadow(0 0 0 4px rgba(79,70,229,0.35));
+    }
+
+    /* SVG Connection styles */
+    .drawflow svg {
+      z-index: 0;
+      position: absolute;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    .drawflow svg .connection {
+      pointer-events: all;
+    }
+
+    .drawflow svg .connection path {
+      fill: none;
+    }
+
+    /* Port styling - Fixed alignment */
+    .drawflow .drawflow-node .input,
+    .drawflow .drawflow-node .output {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #6366f1;
+      border: 2px solid transparent;
+      cursor: crosshair;
+      z-index: 100;
+      pointer-events: all;
+    }
+
+    .drawflow .drawflow-node .input {
+      left: -6px !important;
+      top: 50% !important;
+      transform: translateY(-50%);
+      margin: 0 !important;
+    }
+
+    .drawflow .drawflow-node .output {
+      right: -6px !important;
+      top: 50% !important;
+      transform: translateY(-50%);
+      margin: 0 !important;
+    }
+
+    /* Connector animation */
+    .drawflow .connection .main-path {
+      stroke: #4f46e5 !important;
+      stroke-width: 3px !important;
+      stroke-linecap: round;
+      stroke-dasharray: 10 8 !important;
+      animation: wf-flow 2.5s linear infinite;
+      opacity: .9;
+    }
+
+    @keyframes wf-flow {
+      to { stroke-dashoffset: -180; }
+    }
+
+    /* Node compatibility states */
+    .wf-node.compatible { display: none; }
+    .wf-node.incompatible { display: none; }
+    .wf-node.neutral { display: none; }
+
+    .wf-section-item.compatible {
+      border: 1px solid #22c55e !important;
+      background: rgba(34, 197, 94, 0.15) !important;
+    }
+
+    .wf-section-item.incompatible {
+      border: 1px solid #ef4444 !important;
+      background: rgba(239, 68, 68, 0.15) !important;
+      opacity: 0.5;
+    }
+
+    .wf-section-item.neutral {
+      opacity: 1;
+    }
+
+    /* Connection preview */
+    .connection-preview { stroke: #22c55e !important; stroke-width: 2px !important; stroke-dasharray: 5 5 !important; opacity: 0.7; }
+    .connection-invalid { stroke: #ef4444 !important; stroke-width: 2px !important; stroke-dasharray: 5 5 !important; opacity: 0.7; }
+
+    /* Ports visibility control */
+    .drawflow .drawflow-node .input,
+    .drawflow .drawflow-node .output { transition: opacity .15s ease; }
+    .drawflow .drawflow-node .hidden-port { visibility: hidden; opacity: 0; pointer-events: none; }
+
+    /* Sidebar section expand/collapse */
+    .wf-section-content { display: none; }
+    .wf-section.expanded .wf-section-content { display: block; }
+    .wf-section.expanded .wf-section-arrow { transform: rotate(90deg); }
+
+    /* Custom Button Hover States */
+    .btn-wf-primary:hover { background-color: #4f46e5 !important; border-color: #4f46e5 !important; }
+    .btn-wf-secondary:hover { background-color: var(--lf-play-btn-hover-bg) !important; }
+    .wf-new-component-btn:hover { border-color: #6366f1 !important; color: #6366f1 !important; }
+    .wf-section-header:hover { background: rgba(99, 102, 241, 0.1); }
+    .wf-section-item:hover { background: rgba(99, 102, 241, 0.15); }
+
+    /* Floating toolbar button hover */
+    .wf-floating-toolbar button:hover {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+    </style>
+
+    <!-- Top Bar -->
+    <nav class="navbar navbar-expand-lg py-2 px-4 border-bottom" style="height: 60px; background: var(--wf-sidebar-bg); border-color: var(--wf-canvas-border) !important;">
+      <div class="container-fluid p-0">
+        <div class="d-flex align-items-center gap-2">
+          <div class="input-group" style="min-width: 200px;">
+            <span class="input-group-text bg-transparent border-secondary text-muted" style="border-color: var(--wf-canvas-border) !important;">
+              <i class="fa-solid fa-search small"></i>
+            </span>
+            <span class="form-control bg-transparent text-secondary" style="border-color: var(--wf-canvas-border) !important; font-size: 14px;">Search</span>
+          </div>
+          <div class="input-group" style="min-width: 250px;">
+            <span class="input-group-text bg-transparent border-secondary text-muted" style="border-color: var(--wf-canvas-border) !important;">
+              <i class="fa-solid fa-pen small"></i>
+            </span>
+            <input type="text" id="workflow-name-input" class="form-control bg-transparent" style="border-color: var(--wf-canvas-border) !important; font-size: 14px; color: var(--wf-designer-color);" placeholder="Workflow Name">
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" id="btn-run-workflow">
+            <i class="fa-solid fa-play"></i>
+            <span>Run Workflow</span>
+          </button>
+          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" id="btn-export">
+            <i class="fa-solid fa-download"></i>
+            <span>Export</span>
+          </button>
+          <button class="btn btn-primary btn-sm d-flex align-items-center gap-2" id="btn-save" style="background-color: #6366f1; border-color: #6366f1;">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Save</span>
+          </button>
+          <input type="file" id="file-import" accept="application/json" class="d-none" />
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="workflow-designer">
+      <!-- Sidebar with collapsible sections -->
+      <div class="d-flex flex-column overflow-hidden border-end" style="width: 280px; background: var(--wf-sidebar-bg); border-color: var(--wf-canvas-border) !important;">
+        <div class="d-flex align-items-center gap-2 p-3 border-bottom" style="border-color: var(--wf-canvas-border) !important;">
+          <i class="fa-solid fa-layer-group text-muted fs-5"></i>
+          <h3 class="m-0 fs-6 fw-semibold" style="color: var(--wf-designer-color);">Components</h3>
+        </div>
+
+        <div class="flex-grow-1 overflow-auto py-2">
+          <!-- Input/Output Section -->
+          <div class="wf-section expanded mb-1" data-section="io">
+            <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-right-left text-muted small" style="width: 20px; text-align: center;"></i>
+                <span class="fw-medium small" style="color: var(--wf-designer-color);">Input / Output</span>
+              </div>
+              <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
+            </div>
+            <div class="wf-section-content ps-5 pe-3 py-1">
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="start" data-category="start" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-circle-play text-muted"></i>
+                <span>Start</span>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="end" data-category="end" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-flag-checkered text-muted"></i>
+                <span>End</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Agents Section -->
+          <div class="wf-section mb-1" data-section="agents">
+            <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-robot text-muted small" style="width: 20px; text-align: center;"></i>
+                <span class="fw-medium small" style="color: var(--wf-designer-color);">Agents</span>
+              </div>
+              <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
+            </div>
+            <div class="wf-section-content ps-5 pe-3 py-1">
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="agent" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-robot text-muted"></i>
+                <span>Agent</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Models Section -->
+          <div class="wf-section mb-1" data-section="models">
+            <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-brain text-muted small" style="width: 20px; text-align: center;"></i>
+                <span class="fw-medium small" style="color: var(--wf-designer-color);">Models</span>
+              </div>
+              <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
+            </div>
+            <div class="wf-section-content ps-5 pe-3 py-1">
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="camera" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-video text-muted"></i>
+                <span>Camera</span>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="classMonitor" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-layer-group text-muted"></i>
+                <span>Class Monitor</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data Section -->
+          <div class="wf-section mb-1" data-section="data">
+            <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-database text-muted small" style="width: 20px; text-align: center;"></i>
+                <span class="fw-medium small" style="color: var(--wf-designer-color);">Data</span>
+              </div>
+              <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
+            </div>
+            <div class="wf-section-content ps-5 pe-3 py-1">
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="scheduler" data-category="trigger" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-clock text-muted"></i>
+                <span>Scheduler</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Helpers Section -->
+          <div class="wf-section mb-1" data-section="helpers">
+            <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-wrench text-muted small" style="width: 20px; text-align: center;"></i>
+                <span class="fw-medium small" style="color: var(--wf-designer-color);">Helpers</span>
+              </div>
+              <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
+            </div>
+            <div class="wf-section-content ps-5 pe-3 py-1">
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="notification" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-envelope text-muted"></i>
+                <span>Notification</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 border-top" style="border-color: var(--wf-canvas-border) !important;">
+          <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 wf-new-component-btn" onclick="alert('Custom component creation coming soon!')" style="border-style: dashed; color: var(--lf-icon-color);">
+            <i class="fa-solid fa-plus"></i>
+            <span>New Custom Component</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Canvas with floating toolbar -->
+      <div class="position-relative overflow-hidden flex-grow-1" style="background: var(--wf-canvas-bg);">
+        <div class="wf-floating-toolbar position-absolute d-flex gap-2 p-2 rounded-3 shadow" style="top: 20px; right: 20px; z-index: 10; background: var(--lf-card-bg); border: 1px solid var(--wf-canvas-border);">
+          <button type="button" id="btn-zoom-in" class="btn btn-sm" title="Zoom In" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+          <button type="button" id="btn-zoom-out" class="btn btn-sm" title="Zoom Out" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+          <button type="button" id="btn-zoom-reset" class="btn btn-sm" title="Reset Zoom" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-expand"></i></button>
+          <button type="button" id="btn-clear" class="btn btn-sm" title="Clear Canvas" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-trash"></i></button>
+          <button type="button" id="btn-new" class="btn btn-sm" title="New Workflow" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-file-circle-plus"></i></button>
+          <button type="button" id="btn-import" class="btn btn-sm" title="Import JSON" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-file-import"></i></button>
+        </div>
+        <div id="drawflow"></div>
+      </div>
+    </div>
+
+        <script type="text/visionai-page-script">
+(function () {
+  'use strict';
+
+  const DRAWFLOW_SRC = 'https://cdn.jsdelivr.net/npm/drawflow@0.0.47/dist/drawflow.min.js';
+
+  function ensureDrawflow() {
+    return new Promise((resolve, reject) => {
+      if (typeof window.Drawflow !== 'undefined') {
+        resolve();
+        return;
+      }
+
+      // If a script is already loading, wait for it
+      const existing = document.querySelector('script[data-drawflow="true"]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve());
+        existing.addEventListener('error', () => reject(new Error('Failed to load Drawflow')));
+        return;
+      }
+
+      const s = document.createElement('script');
+      s.src = DRAWFLOW_SRC;
+      s.defer = true;
+      s.setAttribute('data-drawflow', 'true');
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed to load Drawflow'));
+      document.head.appendChild(s);
+    });
+  }
+
+  function navigateTo(href) {
+    if (!href) return;
+    if (window.visionaiSpa && typeof window.visionaiSpa.navigate === 'function') {
+      window.visionaiSpa.navigate(href).catch?.(() => {
+        window.location.href = href;
+      });
+    } else {
+      window.location.href = href;
+    }
+  }
+
+  // Toggle sidebar section collapse/expand
+  window.toggleSection = function(header) {
+    const section = header.closest('.wf-section');
+    section.classList.toggle('expanded');
+  };
+
+  // Toggle password visibility
+  window.togglePasswordVisibility = function(icon) {
+    const wrapper = icon.closest('.lf-input-wrapper');
+    const input = wrapper.querySelector('input');
+    const eyeIcon = wrapper.querySelector('.fa-eye');
+    const eyeSlashIcon = wrapper.querySelector('.fa-eye-slash');
+    
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (eyeIcon) eyeIcon.style.display = 'none';
+      if (eyeSlashIcon) eyeSlashIcon.style.display = 'inline';
+    } else {
+      input.type = 'password';
+      if (eyeIcon) eyeIcon.style.display = 'inline';
+      if (eyeSlashIcon) eyeSlashIcon.style.display = 'none';
+    }
+  };
+
+  // Helper to get auth token - uses same key as api-service.js (visionai_token)
+  function getAuthToken() {
+    return localStorage.getItem('visionai_token') || '';
+  }
+
+  async function initWorkflowEditor() {
+    try {
+      await ensureDrawflow();
+    } catch (e) {
+      console.error('Drawflow failed to load', e);
+      alert('Workflow editor engine failed to load. Please check your network connection.');
+      return;
+    }
+
+    const container = document.getElementById('drawflow');
+    const urlParams = new URLSearchParams(window.location.search);
+    const editWorkflowId = urlParams.get('workflow_id');
+    const workflowName = urlParams.get('name') || '';
+    const workflowOwner = urlParams.get('owner') || '';
+    const workflowDescription = urlParams.get('description') || '';
+    let isEditMode = !!editWorkflowId;
+
+    // Populate workflow name input from URL params
+    const nameInput = document.getElementById('workflow-name-input');
+    if (nameInput && workflowName) {
+      nameInput.value = workflowName;
+    }
+    const zoomInBtn = document.getElementById('btn-zoom-in');
+    const zoomOutBtn = document.getElementById('btn-zoom-out');
+    const zoomResetBtn = document.getElementById('btn-zoom-reset');
+    const clearBtn = document.getElementById('btn-clear');
+    const exportBtn = document.getElementById('btn-export');
+    const newBtn = document.getElementById('btn-new');
+    const saveBtn = document.getElementById('btn-save');
+    const importBtn = document.getElementById('btn-import');
+    const importFile = document.getElementById('file-import');
+
+    const NODE_COMPATIBILITY = {
+      // Start of the workflow can only connect to Camera
+      start: ['camera'],
+      // Camera feeds frames into the Agent
+      camera: ['agent'],
+      // Agent sends results to the Class Monitor node
+      agent: ['classMonitor'],
+      // Class Monitor outputs to Scheduler
+      classMonitor: ['scheduler'],
+      // Scheduler controls when notifications are sent
+      scheduler: ['notification'],
+      // Notification is typically the last step before End
+      notification: ['end'],
+      // End has no outgoing connections
+      end: []
+    };
+
+    const NODE_DEFINITIONS = {
+      start: {
+        name: 'start',
+        label: 'Start',
+        category: 'start',
+        inputs: 0,
+        outputs: 1,
+        icon: 'fa-circle-play',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'Start' },
+          {
+            key: 'description',
+            type: 'textarea',
+            label: 'Description',
+            placeholder: 'Describe the purpose of this workflow entry point.'
+          }
+        ]
+      },
+      camera: {
+        name: 'camera',
+        label: 'Camera',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-video',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'Camera' },
+          {
+            key: 'selection_mode',
+            type: 'select',
+            label: 'Selection mode',
+            options: ['Single camera', 'Multiple cameras'],
+            default: 'Single camera'
+          },
+          {
+            key: 'camera_ids',
+            type: 'camera_select',
+            label: 'Camera identifier(s)',
+            placeholder: 'Select camera(s) from the list'
+          }
+        ]
+      },
+      agent: {
+  name: 'agent',
+  label: 'Agent',
+  category: 'activity',
+  inputs: 1,
+  outputs: 1,
+  icon: 'fa-microchip',
+  fields: [
+
+    // Basic
+    { key: 'agent_name', type: 'text', label: 'Agent Name', required: true },
+
+    { 
+      key: 'rule_type', 
+      type: 'select', 
+      label: 'Rule Type',
+      options: [
+        'Class_presence',
+        'Weapon Detection',
+        'Person Count',
+        'Box Count',
+        'Fire Detection',
+        'Motion Detection',
+        'Object Detection',
+        'Restricted Zone Object Detection',
+        'Sleep Detection',
+        'Wall Climbing Detection',
+        'Zone Intrusion',
+        'Person Near Machine'
+      ],
+      required: true
+    },
+
+    {
+      key: 'model_name',
+      type: 'select',
+      label: 'Model',
+      options: ['yolov8n.pt', 'yolov8m.pt'],
+      default: 'yolov8m.pt'
+    },
+
+    // Advanced (collapsible)
+    {
+      key: 'fps',
+      type: 'number',
+      label: 'FPS',
+      default: 5
+    },
+
+    {
+      key: 'confidence_threshold',
+      type: 'number',
+      label: 'Confidence Threshold',
+      default: 0.5
+    },
+
+    {
+      key: 'alert_cooldown_seconds',
+      type: 'number',
+      label: 'Alert Cooldown (seconds)',
+      default: 10
+    }
+
+  ]
+},
+      classMonitor: {
+        name: 'classMonitor',
+        label: 'Class Monitor',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-layer-group',
+        fields: [
+          {
+            key: 'label',
+            type: 'text',
+            label: 'Node label',
+            default: 'Class Monitor'
+          },
+          {
+            key: 'classes',
+            type: 'text',
+            label: 'Classes to monitor',
+            placeholder: 'e.g. Person, Vehicle, Helmet'
+          }
+        ]
+      },
+scheduler: {
+  name: 'scheduler',
+  label: 'Scheduler',
+  category: 'trigger',
+  inputs: 1,
+  outputs: 1,
+  icon: 'fa-clock',
+  fields: [
+    { 
+      key: 'label', 
+      type: 'text', 
+      label: 'Node label', 
+      default: 'Scheduler' 
+    },
+    {
+      key: 'start_time',
+      type: 'time',
+      label: 'Start Time'
+    },
+    {
+      key: 'end_time',
+      type: 'time',
+      label: 'End Time'
+    },
+    {
+      key: 'run_mode',
+      type: 'select',
+      label: 'Run Mode',
+      options: ['continuous', 'Patrol'],
+      default: 'continuous'
+    }
+  ]
+},
+      notification: {
+        name: 'notification',
+        label: 'Notification',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-envelope',
+        fields: [
+          {
+            key: 'label',
+            type: 'text',
+            label: 'Node label',
+            default: 'Notification'
+          },
+          {
+            key: 'channel',
+            type: 'select',
+            label: 'Primary channel',
+            options: ['Email', 'SMS', 'Webhook'],
+            default: 'Email'
+          },
+          {
+            key: 'recipients',
+            type: 'text',
+            label: 'Recipient(s)',
+            placeholder: 'Email addresses or phone numbers, comma-separated'
+          },
+          {
+            key: 'subject',
+            type: 'text',
+            label: 'Subject / title',
+            placeholder: 'Short, descriptive subject line'
+          },
+          {
+            key: 'body',
+            type: 'textarea',
+            label: 'Message body',
+            placeholder: 'Rich free‑text body. You can use placeholders like {{camera_name}} or {{class_name}}.'
+          },
+          {
+            key: 'importance',
+            type: 'select',
+            label: 'Importance',
+            options: ['Low', 'Normal', 'High'],
+            default: 'Normal'
+          }
+        ]
+      },
+      end: {
+        name: 'end',
+        label: 'End',
+        category: 'end',
+        inputs: 1,
+        outputs: 0,
+        icon: 'fa-flag-checkered',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'End' },
+          {
+            key: 'result_summary',
+            type: 'textarea',
+            label: 'Expected outcome',
+            placeholder: 'Describe what it means for this workflow to complete successfully.'
+          }
+        ]
+      }
+    };
+
+    function categoryTagClass(category) {
+      switch (category) {
+        case 'start': return 'tag-start';
+        case 'trigger': return 'tag-trigger';
+        case 'activity': return 'tag-activity';
+        case 'decision': return 'tag-decision';
+        case 'utility': return 'tag-utility';
+        case 'end': return 'tag-end';
+        default: return '';
+      }
+    }
+
+    function createNodeContentHtml(def, data, nodeId) {
+      const title = (data && data.__label) || def.label;
+
+      // Generate inline form fields based on node definition
+      const fieldsHtml = (def.fields || []).map((field, index) => {
+        return renderInlineField(field, data[field.key], index, def.name);
+      }).join('');
+
+      // Special sections for Agent node to match screenshot
+      let bodyContent = fieldsHtml;
+      if (def.name === 'agent') {
+        bodyContent = renderAgentSections(data, nodeId);
+      } else if (def.name === 'camera') {
+        bodyContent = renderCameraSections(data, nodeId);
+      }
+
+      return `
+        <div class="lf-card" data-node-id="${nodeId || ''}">
+          <div class="lf-card-header d-flex align-items-center justify-content-between">
+            <div class="lf-title d-flex align-items-center">
+              <span class="lf-header-icon d-flex align-items-center justify-content-center"><i class="fa-solid ${def.icon}" aria-hidden="true"></i></span>
+              <span>${title}</span>
+            </div>
+            <button class="lf-play-btn d-flex align-items-center justify-content-center" title="Run Node"><i class="fa-solid fa-play"></i></button>
+          </div>
+          <div class="lf-card-body d-flex flex-column gap-2">
+            ${bodyContent}
+          </div>
+          <div class="lf-footer d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-1">
+              <span class="lf-section-indicator blue"></span>
+              <span>Response</span>
+            </div>
+            <span class="lf-footer-icon"><i class="fa-solid fa-bars"></i></span>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderAgentSections(data, nodeId) {
+      const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
+      const agentName = data.agent_name || '';
+      const ruleType = data.rule_type || 'Face Detection';
+      const modelName = data.model_name || 'yolov8m.pt';
+      const fps = data.fps || 5;
+      const confidenceThreshold = data.confidence_threshold || 0.5;
+      const alertCooldown = data.alert_cooldown_seconds || 10;
+
+      return `
+        <!-- Agent Name Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>Agent Name</span>
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                <input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="agent_name" data-node-id="${nodeId || ''}"
+                  placeholder="Enter agent name" value="${safe(agentName)}" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rule Type Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>Rule Type</span>
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                <select class="lf-node-input w-100 form-select form-select-sm" data-field="rule_type" data-node-id="${nodeId || ''}">
+                  <option value="Class_presence" ${ruleType === 'Class_presence' ? 'selected' : ''}>Class_presence</option>
+                  <option value="Weapon Detection" ${ruleType === 'Weapon Detection' ? 'selected' : ''}>Weapon Detection</option>
+                  <option value="Person Count" ${ruleType === 'Person Count' ? 'selected' : ''}>Person Count</option>
+                  <option value="Box Count" ${ruleType === 'Box Count' ? 'selected' : ''}>Box Count</option>
+                  <option value="Fire Detection" ${ruleType === 'Fire Detection' ? 'selected' : ''}>Fire Detection</option>
+                  <option value="Motion Detection" ${ruleType === 'Motion Detection' ? 'selected' : ''}>Motion Detection</option>
+                  <option value="Object Detection" ${ruleType === 'Object Detection' ? 'selected' : ''}>Object Detection</option>
+                  <option value="Restricted Zone Object Detection" ${ruleType === 'Restricted Zone Object Detection' ? 'selected' : ''}>Restricted Zone Object Detection</option>
+                  <option value="Sleep Detection" ${ruleType === 'Sleep Detection' ? 'selected' : ''}>Sleep Detection</option>
+                  <option value="Wall Climbing Detection" ${ruleType === 'Wall Climbing Detection' ? 'selected' : ''}>Wall Climbing Detection</option>
+                  <option value="Zone Intrusion" ${ruleType === 'Zone Intrusion' ? 'selected' : ''}>Zone Intrusion</option>
+                  <option value="Person Near Machine" ${ruleType === 'Person Near Machine' ? 'selected' : ''}>Person Near Machine</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>Model</span>
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                <select class="lf-node-input w-100 form-select form-select-sm" data-field="model_name" data-node-id="${nodeId || ''}">
+                  <option value="yolov8n.pt" ${modelName === 'yolov8n.pt' ? 'selected' : ''}>yolov8n.pt</option>
+                  <option value="yolov8m.pt" ${modelName === 'yolov8m.pt' ? 'selected' : ''}>yolov8m.pt</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FPS Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>FPS</span>
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                <input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="fps" data-node-id="${nodeId || ''}"
+                  value="${safe(fps)}" step="1" min="1" max="60" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Confidence Threshold Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>Confidence Threshold</span>
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                <input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="confidence_threshold" data-node-id="${nodeId || ''}"
+                  value="${safe(confidenceThreshold)}" step="0.1" min="0" max="1" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alert Cooldown Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>Alert Cooldown (seconds)</span>
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                <input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="alert_cooldown_seconds" data-node-id="${nodeId || ''}"
+                  value="${safe(alertCooldown)}" step="1" min="0" />
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Camera list cache
+    let cameraListCache = null;
+    let cameraListFetchPromise = null;
+    
+    async function fetchCameraList() {
+      // Return cached list if available
+      if (cameraListCache) {
+        return cameraListCache;
+      }
+      
+      // Return existing promise if fetch is in progress
+      if (cameraListFetchPromise) {
+        return cameraListFetchPromise;
+      }
+      
+      // Start new fetch
+      cameraListFetchPromise = (async () => {
+        try {
+          const token = getAuthToken();
+          const headers = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          
+          const response = await fetch('http://localhost:8000/api/v1/cameras/list', {
+            method: 'GET',
+            headers: headers
+          });
+          
+          if (response.status === 401) {
+            console.error('Authentication required for camera list');
+            return [];
+          }
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch cameras: ${response.status}`);
+          }
+          
+          const cameras = await response.json();
+          cameraListCache = cameras;
+          return cameras;
+        } catch (error) {
+          console.error('Error fetching camera list:', error);
+          return [];
+        } finally {
+          cameraListFetchPromise = null;
+        }
+      })();
+      
+      return cameraListFetchPromise;
+    }
+    
+    function renderCameraSections(data, nodeId) {
+      const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
+      const selectionMode = data.selection_mode || 'Single camera';
+      const cameraIds = data.camera_ids || '';
+      const frameRate = data.frame_rate || 25;
+      const label = data.label || 'Camera';
+      
+      return `
+        <!-- Node Label Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>Node label</span>
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                <input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="label" data-node-id="${nodeId || ''}"
+                  value="${safe(label)}" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selection Mode Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>Selection mode</span>
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                <select class="lf-node-input w-100 form-select form-select-sm" data-field="selection_mode" data-node-id="${nodeId || ''}">
+                  <option value="Single camera" ${selectionMode === 'Single camera' ? 'selected' : ''}>Single camera</option>
+                  <option value="Multiple cameras" ${selectionMode === 'Multiple cameras' ? 'selected' : ''}>Multiple cameras</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera Selection Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>Camera identifier(s)</span>
+              </div>
+              <div class="lf-input-wrapper position-relative camera-dropdown-wrapper" data-node-id="${nodeId || ''}">
+                <select class="lf-node-input w-100 form-select form-select-sm camera-select" 
+                        data-field="camera_ids" 
+                        data-node-id="${nodeId || ''}"
+                        data-selection-mode="${selectionMode}"
+                        ${selectionMode === 'Multiple cameras' ? 'multiple' : ''}>
+                  <option value="">Loading cameras...</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Frame Rate Section -->
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>Frame rate (fps)</span>
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                <input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="frame_rate" data-node-id="${nodeId || ''}"
+                  value="${safe(frameRate)}" step="1" min="1" max="60" />
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Function to populate camera dropdowns
+    async function populateCameraDropdowns() {
+      const cameras = await fetchCameraList();
+      
+      document.querySelectorAll('.camera-select').forEach(select => {
+        const nodeId = select.getAttribute('data-node-id');
+        const selectionMode = select.getAttribute('data-selection-mode') || 'Single camera';
+        
+        // Get current value from the select's data attribute instead of editor
+        const currentValue = select.getAttribute('data-current-value') || '';
+        
+        // Clear existing options
+        select.innerHTML = '';
+        
+        if (cameras.length === 0) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'No cameras available';
+          select.appendChild(option);
+        } else {
+          // Add placeholder option for single select
+          if (selectionMode === 'Single camera') {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select a camera...';
+            select.appendChild(placeholder);
+          }
+          
+          // Add camera options
+          cameras.forEach(camera => {
+            const option = document.createElement('option');
+            option.value = camera.id;
+            option.textContent = camera.name || camera.id;
+            
+            // Set selected if matches current value
+            if (selectionMode === 'Single camera') {
+              if (currentValue === camera.id) {
+                option.selected = true;
+              }
+            } else {
+              // For multiple selection, check if camera id is in comma-separated list
+              const selectedIds = currentValue.split(',').map(id => id.trim()).filter(id => id);
+              if (selectedIds.includes(camera.id)) {
+                option.selected = true;
+              }
+            }
+            
+            select.appendChild(option);
+          });
+        }
+        
+        // Handle selection mode change
+        const selectionModeSelect = document.querySelector(`select[data-field="selection_mode"][data-node-id="${nodeId}"]`);
+        if (selectionModeSelect) {
+          selectionModeSelect.addEventListener('change', (e) => {
+            const newMode = e.target.value;
+            select.setAttribute('data-selection-mode', newMode);
+            select.multiple = newMode === 'Multiple cameras';
+            
+            // Reset selection when mode changes
+            if (newMode === 'Single camera') {
+              // Keep only first selected
+              const firstSelected = select.querySelector('option[selected]');
+              Array.from(select.options).forEach(opt => opt.selected = false);
+              if (firstSelected) {
+                firstSelected.selected = true;
+              }
+            }
+          });
+        }
+      });
+    }
+    
+    function renderInlineField(field, value, index, nodeName) {
+      const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
+      const indicatorColor = index % 2 === 0 ? 'purple' : 'cyan';
+
+      let inputHtml = '';
+      const placeholder = field.placeholder || '';
+
+      switch (field.type) {
+        case 'text':
+        case 'date':
+        case 'time':
+          inputHtml = `<input type="${field.type}" class="lf-node-input w-100 form-control form-control-sm" data-field="${field.key}" placeholder="${placeholder}" value="${safe(value)}" />`;
+          break;
+        case 'number':
+          inputHtml = `<input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="${field.key}" placeholder="${placeholder}" value="${safe(value)}" step="any" />`;
+          break;
+        case 'select':
+          const options = (field.options || []).map(opt =>
+            `<option value="${opt}" ${String(value) === String(opt) ? 'selected' : ''}>${opt}</option>`
+          ).join('');
+          inputHtml = `<select class="lf-node-input w-100 form-select form-select-sm" data-field="${field.key}">${options}</select>`;
+          break;
+        case 'camera_select':
+          // Camera selection is handled by renderCameraSections, skip here
+          return '';
+        case 'textarea':
+          inputHtml = `<textarea class="lf-node-input w-100 form-control form-control-sm" data-field="${field.key}" placeholder="${placeholder}">${safe(value)}</textarea>`;
+          break;
+        default:
+          inputHtml = `<input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="${field.key}" placeholder="${placeholder}" value="${safe(value)}" />`;
+      }
+
+      return `
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator ${indicatorColor}"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
+                <span>${field.label || field.key}</span>
+                ${field.help ? `<i class="fa-regular fa-circle-question" title="${field.help}"></i>` : ''}
+              </div>
+              <div class="lf-input-wrapper position-relative">
+                ${inputHtml}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    window.togglePasswordVisibility = function(icon) {
+      const wrapper = icon.closest('.lf-input-wrapper');
+      const input = wrapper.querySelector('input');
+      const eyeIcon = wrapper.querySelector('.fa-eye');
+      const eyeSlashIcon = wrapper.querySelector('.fa-eye-slash');
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        eyeIcon.style.display = 'none';
+        eyeSlashIcon.style.display = 'inline';
+      } else {
+        input.type = 'password';
+        eyeIcon.style.display = 'inline';
+        eyeSlashIcon.style.display = 'none';
+      }
+    };
+
+    function initialDataFor(def) {
+      const data = {};
+      (def.fields || []).forEach(f => {
+        if (f.default !== undefined) data[f.key] = f.default;
+      });
+      data.__label = def.label;
+      return data;
+    }
+
+    function areNodesCompatible(sourceNodeKey, targetNodeKey) {
+      const compatibleNodes = NODE_COMPATIBILITY[sourceNodeKey] || [];
+      return compatibleNodes.includes(targetNodeKey);
+    }
+
+    function updateNodeCompatibility(selectedNodeKey) {
+      const allNodes = document.querySelectorAll('.wf-section-item[data-node-key]');
+
+      if (!selectedNodeKey) {
+        allNodes.forEach(node => {
+          node.classList.remove('compatible', 'incompatible');
+          node.classList.add('neutral');
+        });
+        return;
+      }
+
+      const compatibleNodes = NODE_COMPATIBILITY[selectedNodeKey] || [];
+
+      allNodes.forEach(node => {
+        const nodeKey = node.getAttribute('data-node-key');
+        node.classList.remove('compatible', 'incompatible', 'neutral');
+
+        if (nodeKey === selectedNodeKey) {
+          node.classList.add('neutral');
+        } else if (compatibleNodes.includes(nodeKey)) {
+          node.classList.add('compatible');
+        } else {
+          node.classList.add('incompatible');
+        }
+      });
+    }
+
+    function resetPortsVisibility() {
+      document.querySelectorAll('.drawflow-node .input, .drawflow-node .output').forEach(el => {
+        el.classList.remove('hidden-port');
+      });
+    }
+
+    function showOnlyApplicablePorts(sourceNodeKey) {
+      if (!sourceNodeKey) { resetPortsVisibility(); return; }
+
+      const compatibleTargets = new Set(NODE_COMPATIBILITY[sourceNodeKey] || []);
+      const data = editor?.drawflow?.drawflow?.Home?.data || {};
+      Object.keys(data).forEach(id => {
+        const dfNode = data[id];
+        const nodeEl = document.querySelector(`#node-${id}`);
+        if (!nodeEl) return;
+
+        const inputs = nodeEl.querySelectorAll('.input');
+        const outputs = nodeEl.querySelectorAll('.output');
+        const nodeKey = dfNode?.name;
+
+        if (nodeKey === sourceNodeKey) {
+          inputs.forEach(i => i.classList.add('hidden-port'));
+          outputs.forEach(o => o.classList.remove('hidden-port'));
+          return;
+        }
+
+        if (compatibleTargets.has(nodeKey)) {
+          inputs.forEach(i => i.classList.remove('hidden-port'));
+          outputs.forEach(o => o.classList.add('hidden-port'));
+        } else {
+          inputs.forEach(i => i.classList.add('hidden-port'));
+          outputs.forEach(o => o.classList.add('hidden-port'));
+        }
+      });
+    }
+
+    function resetNodeCompatibility() {
+      updateNodeCompatibility(null);
+    }
+
+    function getNodeKeyFromCanvasNode(nodeId) {
+      const node = editor.getNodeFromId(nodeId);
+      return node ? node.name : null;
+    }
+
+    function validateConnection(sourceNodeId, targetNodeId) {
+      const sourceNodeKey = getNodeKeyFromCanvasNode(sourceNodeId);
+      const targetNodeKey = getNodeKeyFromCanvasNode(targetNodeId);
+
+      if (!sourceNodeKey || !targetNodeKey) return false;
+
+      return areNodesCompatible(sourceNodeKey, targetNodeKey);
+    }
+
+    function getBindEvent(exportedFlow) {
+      if (!exportedFlow || !exportedFlow.drawflow || !exportedFlow.drawflow.Home || !exportedFlow.drawflow.Home.data) return null;
+
+      const startNodeId = exportedFlow?.meta?.start_node;
+      if (startNodeId) {
+        const startNode = exportedFlow.drawflow.Home.data[startNodeId];
+        if (startNode) {
+          const cat = NODE_DEFINITIONS[startNode.name]?.category;
+          if (cat === 'trigger') {
+            return startNode.name;
+          }
+          if (cat === 'start') {
+            const outs = startNode.outputs || {};
+            for (const key of Object.keys(outs)) {
+              const conns = outs[key]?.connections || [];
+              if (conns.length > 0) {
+                const nextId = conns[0].node;
+                const next = exportedFlow.drawflow.Home.data[nextId];
+                if (next) return next.name;
+              }
+            }
+          }
+        }
+      }
+
+      const nodes = exportedFlow.drawflow.Home.data;
+      let fallbackFirstRoot = null;
+      for (const id of Object.keys(nodes)) {
+        const n = nodes[id];
+        const inputs = n.inputs || {};
+        let incoming = 0;
+        for (const key of Object.keys(inputs)) {
+          incoming += (inputs[key]?.connections || []).length;
+        }
+        if (incoming === 0) {
+          if (!fallbackFirstRoot) fallbackFirstRoot = n;
+          const cat = NODE_DEFINITIONS[n.name]?.category;
+          if (cat === 'start') {
+            const outs = n.outputs || {};
+            for (const ok of Object.keys(outs)) {
+              const conns = outs[ok]?.connections || [];
+              if (conns.length > 0) {
+                const nextId = conns[0].node;
+                const next = nodes[nextId];
+                if (next) return next.name;
+              }
+            }
+          }
+          if (cat === 'trigger') return n.name;
+        }
+      }
+
+      if (fallbackFirstRoot) return fallbackFirstRoot.name;
+      return null;
+    }
+
+    function findStartNodeId(exportedFlow) {
+      try {
+        const nodes = exportedFlow?.drawflow?.Home?.data || {};
+        for (const id of Object.keys(nodes)) {
+          const n = nodes[id];
+          if (NODE_DEFINITIONS[n.name]?.category === 'start') return id;
+        }
+      } catch (e) { }
+      return undefined;
+    }
+
+    function prepareWorkflowData(flowData) {
+      flowData.meta = flowData.meta || {};
+      const maybeStartId = findStartNodeId(flowData);
+      if (maybeStartId) flowData.meta.start_node = maybeStartId;
+
+      const actualEdges = extractActualEdges(flowData);
+      const nodeMetadata = extractNodeMetadata(flowData);
+
+      flowData.meta.edges = actualEdges;
+      flowData.meta.nodes = nodeMetadata;
+
+      return flowData;
+    }
+
+    function extractActualEdges(exportedFlow) {
+      const edges = [];
+      try {
+        const nodes = exportedFlow?.drawflow?.Home?.data || {};
+        for (const nodeId of Object.keys(nodes)) {
+          const node = nodes[nodeId];
+          if (node.outputs) {
+            for (const outputKey of Object.keys(node.outputs)) {
+              const output = node.outputs[outputKey];
+              if (output.connections && Array.isArray(output.connections)) {
+                for (const conn of output.connections) {
+                  edges.push([nodeId, conn.node]);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error extracting edges:', e);
+      }
+      return edges;
+    }
+
+    function extractNodeMetadata(exportedFlow) {
+      const nodeMetadata = {};
+      try {
+        const nodes = exportedFlow?.drawflow?.Home?.data || {};
+        for (const nodeId of Object.keys(nodes)) {
+          const node = nodes[nodeId];
+          const def = NODE_DEFINITIONS[node.name];
+          nodeMetadata[nodeId] = {
+            name: node.name,
+            original_name: node.name,
+            props: node.data || {}
+          };
+        }
+      } catch (e) {
+        console.error('Error extracting node metadata:', e);
+      }
+      return nodeMetadata;
+    }
+
+    const editor = new Drawflow(container);
+    editor.reroute = true;
+    editor.start();
+
+    let dragNodeKey = null;
+    let selectedNodeForConnection = null;
+
+    document.querySelectorAll('.wf-section-item[draggable="true"]').forEach(el => {
+      el.addEventListener('dragstart', ev => {
+        dragNodeKey = el.getAttribute('data-node-key');
+        ev.dataTransfer.setData('node', dragNodeKey);
+      });
+
+      el.addEventListener('click', () => {
+        const nodeKey = el.getAttribute('data-node-key');
+        if (selectedNodeForConnection === nodeKey) {
+          selectedNodeForConnection = null;
+          resetNodeCompatibility();
+        } else {
+          selectedNodeForConnection = nodeKey;
+          updateNodeCompatibility(nodeKey);
+        }
+      });
+    });
+
+    container.addEventListener('dragover', ev => ev.preventDefault());
+    container.addEventListener('drop', ev => {
+      ev.preventDefault();
+      const key = ev.dataTransfer.getData('node') || dragNodeKey;
+      if (!key || !NODE_DEFINITIONS[key]) return;
+      const def = NODE_DEFINITIONS[key];
+      const position = container.getBoundingClientRect();
+      const posX = (ev.clientX - position.left) / editor.zoom;
+      const posY = (ev.clientY - position.top) / editor.zoom;
+      const data = initialDataFor(def);
+      const html = createNodeContentHtml(def, data);
+      editor.addNode(key, def.inputs, def.outputs, posX, posY, key, data, html);
+
+      resetNodeCompatibility();
+      selectedNodeForConnection = null;
+    });
+
+    container.addEventListener('click', ev => {
+      if (ev.target === container || ev.target.id === 'drawflow') {
+        resetNodeCompatibility();
+        resetPortsVisibility();
+        selectedNodeForConnection = null;
+      }
+    });
+
+    function setupNodeInputHandlers(nodeId) {
+      const nodeElement = document.getElementById(`node-${nodeId}`);
+      if (!nodeElement) return;
+      if (nodeElement.getAttribute('data-input-handlers') === 'true') return;
+      
+      const contentNode = nodeElement.querySelector('.drawflow_content_node');
+      if (!contentNode) return;
+      
+      // Handle input changes in real-time
+      contentNode.addEventListener('input', function(e) {
+        const target = e.target;
+        if (target.classList.contains('lf-node-input')) {
+          const fieldKey = target.getAttribute('data-field');
+          const value = target.value;
+          
+          // Update node data
+          const node = editor.getNodeFromId(nodeId);
+          if (node && node.data) {
+            node.data[fieldKey] = value;
+            editor.drawflow.drawflow.Home.data[nodeId].data[fieldKey] = value;
+          }
+        }
+      });
+      
+      // Handle select changes
+      contentNode.addEventListener('change', function(e) {
+        const target = e.target;
+        if (target.classList.contains('lf-node-input')) {
+          const fieldKey = target.getAttribute('data-field');
+          let value;
+          
+          // Handle multi-select for camera dropdown
+          if (target.hasAttribute('multiple')) {
+            value = Array.from(target.selectedOptions).map(opt => opt.value).join(',');
+          } else {
+            value = target.value;
+          }
+          
+          const node = editor.getNodeFromId(nodeId);
+          if (node && node.data) {
+            node.data[fieldKey] = value;
+            editor.drawflow.drawflow.Home.data[nodeId].data[fieldKey] = value;
+          }
+        }
+      });
+      
+      // Prevent node dragging when interacting with inputs
+      contentNode.addEventListener('mousedown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+          e.stopPropagation();
+        }
+      });
+      
+      nodeElement.setAttribute('data-input-handlers', 'true');
+    }
+    
+    function setupAllNodeInputHandlers() {
+      const allNodes = document.querySelectorAll('.drawflow-node[id^="node-"]');
+      allNodes.forEach(nodeElement => {
+        const nodeId = nodeElement.id.replace('node-', '');
+        if (nodeId) {
+          setupNodeInputHandlers(nodeId);
+        }
+      });
+    }
+
+    const originalAddNode = editor.addNode;
+    editor.addNode = function (name, inputs, outputs, posX, posY, className, data, html, typenode) {
+      const nodeId = originalAddNode.call(this, name, inputs, outputs, posX, posY, className, data, html, typenode);
+      const nodeDef = NODE_DEFINITIONS[name];
+      const nodeElement = document.getElementById(`node-${nodeId}`);
+      if (nodeDef && nodeElement) {
+        nodeElement.classList.add(`node-cat-${nodeDef.category}`);
+        // Regenerate HTML with nodeId for inline editing
+        const updatedHtml = createNodeContentHtml(nodeDef, data, nodeId);
+        const contentNode = nodeElement.querySelector('.drawflow_content_node');
+        if (contentNode) {
+          contentNode.innerHTML = updatedHtml;
+        }
+        // Update node data reference
+        if (editor.drawflow.drawflow.Home.data[nodeId]) {
+          editor.drawflow.drawflow.Home.data[nodeId].html = updatedHtml;
+        }
+      }
+      setupNodeInputHandlers(nodeId);
+      
+      // Populate camera dropdowns if this is a camera node
+      if (name === 'camera') {
+        // Multiple attempts to populate as DOM may not be ready immediately
+        const attemptPopulate = (attempt = 1) => {
+          const selects = document.querySelectorAll('.camera-select');
+          if (selects.length > 0) {
+            populateCameraDropdowns();
+          } else if (attempt < 10) {
+            setTimeout(() => attemptPopulate(attempt + 1), 100);
+          }
+        };
+        attemptPopulate();
+      }
+      
+      return nodeId;
+    };
+
+    editor.on('connectionStart', function (connection) {
+      const sourceNodeKey = getNodeKeyFromCanvasNode(connection.output_id);
+      if (sourceNodeKey) {
+        updateNodeCompatibility(sourceNodeKey);
+        showOnlyApplicablePorts(sourceNodeKey);
+      }
+    });
+
+    editor.on('connectionCancel', function () {
+      resetNodeCompatibility();
+      resetPortsVisibility();
+    });
+
+    editor.on('connectionCreated', function (connection) {
+      resetNodeCompatibility();
+      resetPortsVisibility();
+
+      const isValid = validateConnection(connection.output_id, connection.input_id);
+      if (!isValid) {
+        editor.removeSingleConnection(connection.output_id, connection.input_id, connection.output_class, connection.input_class);
+
+        const sourceNode = editor.getNodeFromId(connection.output_id);
+        const targetNode = editor.getNodeFromId(connection.input_id);
+        const sourceDef = NODE_DEFINITIONS[sourceNode.name];
+        const targetDef = NODE_DEFINITIONS[targetNode.name];
+
+        alert(`Invalid connection: "${sourceDef.label}" cannot connect to "${targetDef.label}". Please check the node compatibility rules.`);
+      }
+    });
+
+    editor.on('nodeSelected', function (id) {
+      const nodeKey = getNodeKeyFromCanvasNode(id);
+      if (nodeKey) {
+        updateNodeCompatibility(nodeKey);
+        showOnlyApplicablePorts(nodeKey);
+      }
+    });
+
+    editor.on('nodeUnselected', function () {
+      resetNodeCompatibility();
+      resetPortsVisibility();
+    });
+
+    zoomInBtn.addEventListener('click', () => editor.zoom_in());
+    zoomOutBtn.addEventListener('click', () => editor.zoom_out());
+    zoomResetBtn.addEventListener('click', () => editor.zoom_reset());
+    clearBtn.addEventListener('click', () => {
+      editor.clear();
+    });
+    exportBtn.addEventListener('click', () => {
+      const data = editor.export();
+      prepareWorkflowData(data);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'workflow.json'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    newBtn.addEventListener('click', () => {
+      editor.clear();
+      // Start fresh - user can drag nodes from sidebar
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      const exportedFlow = editor.export();
+      prepareWorkflowData(exportedFlow);
+      
+      const bindEvent = getBindEvent(exportedFlow) || "Unbound";
+      
+      // Get workflow name from input field (user can edit it)
+      const nameInput = document.getElementById('workflow-name-input');
+      const currentName = nameInput ? nameInput.value.trim() : '';
+      
+      const payload = {
+        name: currentName || workflowName || 'Unnamed Workflow',
+        description: window.currentWorkflowDescription || workflowDescription || '',
+        drawflow_data: exportedFlow,
+        bind_to_event: bindEvent,
+      };
+      
+      try {
+        let url = 'http://localhost:8000/api/v1/workflows/';
+        let method = 'POST';
+        
+        // If editing existing workflow
+        if (isEditMode && editWorkflowId) {
+          url = `http://localhost:8000/api/v1/workflows/${editWorkflowId}`;
+          method = 'PUT';
+        }
+        
+        const token = getAuthToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        
+        const res = await fetch(url, {
+          method: method,
+          headers: headers,
+          body: JSON.stringify(payload)
+        });
+        
+        if (res.status === 401) {
+          alert('Session expired. Please login again.');
+          return;
+        }
+        
+        const result = await res.json();
+        
+        if (res.ok) {
+          const message = isEditMode ?
+            `Workflow updated successfully!` :
+            `Workflow created successfully! Workflow ID: ${result.id}`;
+          alert(message);
+          console.log(result);
+          
+          setTimeout(() => {
+            navigateTo('workflow-list.html');
+          }, 1500);
+        } else {
+          alert('Failed to save workflow: ' + (result.detail || 'Unknown error'));
+          console.error(result);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error while saving workflow.');
+      }
+    });
+
+    // Import file handler - updated to use new input handlers
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', async (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const data = parsed && parsed.data ? parsed.data : parsed;
+        editor.clear();
+        editor.import(data);
+        setupAllNodeInputHandlers();
+      } catch (err) {
+        console.error(err);
+        alert('Invalid workflow JSON.');
+      } finally {
+        importFile.value = '';
+      }
+    });
+
+    function addExample() {
+      let lastNodeId = null;
+      const add = (key, x, y, overrides) => {
+        const def = NODE_DEFINITIONS[key];
+        const data = Object.assign(initialDataFor(def), overrides || {});
+        const html = createNodeContentHtml(def, data);
+        lastNodeId = editor.addNode(key, def.inputs, def.outputs, x, y, key, data, html);
+        return lastNodeId;
+      };
+
+      // Example: Start -> Camera -> Agent -> Class Monitor -> Scheduler -> Notification -> End
+      const nStart = add('start', 40, 120, { __label: 'Start' });
+      const nCamera = add('camera', 260, 120, {
+        __label: 'Entry cameras',
+        camera_ids: 'Cam-1, Cam-2'
+      });
+      const nAgent = add('agent', 520, 120, {
+        __label: 'Safety agent',
+        agent_name: 'PPE safety agent',
+        model_provider: 'OpenAI',
+        model_name: 'gpt-4.1-mini'
+      });
+      const nClass = add('classMonitor', 800, 120, {
+        __label: 'PPE classes',
+        classes: 'Person, Helmet, Vest'
+      });
+      const nScheduler = add('scheduler', 1080, 120, {
+        __label: 'Every 1 min',
+        schedule_type: 'Fixed interval',
+        interval_value: 1,
+        interval_unit: 'minutes'
+      });
+      const nNotification = add('notification', 1360, 120, {
+        __label: 'Ops email',
+        channel: 'Email',
+        subject: 'Safety alert from camera workflow'
+      });
+      const nEnd = add('end', 1640, 120, { __label: 'End' });
+
+      editor.addConnection(nStart, nCamera, 'output_1', 'input_1');
+      editor.addConnection(nCamera, nAgent, 'output_1', 'input_1');
+      editor.addConnection(nAgent, nClass, 'output_1', 'input_1');
+      editor.addConnection(nClass, nScheduler, 'output_1', 'input_1');
+      editor.addConnection(nScheduler, nNotification, 'output_1', 'input_1');
+      editor.addConnection(nNotification, nEnd, 'output_1', 'input_1');
+
+      setupAllNodeInputHandlers();
+    }
+
+    async function loadWorkflowForEdit(workflowId) {
+      try {
+        const token = getAuthToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        
+        const response = await fetch(`http://localhost:8000/api/v1/workflows/${workflowId}`, {
+          method: 'GET',
+          headers: headers
+        });
+        
+        if (response.status === 401) {
+          alert('Session expired. Please login again.');
+          return false;
+        }
+
+        if (response.ok) {
+          const workflowData = await response.json();
+          console.log('Loading workflow:', workflowData);
+
+          window.currentWorkflowName = workflowData.name || '';
+          window.currentWorkflowOwner = workflowOwner || '';
+          window.currentWorkflowDescription = workflowData.description || '';
+
+          // Update the name input field
+          const nameInput = document.getElementById('workflow-name-input');
+          if (nameInput && workflowData.name) {
+            nameInput.value = workflowData.name;
+          }
+
+          editor.clear();
+
+          if (workflowData.drawflow_data) {
+            editor.import(workflowData.drawflow_data);
+            setupAllNodeInputHandlers();
+          }
+
+          document.title = `Edit Workflow: ${window.currentWorkflowName}`;
+
+          return true;
+        } else {
+          console.error('Failed to load workflow:', response.statusText);
+          alert('Failed to load workflow for editing');
+          return false;
+        }
+      } catch (error) {
+        console.error('Error loading workflow:', error);
+        alert('Error loading workflow for editing');
+        return false;
+      }
+    }
+
+    if (isEditMode && editWorkflowId) {
+      loadWorkflowForEdit(editWorkflowId);
+    }
+    // For new workflow, leave the canvas blank - user can drag nodes from sidebar
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      initWorkflowEditor().catch(console.error);
+    });
+  } else {
+    setTimeout(function () {
+      initWorkflowEditor().catch(console.error);
+    }, 0);
+  }
+})();
+        </script>
+  </div>
+</body>
+
+</html>
+
