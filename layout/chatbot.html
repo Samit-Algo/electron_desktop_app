@@ -112,23 +112,23 @@
           </button>
         </div>
         <!-- Text input area (autosizes via JS) -->
-        <textarea class="form-control fs-9" placeholder="Message Agent..." id="chatbot-input" rows="1"></textarea>
+        <textarea class="form-control fs-9" placeholder="Message Plan..." id="chatbot-input" rows="1"></textarea>
 
         <!-- Controls area - Mode selector and action buttons -->
         <div class="chatbot-controls-area">
           <!-- Left: Mode selector and auto toggle -->
           <div class="chatbot-btn-group">
-            <!-- Agent/General mode dropdown -->
+            <!-- Plan / Ask & Task mode dropdown -->
             <div class="dropdown">
               <button class="btn chatbot-pill-btn dropdown-toggle dropdown-caret-none" type="button"
                 id="chatbot-mode-dropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                <span class="fas fa-infinity fs-10"></span>
-                <span id="chatbot-mode-label">Agent</span>
+                <span id="chatbot-mode-icon" class="fas fa-infinity fs-10" aria-hidden="true"></span>
+                <span id="chatbot-mode-label">Plan</span>
                 <span class="fas fa-chevron-down fs-11 opacity-50"></span>
               </button>
               <ul class="dropdown-menu" aria-labelledby="chatbot-mode-dropdown">
-                <li><a class="dropdown-item" href="#!" data-chatbot-mode="general">General</a></li>
-                <li><a class="dropdown-item" href="#!" data-chatbot-mode="agent">Agent</a></li>
+                <li><a class="dropdown-item" href="#!" data-chatbot-mode="general">Ask & Task</a></li>
+                <li><a class="dropdown-item" href="#!" data-chatbot-mode="agent">Plan</a></li>
               </ul>
             </div>
 

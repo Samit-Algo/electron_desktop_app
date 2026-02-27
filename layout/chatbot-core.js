@@ -348,6 +348,7 @@
     const textarea = document.getElementById('chatbot-input');
     const sendBtn = chatbotOffcanvas?.querySelector?.('.send-btn');
     const modeLabel = document.getElementById('chatbot-mode-label');
+    const modeIcon = document.getElementById('chatbot-mode-icon');
     const voiceBtn = document.getElementById('chatbot-voice-btn');
 
     if (!chatbotOffcanvas || !tabsEl || !messagesEl) return;
@@ -356,14 +357,45 @@
     ensureMarkdownDeps();
     ensureReteFlowRenderer();
 
-    // Store initial empty template for new tabs
-    const initialTemplate = messagesEl.innerHTML;
+    // Get display name for welcome message (visionAPI.user or #user-name or fallback)
+    function getChatbotUsername() {
+      const u = window.visionAPI?.user;
+      if (u && (u.full_name || u.email)) return u.full_name || u.email;
+      const el = document.getElementById('user-name');
+      if (el && el.textContent && el.textContent.trim()) return el.textContent.trim();
+      return 'User';
+    }
+
+    // Build welcome message HTML (shown in center until first message is sent)
+    function getWelcomeHtml() {
+      const name = getChatbotUsername();
+      const greeting = getTimeBasedGreeting();
+      return (
+        '<div class="chatbot-welcome-wrap" data-chatbot-welcome>'
+        + '<p class="chatbot-welcome-msg">'
+        + '<span class="chatbot-welcome-icon fas fa-asterisk" aria-hidden="true"></span>'
+        + escapeHtml(greeting + ', ' + name)
+        + '</p></div>'
+      );
+    }
+
+    function getTimeBasedGreeting() {
+      const h = new Date().getHours();
+      if (h < 12) return 'Good morning';
+      if (h < 17) return 'Good afternoon';
+      return 'Good evening';
+    }
+
+    // Initial content for new/empty tab (welcome only; cleared on first send)
+    function getInitialTemplate() {
+      return getWelcomeHtml();
+    }
 
     const MODES = /** @type {const} */ (['general', 'agent']);
 
     // Tab management state
     let tabCounter = 0;
-    const emptyModeState = () => ({ sessionId: null, html: initialTemplate, started: false, cameraId: null, videoPath: null, attachedVideoFilename: null });
+    const emptyModeState = () => ({ sessionId: null, html: getInitialTemplate(), started: false, cameraId: null, videoPath: null, attachedVideoFilename: null });
     const tabs = [];
     let activeId = null;
     let thinkingToProcessingTimer = null;
@@ -389,6 +421,17 @@
       return m === 'agent' ? 'agent' : 'general';
     }
 
+    // Update mode dropdown label and icon to match current mode (single source of truth)
+    function updateModeUI() {
+      const mode = getMode();
+      const isPlan = mode === 'agent';
+      if (modeLabel) modeLabel.textContent = isPlan ? 'Plan' : 'Ask & Task';
+      if (modeIcon) {
+        const cls = isPlan ? 'fas fa-infinity fs-10' : 'fa-regular fa-message fs-10';
+        modeIcon.setAttribute('class', cls);
+      }
+    }
+
     // Switch between general and agent modes
     function setMode(nextMode) {
       const mode = nextMode === 'agent' ? 'agent' : 'general';
@@ -396,7 +439,7 @@
       const active = getActive();
       if (!active) {
         chatbotOffcanvas.dataset.chatbotMode = mode;
-        if (modeLabel) modeLabel.textContent = mode === 'agent' ? 'Agent' : 'General';
+        updateModeUI();
         return;
       }
 
@@ -404,10 +447,10 @@
       active.mode[prev].html = messagesEl.innerHTML;
 
       chatbotOffcanvas.dataset.chatbotMode = mode;
-      if (modeLabel) modeLabel.textContent = mode === 'agent' ? 'Agent' : 'General';
+      updateModeUI();
 
       // Load new mode's HTML for this tab
-      messagesEl.innerHTML = active.mode[mode].html || initialTemplate;
+      messagesEl.innerHTML = active.mode[mode].html || getInitialTemplate();
 
       if (typeof updateUploadVideoButtonVisibility === 'function') updateUploadVideoButtonVisibility();
       if (typeof updateAttachedVideoIndicator === 'function') updateAttachedVideoIndicator();
@@ -455,7 +498,7 @@
       saveActiveHtml();
       activeId = id;
       const mode = getMode();
-      messagesEl.innerHTML = target.mode[mode].html || initialTemplate;
+      messagesEl.innerHTML = target.mode[mode].html || getInitialTemplate();
       renderTabs();
       if (typeof updateAttachedVideoIndicator === 'function') updateAttachedVideoIndicator();
     }
@@ -475,7 +518,7 @@
       });
       activeId = id;
       renderTabs();
-      messagesEl.innerHTML = initialTemplate;
+      messagesEl.innerHTML = getInitialTemplate();
     }
 
     // Close a tab (always keeps at least one tab open)
@@ -487,7 +530,7 @@
         only.mode.general = emptyModeState();
         only.mode.agent = emptyModeState();
         activeId = only.id;
-        messagesEl.innerHTML = initialTemplate;
+        messagesEl.innerHTML = getInitialTemplate();
         renderTabs();
         return;
       }
@@ -507,7 +550,7 @@
       const next = tabs[Math.max(0, idx - 1)];
       activeId = next.id;
       const mode = getMode();
-      messagesEl.innerHTML = next.mode[mode].html || initialTemplate;
+      messagesEl.innerHTML = next.mode[mode].html || getInitialTemplate();
       renderTabs();
     }
 
@@ -1211,7 +1254,7 @@
       if (!active) return;
       const mode = getMode();
       active.mode[mode] = emptyModeState();
-      messagesEl.innerHTML = initialTemplate;
+      messagesEl.innerHTML = getInitialTemplate();
       saveActiveHtml();
     });
 
@@ -1354,9 +1397,9 @@
       });
     }
 
-    // Initialize mode label and create first tab
+    // Initialize mode label/icon and create first tab
     chatbotOffcanvas.dataset.chatbotMode = chatbotOffcanvas.dataset.chatbotMode || 'general';
-    if (modeLabel) modeLabel.textContent = getMode() === 'agent' ? 'Agent' : 'General';
+    updateModeUI();
 
     // Initialize voice module with dependencies
     const voiceDeps = {
