@@ -976,6 +976,30 @@ class VisionAPIService {
   async getPersonGalleryList() {
     return await this.request('/api/v1/person-gallery/list');
   }
+
+  /**
+   * Person Gallery: fetch one gallery image as an object URL (auth-aware).
+   * Used for showing small thumbnails in the UI.
+   * @param {string} personId
+   * @param {number} index
+   * @returns {Promise<string>} object URL for use as <img src>
+   */
+  async fetchPersonImageObjectUrl(personId, index = 0) {
+    if (!this.token) throw new Error('Not authenticated');
+    const params = new URLSearchParams();
+    if (index) params.set('index', String(index));
+    const url = `${this.baseURL}/api/v1/person-gallery/image/${encodeURIComponent(personId)}${params.toString() ? `?${params.toString()}` : ''}`;
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${this.token}` } });
+    if (res.status === 401) {
+      this.logout();
+      throw new Error('Session expired. Please login again.');
+    }
+    if (!res.ok) {
+      throw new Error('Failed to load person image');
+    }
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  }
 }
 
 // Create singleton instance
