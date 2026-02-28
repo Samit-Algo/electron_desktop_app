@@ -18,11 +18,16 @@
     <div class="content">
       <!-- Page Header -->
       <div class="row gy-3 mb-4 align-items-center">
-        <div class="col-12">
+        <div class="col-12 col-md-8">
           <h2 class="mb-2 text-body-emphasis">
             <i class="fas fa-users me-2 text-primary"></i>Person Gallery
           </h2>
           <p class="text-body-tertiary mb-0">People registered for face recognition in live video. Click a card to view all uploaded photos.</p>
+        </div>
+        <div class="col-12 col-md-4 text-md-end">
+          <button type="button" class="btn btn-phoenix-primary btn-sm" id="chatbot-find-person-btn">
+            <i class="fas fa-user-plus me-2"></i>Add Person
+          </button>
         </div>
       </div>
 
@@ -40,7 +45,7 @@
           <div class="card-body text-center py-5">
             <i class="fas fa-user-slash text-body-tertiary fs-1 mb-3"></i>
             <h5 class="text-body-emphasis">No persons in gallery</h5>
-            <p class="text-body-tertiary mb-0">Add people from the chat panel using <strong>Find Person in Live Video</strong> (upload at least 4 photos per person).</p>
+            <p class="text-body-tertiary mb-0">Use the <strong>Add Person to Gallery</strong> button above to add people (upload at least 4 photos per person).</p>
           </div>
         </div>
       </div>
@@ -66,6 +71,48 @@
         </div>
         <div id="person-detail-images" class="row g-4 d-none">
           <!-- One card per image, injected by JS -->
+        </div>
+      </div>
+
+      <!-- Find Person modal: upload reference photos for live video detection (moved from chat layout) -->
+      <div class="modal fade" id="find-person-modal" tabindex="-1" aria-labelledby="find-person-modal-label" aria-hidden="true" data-bs-backdrop="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="find-person-modal-label">
+                <span class="fas fa-user-plus me-2"></span>Add Person Form
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <p class="text-body-tertiary small mb-3">Upload at least 4 photos per person for accurate recognition. Each photo must show one clear face (different angles or lighting is better).</p>
+              <form id="find-person-form">
+                <div class="mb-3">
+                  <label for="find-person-name" class="form-label">Person's name</label>
+                  <input type="text" class="form-control" id="find-person-name" name="name" placeholder="e.g. sachin" required maxlength="200" autocomplete="off">
+                </div>
+                <div class="mb-3">
+                  <label for="find-person-existing" class="form-label">Existing persons in gallery</label>
+                  <select class="form-select" id="find-person-existing">
+                    <option value="">Select a person from the list (optional)</option>
+                  </select>
+                  <div class="form-text">Choosing one will fill the name field above.</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Photos (select at least 4, one face per photo)</label>
+                  <input type="file" class="form-control" id="find-person-file" name="files" accept="image/jpeg,image/png,image/webp" multiple required>
+                  <div class="form-text">Select 4 or more images. JPG, PNG or WebP. Each image must contain exactly one detectable face.</div>
+                </div>
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-phoenix-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-phoenix-primary" id="find-person-submit-btn">
+                <span class="find-person-btn-text">Upload</span>
+                <span class="find-person-spinner spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -248,6 +295,128 @@
       showPersonList();
     });
   }
+
+  // Find Person modal: wire button, load existing persons, handle submit (runs when this page is shown)
+  function initFindPersonModal() {
+    const findPersonBtn = document.getElementById('chatbot-find-person-btn');
+    const modalEl = document.getElementById('find-person-modal');
+    const formEl = document.getElementById('find-person-form');
+    const nameInput = document.getElementById('find-person-name');
+    const existingSelect = document.getElementById('find-person-existing');
+    const fileInput = document.getElementById('find-person-file');
+    const submitBtn = document.getElementById('find-person-submit-btn');
+
+    if (!findPersonBtn || !modalEl || !formEl || !submitBtn) return;
+
+    let galleryLoaded = false;
+
+    async function loadPersonGalleryIntoSelect() {
+      if (!existingSelect || !window.visionAPI || typeof window.visionAPI.getPersonGalleryList !== 'function') return;
+      if (galleryLoaded && existingSelect.options.length > 1) return;
+      existingSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Select a person from the list (optional)';
+      existingSelect.appendChild(placeholder);
+      try {
+        const people = await window.visionAPI.getPersonGalleryList();
+        if (!Array.isArray(people) || people.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = 'No persons found in gallery yet';
+          existingSelect.appendChild(opt);
+          return;
+        }
+        people
+          .slice()
+          .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+          .forEach(function (person) {
+            const opt = document.createElement('option');
+            opt.value = person.name || '';
+            opt.textContent = person.name || '(unnamed)';
+            existingSelect.appendChild(opt);
+          });
+        galleryLoaded = true;
+      } catch (err) {
+        const toast = window.VisionToast || window.toastService;
+        if (toast && typeof toast.error === 'function') toast.error(err.message || 'Failed to load person list.');
+      }
+    }
+
+    findPersonBtn.addEventListener('click', function () {
+      if (typeof bootstrap === 'undefined') return;
+      const modal = new bootstrap.Modal(modalEl);
+      modal.show();
+      if (nameInput) nameInput.value = '';
+      if (fileInput) fileInput.value = '';
+      if (existingSelect) existingSelect.value = '';
+      loadPersonGalleryIntoSelect();
+    });
+
+    if (existingSelect) {
+      existingSelect.addEventListener('change', function () {
+        const selectedName = existingSelect.value || '';
+        if (selectedName && nameInput) nameInput.value = selectedName;
+      });
+    }
+
+    submitBtn.addEventListener('click', function () {
+      var name = nameInput ? nameInput.value.trim() : '';
+      var files = fileInput && fileInput.files ? fileInput.files : [];
+      var minPhotos = 4;
+      var toast = window.VisionToast || window.toastService;
+
+      if (!name) {
+        if (toast && toast.warning) toast.warning('Please enter the person\'s name.');
+        else alert('Please enter the person\'s name.');
+        if (nameInput) nameInput.focus();
+        return;
+      }
+      if (files.length < minPhotos) {
+        if (toast && toast.warning) toast.warning('Please select at least ' + minPhotos + ' photos for accurate recognition.');
+        else alert('Please select at least ' + minPhotos + ' photos.');
+        if (fileInput) fileInput.focus();
+        return;
+      }
+      if (!window.visionAPI) {
+        if (toast && toast.error) toast.error('API service not available.');
+        else alert('API service not available.');
+        return;
+      }
+
+      var btnText = submitBtn.querySelector('.find-person-btn-text');
+      var spinner = submitBtn.querySelector('.find-person-spinner');
+      if (btnText) btnText.classList.add('d-none');
+      if (spinner) spinner.classList.remove('d-none');
+      submitBtn.disabled = true;
+
+      window.visionAPI.uploadReferencePhotos(name, files)
+        .then(function (res) {
+          if (toast && toast.success) {
+            toast.success((res.image_count || files.length) + ' photos uploaded for ' + name + '. You can now create an agent like "alert me when ' + name + ' appears on camera 1".');
+          } else {
+            alert('Uploaded ' + (res.image_count || files.length) + ' photos for ' + name);
+          }
+          if (typeof bootstrap !== 'undefined') {
+            var modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+          }
+          if (formEl) formEl.reset();
+          renderGallery();
+        })
+        .catch(function (err) {
+          if (toast && toast.error) toast.error(err.message || 'Upload failed.');
+          else alert(err.message || 'Upload failed.');
+        })
+        .finally(function () {
+          if (btnText) btnText.classList.remove('d-none');
+          if (spinner) spinner.classList.add('d-none');
+          submitBtn.disabled = false;
+        });
+    });
+  }
+
+  initFindPersonModal();
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
