@@ -1505,91 +1505,41 @@
     const existingSelect = document.getElementById('find-person-existing');
     const fileInput = document.getElementById('find-person-file');
     const submitBtn = document.getElementById('find-person-submit-btn');
-    const thumbsContainer = document.getElementById('find-person-gallery-thumbs');
 
     if (!findPersonBtn || !modalEl || !formEl || !submitBtn) return;
 
     let galleryLoaded = false;
 
     async function loadPersonGalleryIntoSelect() {
-      if (!existingSelect || !window.visionAPI || typeof window.visionAPI.getPersonGalleryList !== 'function') {
-        return;
-      }
-      if (galleryLoaded && existingSelect.options.length > 1) {
-        return;
-      }
-      // Clear existing options except first placeholder
+      if (!existingSelect || !window.visionAPI || typeof window.visionAPI.getPersonGalleryList !== 'function') return;
+      if (galleryLoaded && existingSelect.options.length > 1) return;
       existingSelect.innerHTML = '';
       const placeholder = document.createElement('option');
       placeholder.value = '';
       placeholder.textContent = 'Select a person from the list (optional)';
       existingSelect.appendChild(placeholder);
-
       try {
         const people = await window.visionAPI.getPersonGalleryList();
-        if (thumbsContainer) {
-          thumbsContainer.innerHTML = '';
-        }
         if (!Array.isArray(people) || people.length === 0) {
           const opt = document.createElement('option');
           opt.value = '';
           opt.textContent = 'No persons found in gallery yet';
           existingSelect.appendChild(opt);
-          if (thumbsContainer) {
-            const emptyMsg = document.createElement('div');
-            emptyMsg.className = 'text-body-tertiary';
-            emptyMsg.textContent = 'No persons uploaded yet.';
-            thumbsContainer.appendChild(emptyMsg);
-          }
           return;
         }
         people
           .slice()
           .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
-          .forEach(person => {
+          .forEach(function (person) {
             const opt = document.createElement('option');
             opt.value = person.name || '';
             opt.textContent = person.name || '(unnamed)';
             existingSelect.appendChild(opt);
-
-            if (thumbsContainer) {
-              const item = document.createElement('div');
-              item.className = 'd-flex flex-column align-items-center';
-
-              const img = document.createElement('img');
-              img.alt = person.name || '';
-              img.className = 'rounded border';
-              img.style.width = '40px';
-              img.style.height = '40px';
-              img.style.objectFit = 'cover';
-
-              // Load image via API with Authorization header
-              if (window.visionAPI && typeof window.visionAPI.fetchPersonImageObjectUrl === 'function') {
-                (async () => {
-                  try {
-                    const objectUrl = await window.visionAPI.fetchPersonImageObjectUrl(person.id);
-                    img.src = objectUrl;
-                  } catch (e) {
-                    // Silent failure; leave image empty if unauthorized or missing
-                  }
-                })();
-              }
-
-              const label = document.createElement('div');
-              label.className = 'mt-1 text-truncate';
-              label.style.maxWidth = '60px';
-              label.textContent = person.name || '';
-
-              item.appendChild(img);
-              item.appendChild(label);
-              thumbsContainer.appendChild(item);
-            }
           });
         galleryLoaded = true;
       } catch (err) {
-        const msg = err && err.message ? err.message : 'Failed to load person list.';
         if (window.VisionToast && typeof window.VisionToast.error === 'function') {
-          window.VisionToast.error(msg);
+          window.VisionToast.error(err.message || 'Failed to load person list.');
         }
       }
     }
@@ -1600,18 +1550,14 @@
       modal.show();
       if (nameInput) nameInput.value = '';
       if (fileInput) fileInput.value = '';
-      if (existingSelect) {
-        existingSelect.value = '';
-      }
+      if (existingSelect) existingSelect.value = '';
       loadPersonGalleryIntoSelect();
     });
 
     if (existingSelect) {
       existingSelect.addEventListener('change', function () {
         const selectedName = existingSelect.value || '';
-        if (selectedName && nameInput) {
-          nameInput.value = selectedName;
-        }
+        if (selectedName && nameInput) nameInput.value = selectedName;
       });
     }
 
