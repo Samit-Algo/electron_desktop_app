@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Person Gallery - Vision AI</title>
+
+  <!-- Layout Loader - Must be loaded early -->
+  <script src="../custom_js/layout-loader.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+  <!-- Page Content Container - This will be replaced by layout loader -->
+  <div id="page-content" style="display:none;">
+    <div class="content">
+      <!-- Page Header -->
+      <div class="row gy-3 mb-4 align-items-center">
+        <div class="col-12">
+          <h2 class="mb-2 text-body-emphasis">
+            <i class="fas fa-users me-2 text-primary"></i>Person Gallery
+          </h2>
+          <p class="text-body-tertiary mb-0">People registered for face recognition in live video. Click a card to view all uploaded photos.</p>
+        </div>
+      </div>
+
+      <!-- Loading state -->
+      <div id="person-gallery-loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-body-tertiary mt-2 mb-0">Loading person gallery...</p>
+      </div>
+
+      <!-- Empty state -->
+      <div id="person-gallery-empty" class="d-none">
+        <div class="card border border-translucent">
+          <div class="card-body text-center py-5">
+            <i class="fas fa-user-slash text-body-tertiary fs-1 mb-3"></i>
+            <h5 class="text-body-emphasis">No persons in gallery</h5>
+            <p class="text-body-tertiary mb-0">Add people from the chat panel using <strong>Find Person in Live Video</strong> (upload at least 4 photos per person).</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Person list: one card per person (click to see that person's images only) -->
+      <div id="person-gallery-grid" class="row g-4 d-none">
+        <!-- Person cards injected by JS -->
+      </div>
+
+      <!-- Detail view: only this person's images, each in its own card (no modal) -->
+      <div id="person-detail-view" class="d-none">
+        <div class="d-flex align-items-center gap-2 mb-4">
+          <button type="button" class="btn btn-phoenix-secondary btn-sm" id="person-detail-back">
+            <i class="fas fa-arrow-left me-1"></i>Back to gallery
+          </button>
+        </div>
+        <h5 class="text-body-emphasis mb-2">
+          <i class="fas fa-user me-2 text-primary"></i><span id="person-detail-name">—</span>
+        </h5>
+        <p class="text-body-tertiary small mb-4" id="person-detail-meta">—</p>
+        <div id="person-detail-images-loading" class="text-center py-4">
+          <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        </div>
+        <div id="person-detail-images" class="row g-4 d-none">
+          <!-- One card per image, injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <script type="text/visionai-page-script">
+(function () {
+  'use strict';
+
+  const loadingEl = document.getElementById('person-gallery-loading');
+  const emptyEl = document.getElementById('person-gallery-empty');
+  const gridEl = document.getElementById('person-gallery-grid');
+  const detailViewEl = document.getElementById('person-detail-view');
+  const detailBackBtn = document.getElementById('person-detail-back');
+  const detailNameEl = document.getElementById('person-detail-name');
+  const detailMetaEl = document.getElementById('person-detail-meta');
+  const detailImagesEl = document.getElementById('person-detail-images');
+  const detailImagesLoadingEl = document.getElementById('person-detail-images-loading');
+
+  function showState(loading, empty, grid, detailView) {
+    if (loadingEl) loadingEl.classList.toggle('d-none', !loading);
+    if (emptyEl) emptyEl.classList.toggle('d-none', !empty);
+    if (gridEl) gridEl.classList.toggle('d-none', !grid);
+    if (detailViewEl) detailViewEl.classList.toggle('d-none', !detailView);
+  }
+
+  async function loadMainPhotoUrl(personId, index) {
+    index = index === undefined ? 0 : index;
+    if (!window.visionAPI || typeof window.visionAPI.fetchPersonImageObjectUrl !== 'function') return null;
+    try {
+      return await window.visionAPI.fetchPersonImageObjectUrl(personId, index);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function renderGallery() {
+    showState(true, false, false, false);
+
+    if (!window.visionAPI || typeof window.visionAPI.getPersonGalleryList !== 'function') {
+      showState(false, true, false, false);
+      return;
+    }
+
+    try {
+      const people = await window.visionAPI.getPersonGalleryList();
+      if (!Array.isArray(people) || people.length === 0) {
+        showState(false, true, false, false);
+        return;
+      }
+
+      const sorted = people.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+      gridEl.innerHTML = '';
+
+      for (const person of sorted) {
+        const col = document.createElement('div');
+        col.className = 'col-sm-6 col-md-4 col-lg-3';
+        const card = document.createElement('div');
+        card.className = 'card h-100 shadow-sm border border-translucent';
+        card.style.cursor = 'pointer';
+        card.setAttribute('data-person-id', person.id);
+        card.setAttribute('data-person-name', person.name || '');
+        card.setAttribute('data-person-count', String(person.image_count || 0));
+
+        const imgWrap = document.createElement('div');
+        imgWrap.className = 'card-img-top position-relative bg-body-secondary';
+        imgWrap.style.height = '180px';
+        imgWrap.style.overflow = 'hidden';
+        const img = document.createElement('img');
+        img.className = 'w-100 h-100';
+        img.alt = person.name || 'Person';
+        img.style.objectFit = 'cover';
+        imgWrap.appendChild(img);
+
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body py-3';
+        const nameEl = document.createElement('h6');
+        nameEl.className = 'card-title mb-1 text-body-emphasis';
+        nameEl.textContent = person.name || '(unnamed)';
+        const meta = document.createElement('p');
+        meta.className = 'mb-0 small text-body-tertiary';
+        meta.textContent = (person.image_count || 0) + ' photo(s)';
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'badge ' + (person.status === 'active' ? 'bg-success' : 'bg-warning text-dark') + ' mt-1';
+        statusBadge.textContent = person.status === 'active' ? 'Active' : 'Incomplete';
+        cardBody.appendChild(nameEl);
+        cardBody.appendChild(meta);
+        cardBody.appendChild(statusBadge);
+
+        card.appendChild(imgWrap);
+        card.appendChild(cardBody);
+        col.appendChild(card);
+        gridEl.appendChild(col);
+
+        (async function () {
+          const url = await loadMainPhotoUrl(person.id, 0);
+          if (url) img.src = url;
+          else {
+            img.style.background = 'var(--phoenix-body-secondary)';
+            img.alt = 'No photo';
+          }
+        })();
+
+        card.addEventListener('click', function () {
+          openPersonDetail(person);
+        });
+      }
+
+      showState(false, false, true, false);
+    } catch (err) {
+      console.error('Person gallery load error:', err);
+      showState(false, true, false, false);
+    }
+  }
+
+  function showPersonList() {
+    showState(false, false, true, false);
+  }
+
+  async function openPersonDetail(person) {
+    if (!detailViewEl || !detailNameEl || !detailMetaEl || !detailImagesEl) return;
+    detailNameEl.textContent = person.name || '(unnamed)';
+    detailMetaEl.textContent = (person.image_count || 0) + ' photo(s) • ' + (person.status === 'active' ? 'Active' : 'Incomplete');
+    detailImagesEl.innerHTML = '';
+    detailImagesEl.classList.add('d-none');
+    detailImagesLoadingEl.classList.remove('d-none');
+
+    showState(false, false, false, true);
+
+    const count = Math.max(0, parseInt(person.image_count, 10) || 0);
+    if (count === 0) {
+      detailImagesLoadingEl.classList.add('d-none');
+      detailImagesEl.classList.remove('d-none');
+      detailImagesEl.innerHTML = '<div class="col-12"><p class="text-body-tertiary small mb-0">No images for this person.</p></div>';
+      return;
+    }
+
+    for (let i = 0; i < count; i++) {
+      const col = document.createElement('div');
+      col.className = 'col-sm-6 col-md-4 col-lg-3';
+      const card = document.createElement('div');
+      card.className = 'card h-100 shadow-sm border border-translucent';
+      const imgWrap = document.createElement('div');
+      imgWrap.className = 'card-img-top position-relative bg-body-secondary';
+      imgWrap.style.height = '180px';
+      imgWrap.style.overflow = 'hidden';
+      const img = document.createElement('img');
+      img.className = 'w-100 h-100';
+      img.style.objectFit = 'cover';
+      img.alt = (person.name || 'Person') + ' photo ' + (i + 1);
+      imgWrap.appendChild(img);
+      const cardBody = document.createElement('div');
+      cardBody.className = 'card-body py-2';
+      const label = document.createElement('p');
+      label.className = 'mb-0 small text-body-tertiary';
+      label.textContent = 'Photo ' + (i + 1);
+      cardBody.appendChild(label);
+      card.appendChild(imgWrap);
+      card.appendChild(cardBody);
+      col.appendChild(card);
+      detailImagesEl.appendChild(col);
+
+      (async function (idx) {
+        try {
+          if (window.visionAPI && typeof window.visionAPI.fetchPersonImageObjectUrl === 'function') {
+            const url = await window.visionAPI.fetchPersonImageObjectUrl(person.id, idx);
+            img.src = url;
+          }
+        } catch (e) {
+          img.alt = 'Failed to load';
+        }
+      })(i);
+    }
+
+    detailImagesLoadingEl.classList.add('d-none');
+    detailImagesEl.classList.remove('d-none');
+  }
+
+  if (detailBackBtn) {
+    detailBackBtn.addEventListener('click', function () {
+      showPersonList();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      renderGallery();
+    });
+  } else {
+    renderGallery();
+  }
+})();
+    </script>
+  </div>
+</body>
+
+</html>
