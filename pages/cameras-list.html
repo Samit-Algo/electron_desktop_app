@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cameras - Vision AI</title>
+    <script src="../custom_js/layout-loader.js"></script>
+</head>
+<body>
+    <div id="page-content" style="display:none;">
+        <div class="content">
+            <nav class="mb-3" aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="dashboard.html">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Cameras</li>
+                </ol>
+            </nav>
+
+            <div class="row gx-6 gy-3 mb-4 align-items-center">
+                <div class="col-auto">
+                    <h2 class="mb-0">Cameras<span class="fw-normal text-body-tertiary ms-3">(<span id="vision-cameras-count">0</span>)</span></h2>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-9" id="vision-cameras-list-grid">
+                <!-- Camera cards injected by cameras-list.js -->
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .vision-camera-card {
+            cursor: pointer;
+            transition: box-shadow 0.2s ease, transform 0.15s ease;
+        }
+        .vision-camera-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .vision-camera-card .card-body { min-height: 100px; }
+    </style>
+
+</body>
+</html>

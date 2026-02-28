@@ -348,7 +348,6 @@
     const textarea = document.getElementById('chatbot-input');
     const sendBtn = chatbotOffcanvas?.querySelector?.('.send-btn');
     const modeLabel = document.getElementById('chatbot-mode-label');
-    const modeIcon = document.getElementById('chatbot-mode-icon');
     const voiceBtn = document.getElementById('chatbot-voice-btn');
 
     if (!chatbotOffcanvas || !tabsEl || !messagesEl) return;
@@ -421,15 +420,15 @@
       return m === 'agent' ? 'agent' : 'general';
     }
 
-    // Update mode dropdown label and icon to match current mode (single source of truth)
+    // Update mode dropdown label and icon in chat footer: show one of two icons (Plan = infinity, Ask & Task = message)
     function updateModeUI() {
       const mode = getMode();
       const isPlan = mode === 'agent';
       if (modeLabel) modeLabel.textContent = isPlan ? 'Plan' : 'Ask & Task';
-      if (modeIcon) {
-        const cls = isPlan ? 'fas fa-infinity fs-10' : 'fa-regular fa-message fs-10';
-        modeIcon.setAttribute('class', cls);
-      }
+      var planIcon = document.getElementById('chatbot-mode-icon-plan');
+      var askIcon = document.getElementById('chatbot-mode-icon-ask');
+      if (planIcon) planIcon.style.display = isPlan ? '' : 'none';
+      if (askIcon) askIcon.style.display = isPlan ? 'none' : '';
     }
 
     // Switch between general and agent modes
@@ -655,39 +654,54 @@
       const ruleId = summary.rule_id || '—';
       const config = summary.agent_rule_config || {};
       const configEntries = typeof config === 'object' && config !== null ? Object.entries(config) : [];
+
+      // Config field icon map for common keys
+      const fieldIconMap = {
+        fps: 'fa-gauge-high', confidence: 'fa-sliders', run_mode: 'fa-rotate',
+        alert_cooldown_seconds: 'fa-bell-slash', confidence_threshold: 'fa-filter',
+        confirm_frames: 'fa-film', detectable_classes: 'fa-tags',
+        camera_id: 'fa-video', start_time: 'fa-clock', end_time: 'fa-clock-rotate-left',
+        model: 'fa-microchip', zone: 'fa-draw-polygon', fps_limit: 'fa-gauge',
+        interval_minutes: 'fa-timer', check_duration_seconds: 'fa-stopwatch',
+      };
+
       const configRowsHtml = configEntries.length
-        ? configEntries
-            .map(
-              function (kv) {
-                const k = escapeHtml(String(kv[0]));
-                const v = escapeHtml(formatConfigValue(kv[1]));
-                return `<div class="d-flex flex-wrap align-items-baseline gap-1 py-1 border-bottom border-translucent"><span class="fw-semibold text-body-emphasis fs-9">${k}</span><span class="text-body-tertiary fs-9">${v}</span></div>`;
-              }
-            )
-            .join('')
-        : `<div class="py-1 text-body-tertiary fs-9">${escapeHtml(typeof config === 'object' ? 'No configuration' : formatConfigValue(config))}</div>`;
+        ? configEntries.map(function (kv) {
+            const k = escapeHtml(String(kv[0]));
+            const v = escapeHtml(formatConfigValue(kv[1]));
+            const icon = fieldIconMap[kv[0]] || 'fa-circle-dot';
+            return `
+              <div class="chatbot-approval-config-row">
+                <span class="chatbot-approval-config-icon"><i class="fa-solid ${icon}"></i></span>
+                <span class="chatbot-approval-config-key">${k}</span>
+                <span class="chatbot-approval-config-val">${v}</span>
+              </div>`;
+          }).join('')
+        : `<div class="chatbot-approval-config-empty">${escapeHtml(typeof config === 'object' ? 'No configuration' : formatConfigValue(config))}</div>`;
+
       inner.innerHTML = `
-        <div class="chatbot-approval-card card border border-translucent shadow-sm">
-          <div class="card-header bg-body-emphasis d-flex align-items-center border-bottom border-translucent py-2 px-3">
-            <span class="fa-solid fa-circle-check text-primary me-2 fs-9"></span>
-            <span class="fw-semibold text-body-emphasis fs-9">Save agent configuration?</span>
-          </div>
-          <div class="card-body p-3">
-            <div class="mb-3">
-              <span class="text-body-tertiary fs-10 text-uppercase fw-semibold mb-1 d-block">Rule</span>
-              <span class="badge badge-phoenix badge-phoenix-primary fs-10">${escapeHtml(ruleId)}</span>
-            </div>
-            <div>
-              <span class="text-body-tertiary fs-10 text-uppercase fw-semibold mb-1 d-block">Configuration</span>
-              <div class="bg-body-emphasis rounded-2 p-2">${configRowsHtml}</div>
+        <div class="chatbot-approval-card">
+          <div class="chatbot-approval-header">
+            <span class="chatbot-approval-header-icon"><i class="fa-solid fa-shield-halved"></i></span>
+            <div class="chatbot-approval-header-text">
+              <span class="chatbot-approval-title">Save agent configuration?</span>
+              <span class="chatbot-approval-subtitle">Review and confirm before the agent starts</span>
             </div>
           </div>
-          <div class="card-footer bg-body-emphasis border-top border-translucent d-flex flex-wrap gap-2 justify-content-end py-2 px-3">
-            <button type="button" class="btn btn-phoenix-secondary btn-sm chatbot-reject-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">
-              <span class="fa-solid fa-times me-1"></span>Reject
+          <div class="chatbot-approval-body">
+            <div class="chatbot-approval-rule-row">
+              <span class="chatbot-approval-section-label"><i class="fa-solid fa-tag me-1"></i>Rule</span>
+              <span class="chatbot-approval-rule-badge">${escapeHtml(ruleId)}</span>
+            </div>
+            <div class="chatbot-approval-section-label mt-2 mb-1"><i class="fa-solid fa-gear me-1"></i>Configuration</div>
+            <div class="chatbot-approval-config-grid">${configRowsHtml}</div>
+          </div>
+          <div class="chatbot-approval-footer">
+            <button type="button" class="chatbot-approval-btn chatbot-approval-btn-reject chatbot-reject-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">
+              <i class="fa-solid fa-xmark"></i>Reject
             </button>
-            <button type="button" class="btn btn-phoenix-primary btn-sm chatbot-approve-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">
-              <span class="fa-solid fa-check me-1"></span>Approve
+            <button type="button" class="chatbot-approval-btn chatbot-approval-btn-approve chatbot-approve-btn" data-chatbot-pending-id="${escapeHtml(pendingId)}">
+              <i class="fa-solid fa-check"></i>Approve
             </button>
           </div>
         </div>

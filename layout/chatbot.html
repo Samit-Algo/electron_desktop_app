@@ -118,17 +118,18 @@
         <div class="chatbot-controls-area">
           <!-- Left: Mode selector and auto toggle -->
           <div class="chatbot-btn-group">
-            <!-- Plan / Ask & Task mode dropdown -->
+            <!-- Plan / Ask & Task mode dropdown: Ask & Task = message icon, Plan = infinity icon -->
             <div class="dropdown">
               <button class="btn chatbot-pill-btn dropdown-toggle dropdown-caret-none" type="button"
                 id="chatbot-mode-dropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                <span id="chatbot-mode-icon" class="fas fa-infinity fs-10" aria-hidden="true"></span>
+                <span id="chatbot-mode-icon-plan" class="chatbot-mode-icon fas fa-infinity fs-10" data-chatbot-mode="agent" aria-hidden="true" title="Plan"></span>
+                <span id="chatbot-mode-icon-ask" class="chatbot-mode-icon far fa-comment fs-10" data-chatbot-mode="general" aria-hidden="true" title="Ask & Task" style="display: none;"></span>
                 <span id="chatbot-mode-label">Plan</span>
                 <span class="fas fa-chevron-down fs-11 opacity-50"></span>
               </button>
               <ul class="dropdown-menu" aria-labelledby="chatbot-mode-dropdown">
-                <li><a class="dropdown-item" href="#!" data-chatbot-mode="general">Ask & Task</a></li>
-                <li><a class="dropdown-item" href="#!" data-chatbot-mode="agent">Plan</a></li>
+                <li><a class="dropdown-item d-flex align-items-center" href="#!" data-chatbot-mode="general"><span class="far fa-comment me-2 fs-9" aria-hidden="true"></span>Ask & Task</a></li>
+                <li><a class="dropdown-item d-flex align-items-center" href="#!" data-chatbot-mode="agent"><span class="fas fa-infinity me-2 fs-9" aria-hidden="true"></span>Plan</a></li>
               </ul>
             </div>
 

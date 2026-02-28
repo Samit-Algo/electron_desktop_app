@@ -6,7 +6,7 @@
   'use strict';
 
   const LOGIN_CONTENT_ID = 'login-page-content';
-  const PROTECTED_PATHS = ['dashboard', 'camera-detail', 'events-board', 'settings'];
+  const PROTECTED_PATHS = ['dashboard', 'camera-detail', 'cameras-list', 'events-board', 'agents-board', 'agent-detail', 'settings'];
 
   /**
    * Check if current path is protected

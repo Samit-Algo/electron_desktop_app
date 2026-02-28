@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agent Details - Vision AI</title>
+    <script src="../custom_js/layout-loader.js"></script>
+</head>
+<body>
+    <div id="page-content" style="display:none;">
+        <div class="content">
+            <nav class="mb-3" aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="dashboard.html">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="agents-board.html" id="vision-agent-detail-breadcrumb-agents">Agents Board</a></li>
+                    <li class="breadcrumb-item active">Agent Details</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+                <div>
+                    <h2 class="mb-1 text-body-emphasis" id="vision-agent-detail-title">Agent Details</h2>
+                    <p class="text-body-tertiary mb-0 fs-9" id="vision-agent-detail-subtitle">Loading…</p>
+                </div>
+                <a class="btn btn-phoenix-secondary btn-sm" href="agents-board.html" id="vision-agent-detail-back">
+                    <span class="fa-solid fa-arrow-left me-1"></span>Back to Agents
+                </a>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-12 col-lg-8">
+                    <div class="card mb-3" id="vision-agent-overview-card">
+                        <div class="card-header bg-body-highlight">
+                            <h5 class="mb-0"><span class="fas fa-robot me-2"></span>Overview</h5>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-3 text-body-tertiary">Agent ID</dt>
+                                <dd class="col-sm-9" id="vision-agent-detail-id">—</dd>
+                                <dt class="col-sm-3 text-body-tertiary">Name</dt>
+                                <dd class="col-sm-9" id="vision-agent-detail-name">—</dd>
+                                <dt class="col-sm-3 text-body-tertiary">Status</dt>
+                                <dd class="col-sm-9" id="vision-agent-detail-status">—</dd>
+                                <dt class="col-sm-3 text-body-tertiary">Camera</dt>
+                                <dd class="col-sm-9" id="vision-agent-detail-source-value">—</dd>
+                                <dt class="col-sm-3 text-body-tertiary">Created</dt>
+                                <dd class="col-sm-9" id="vision-agent-detail-created">—</dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3" id="vision-agent-config-card">
+                        <div class="card-header bg-body-highlight d-flex align-items-center justify-content-between">
+                            <h5 class="mb-0"><span class="fas fa-cog me-2"></span>Full configuration</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="vision-agent-config-content"><p class="text-body-tertiary mb-0">Loading…</p></div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3" id="vision-agent-events-card">
+                        <div class="card-header bg-body-highlight d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <h5 class="mb-0"><span class="fas fa-bell me-2"></span>Events <span class="badge bg-phoenix-primary ms-2" id="vision-agent-events-count">0</span></h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="vision-agent-events-content"><p class="text-body-tertiary mb-0">Loading…</p></div>
+                            <div class="d-flex justify-content-center mt-3 d-none" id="vision-agent-events-load-more-wrap">
+                                <button type="button" class="btn btn-phoenix-secondary btn-sm" id="vision-agent-events-load-more">Load more</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4">
+                    <div class="card mb-3">
+                        <div class="card-header bg-body-highlight">
+                            <h5 class="mb-0">Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <button type="button" class="btn btn-phoenix-secondary btn-sm w-100 mb-2" id="vision-agent-detail-edit" disabled>Edit Agent</button>
+                            <button type="button" class="btn btn-phoenix-warning btn-sm w-100 mb-2" id="vision-agent-detail-pause" disabled>
+                                <span class="me-1">⏸</span>Pause Agent
+                            </button>
+                            <button type="button" class="btn btn-phoenix-success btn-sm w-100 mb-2 d-none" id="vision-agent-detail-resume" disabled>
+                                <span class="me-1">▶</span>Resume Agent
+                            </button>
+                            <button type="button" class="btn btn-phoenix-danger btn-sm w-100" id="vision-agent-detail-stop" disabled>
+                                <span class="me-1">⏹</span>Stop Agent
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .agent-detail-event-card { transition: box-shadow 0.2s ease; overflow: hidden; }
+        .agent-detail-event-card:hover { box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.08); }
+        .agent-detail-event-card .card-body { overflow: hidden; min-width: 0; }
+        .agent-detail-event-card .event-image-link { display: block; max-width: 100%; overflow: hidden; border-radius: 6px; }
+        .agent-detail-event-img { display: block; max-width: 100%; width: 100%; max-height: 180px; height: auto; object-fit: cover; border-radius: 6px; vertical-align: top; }
+        .agent-detail-config-table { font-size: 0.875rem; }
+        .agent-detail-config-table dt { color: var(--phoenix-body-tertiary, #64748b); }
+        /* Status colors – state machine */
+        .agent-status-monitoring { background-color: #22c55e; color: #fff; }
+        .agent-status-scheduled  { background-color: #3b82f6; color: #fff; }
+        .agent-status-sleeping   { background-color: #8b5cf6; color: #fff; }
+        .agent-status-paused     { background-color: #f59e0b; color: #1e293b; }
+        .agent-status-completed  { background-color: #94a3b8; color: #fff; }
+        .agent-status-inactive   { background-color: #64748b; color: #fff; }
+        .agent-status-error      { background-color: #ef4444; color: #fff; }
+        .agent-status-default    { background-color: var(--phoenix-primary, #3874ff); color: #fff; }
+        /* Legacy aliases */
+        .agent-status-running    { background-color: #22c55e; color: #fff; }
+        .agent-status-failed     { background-color: #ef4444; color: #fff; }
+        .agent-status-cancelled  { background-color: #64748b; color: #fff; }
+    </style>
+
+</body>
+</html>

@@ -576,6 +576,16 @@
     transition: all 0.2s;
   }
 
+  /* Mode icons in chat footer (Plan = ∞, Ask & Task = message); one shown at a time */
+  #chatbot-offcanvas .chatbot-mode-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25em;
+    min-width: 1.25em;
+    font-size: 1rem;
+  }
+
   .chatbot-pill-btn:hover {
     background-color: rgba(0, 0, 0, 0.1);
   }
@@ -1328,4 +1338,220 @@
 
   [data-bs-theme="dark"] .zone-editor__status {
     background: rgba(255, 255, 255, 0.04);
+  }
+
+  /* ─── Agent Approval Card ──────────────────────────────────────────────── */
+  .chatbot-approval-card {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--phoenix-border-color, rgba(0,0,0,.1));
+    background: var(--phoenix-body-bg, #fff);
+    box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    max-width: 360px;
+    font-size: 0.82rem;
+  }
+
+  /* Header */
+  .chatbot-approval-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: linear-gradient(135deg,
+      var(--phoenix-primary, #3874ff) 0%,
+      color-mix(in srgb, var(--phoenix-primary, #3874ff) 70%, #7c3aed) 100%);
+    color: #fff;
+  }
+  [dir="rtl"] .chatbot-approval-header { flex-direction: row-reverse; }
+
+  .chatbot-approval-header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    background: rgba(255,255,255,.2);
+    flex-shrink: 0;
+    font-size: 0.9rem;
+  }
+
+  .chatbot-approval-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+  [dir="rtl"] .chatbot-approval-header-text { align-items: flex-end; }
+
+  .chatbot-approval-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    line-height: 1.3;
+    color: #fff;
+  }
+
+  .chatbot-approval-subtitle {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,.75);
+    line-height: 1.2;
+  }
+
+  /* Body */
+  .chatbot-approval-body {
+    padding: 0.85rem 1rem 0.5rem;
+  }
+
+  .chatbot-approval-section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--phoenix-body-tertiary-color, #6c757d);
+    display: block;
+  }
+
+  .chatbot-approval-rule-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+  [dir="rtl"] .chatbot-approval-rule-row { flex-direction: row-reverse; }
+
+  .chatbot-approval-rule-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22em 0.65em;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    background: color-mix(in srgb, var(--phoenix-primary, #3874ff) 12%, transparent);
+    color: var(--phoenix-primary, #3874ff);
+    border: 1px solid color-mix(in srgb, var(--phoenix-primary, #3874ff) 25%, transparent);
+  }
+
+  /* Config grid */
+  .chatbot-approval-config-grid {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--phoenix-border-color, rgba(0,0,0,.08));
+    margin-bottom: 0.5rem;
+  }
+
+  .chatbot-approval-config-row {
+    display: grid;
+    grid-template-columns: 1.4rem 1fr auto;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.38rem 0.65rem;
+    border-bottom: 1px solid var(--phoenix-border-color, rgba(0,0,0,.06));
+    transition: background 0.12s;
+  }
+  .chatbot-approval-config-row:last-child { border-bottom: none; }
+  .chatbot-approval-config-row:hover {
+    background: var(--phoenix-body-highlight-bg, rgba(0,0,0,.03));
+  }
+  [dir="rtl"] .chatbot-approval-config-row { grid-template-columns: auto 1fr 1.4rem; direction: rtl; }
+
+  .chatbot-approval-config-icon {
+    color: var(--phoenix-primary, #3874ff);
+    font-size: 0.65rem;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chatbot-approval-config-key {
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: var(--phoenix-body-color, #1e293b);
+    white-space: nowrap;
+  }
+
+  .chatbot-approval-config-val {
+    font-size: 0.76rem;
+    color: var(--phoenix-body-tertiary-color, #6c757d);
+    text-align: end;
+    word-break: break-all;
+    max-width: 140px;
+  }
+
+  .chatbot-approval-config-empty {
+    padding: 0.5rem 0.65rem;
+    color: var(--phoenix-body-tertiary-color, #6c757d);
+    font-size: 0.78rem;
+  }
+
+  /* Footer buttons */
+  .chatbot-approval-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--phoenix-border-color, rgba(0,0,0,.08));
+  }
+
+  .chatbot-approval-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.6rem 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+    line-height: 1;
+  }
+
+  .chatbot-approval-btn-reject {
+    background: transparent;
+    color: var(--phoenix-body-tertiary-color, #6c757d);
+    border-inline-end: 1px solid var(--phoenix-border-color, rgba(0,0,0,.08));
+  }
+  .chatbot-approval-btn-reject:hover {
+    background: color-mix(in srgb, #ef4444 8%, transparent);
+    color: #ef4444;
+  }
+
+  .chatbot-approval-btn-approve {
+    background: transparent;
+    color: var(--phoenix-primary, #3874ff);
+  }
+  .chatbot-approval-btn-approve:hover {
+    background: color-mix(in srgb, var(--phoenix-primary, #3874ff) 10%, transparent);
+  }
+
+  /* Dark mode overrides */
+  [data-bs-theme="dark"] .chatbot-approval-card {
+    background: var(--phoenix-body-bg, #1a1d25);
+    border-color: rgba(255,255,255,.1);
+    box-shadow: 0 4px 24px rgba(0,0,0,.35);
+  }
+
+  [data-bs-theme="dark"] .chatbot-approval-rule-badge {
+    background: color-mix(in srgb, var(--phoenix-primary, #3874ff) 18%, transparent);
+    border-color: color-mix(in srgb, var(--phoenix-primary, #3874ff) 30%, transparent);
+  }
+
+  [data-bs-theme="dark"] .chatbot-approval-config-grid {
+    border-color: rgba(255,255,255,.08);
+  }
+
+  [data-bs-theme="dark"] .chatbot-approval-config-row {
+    border-bottom-color: rgba(255,255,255,.06);
+  }
+
+  [data-bs-theme="dark"] .chatbot-approval-config-row:hover {
+    background: rgba(255,255,255,.04);
+  }
+
+  [data-bs-theme="dark"] .chatbot-approval-footer {
+    border-top-color: rgba(255,255,255,.08);
+  }
+
+  [data-bs-theme="dark"] .chatbot-approval-btn-reject {
+    border-inline-end-color: rgba(255,255,255,.08);
   }
