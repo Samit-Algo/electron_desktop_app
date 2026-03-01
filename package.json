@@ -1,7 +1,7 @@
 {
-  "name": "phoenix-desktop-app",
+  "name": "algo-vision-app",
   "version": "1.0.0",
-  "description": "Phoenix Dashboard Desktop Application",
+  "description": "Algo-Vision Desktop Application",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -9,7 +9,8 @@
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux"
+    "build:linux": "electron-builder --linux",
+    "clean-old-install": "powershell -ExecutionPolicy Bypass -File scripts/clean-old-install.ps1"
   },
   "keywords": [
     "electron",
@@ -28,30 +29,34 @@
     "overlayscrollbars": "^2.13.0",
     "vis-timeline": "^8.5.0"
   },
-  "build": {
-    "appId": "com.phoenix.desktop",
-    "productName": "Phoenix Desktop",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "**/*",
-      "!src/**/*",
-      "!node_modules/**/*",
-      "!dist/**/*",
-      "!.git/**/*"
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "assets/img/favicons/favicon.ico"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "assets/img/favicons/apple-touch-icon.png"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "assets/img/favicons/favicon-32x32.png"
-    }
+ "build": {
+  "appId": "com.algovision.app",
+  "productName": "Algo-Vision",
+  "asar": true,
+  "asarUnpack": [
+    "node_modules/**/*"
+  ],
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "**/*",
+    "!src/**/*",
+    "!dist/**/*",
+    "!.git/**/*"
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "assets/img/algo-logo.png",
+    "signAndEditExecutable": false
+  },
+  "mac": {
+    "target": "dmg",
+    "icon": "assets/img/algo-logo.png"
+  },
+  "linux": {
+    "target": "AppImage",
+    "icon": "assets/img/algo-logo.png"
   }
+}
 }
