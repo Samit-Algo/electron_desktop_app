@@ -149,6 +149,28 @@
         .ca-rule-card .ca-rule-icon { font-size: 1.4rem; line-height: 1; }
         .ca-rule-card .ca-rule-name { font-size: .82rem; font-weight: 600; }
         .ca-rule-card .ca-rule-desc { font-size: .7rem; color: var(--phoenix-body-tertiary, #64748b); }
+        /* Schedule type cards */
+        .ca-sched-card {
+            cursor: pointer;
+            border: 2px solid var(--phoenix-border-color, #e2e8f0);
+            border-radius: 10px;
+            padding: 0.55rem 0.5rem;
+            text-align: center;
+            transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+            user-select: none;
+        }
+        .ca-sched-card:hover {
+            border-color: var(--phoenix-primary, #3b82f6);
+            background: var(--phoenix-primary-bg-subtle, #eff6ff);
+        }
+        .ca-sched-card.selected {
+            border-color: var(--phoenix-primary, #3b82f6);
+            background: var(--phoenix-primary-bg-subtle, #eff6ff);
+            box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+        }
+        .ca-sched-card .ca-sched-icon  { font-size: 1.25rem; line-height: 1; margin-bottom: 0.15rem; }
+        .ca-sched-card .ca-sched-label { font-size: .82rem; font-weight: 600; }
+        .ca-sched-card .ca-sched-desc  { font-size: .67rem; color: var(--phoenix-body-tertiary, #64748b); }
         </style>
 
         <!-- =========================================================
@@ -265,18 +287,111 @@
                                 </div>
                             </div>
 
-                            <!-- Time Window -->
-                            <div class="row g-2 mb-3">
-                                <div class="col-6">
-                                    <label class="form-label small fw-semibold mb-1">Active from <span class="text-danger">*</span></label>
-                                    <input type="datetime-local" class="form-control form-control-sm" id="ca-start-time">
+                            <!-- Schedule Type -->
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold mb-1">Schedule <span class="text-danger">*</span></label>
+                                <div class="row g-2" id="ca-sched-cards">
+                                    <div class="col-6 col-sm-3">
+                                        <div class="ca-sched-card" data-sched="always">
+                                            <div class="ca-sched-icon">⏰</div>
+                                            <div class="ca-sched-label">Always</div>
+                                            <div class="ca-sched-desc">24/7, non-stop</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-sm-3">
+                                        <div class="ca-sched-card" data-sched="daily">
+                                            <div class="ca-sched-icon">📅</div>
+                                            <div class="ca-sched-label">Daily</div>
+                                            <div class="ca-sched-desc">Every day, set hours</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-sm-3">
+                                        <div class="ca-sched-card" data-sched="weekly">
+                                            <div class="ca-sched-icon">📆</div>
+                                            <div class="ca-sched-label">Weekly</div>
+                                            <div class="ca-sched-desc">Selected days of week</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 col-sm-3">
+                                        <div class="ca-sched-card" data-sched="once">
+                                            <div class="ca-sched-icon">🗓️</div>
+                                            <div class="ca-sched-label">Once</div>
+                                            <div class="ca-sched-desc">Specific date range</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-6">
-                                    <label class="form-label small fw-semibold mb-1">Active until <span class="text-danger">*</span></label>
-                                    <input type="datetime-local" class="form-control form-control-sm" id="ca-end-time">
+                            </div>
+
+                            <!-- Time window: full datetime (once) -->
+                            <div id="ca-time-once-group" class="d-none mb-3">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold mb-1">Active from <span class="text-danger">*</span></label>
+                                        <input type="datetime-local" class="form-control form-control-sm" id="ca-start-time">
+                                        <div class="text-danger d-none mt-1" style="font-size:.72rem" id="ca-start-time-error"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold mb-1">Active until <span class="text-danger">*</span></label>
+                                        <input type="datetime-local" class="form-control form-control-sm" id="ca-end-time">
+                                        <div class="text-danger d-none mt-1" style="font-size:.72rem" id="ca-end-time-error"></div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-text small">The agent runs only within this date and time range.</div>
+                                    </div>
                                 </div>
-                                <div class="col-12">
-                                    <div class="form-text small">Times are treated as UTC. The agent will only run within this window.</div>
+                            </div>
+
+                            <!-- Time window: time-of-day only (daily / weekly) -->
+                            <div id="ca-time-tod-group" class="d-none mb-3">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold mb-1">From <span class="text-danger">*</span></label>
+                                        <input type="time" class="form-control form-control-sm" id="ca-start-tod">
+                                        <div class="text-danger d-none mt-1" style="font-size:.72rem" id="ca-start-tod-error"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold mb-1">Until <span class="text-danger">*</span></label>
+                                        <input type="time" class="form-control form-control-sm" id="ca-end-tod">
+                                        <div class="text-danger d-none mt-1" style="font-size:.72rem" id="ca-end-tod-error"></div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-text small">Agent runs within this time window each active day.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Active days: weekly only -->
+                            <div id="ca-active-days-group" class="d-none mb-3">
+                                <label class="form-label small fw-semibold mb-1">Active Days <span class="text-danger">*</span></label>
+                                <div class="d-flex flex-wrap gap-2 mt-1">
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="checkbox" id="ca-day-mon" value="mon">
+                                        <label class="form-check-label small" for="ca-day-mon">Mon</label>
+                                    </div>
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="checkbox" id="ca-day-tue" value="tue">
+                                        <label class="form-check-label small" for="ca-day-tue">Tue</label>
+                                    </div>
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="checkbox" id="ca-day-wed" value="wed">
+                                        <label class="form-check-label small" for="ca-day-wed">Wed</label>
+                                    </div>
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="checkbox" id="ca-day-thu" value="thu">
+                                        <label class="form-check-label small" for="ca-day-thu">Thu</label>
+                                    </div>
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="checkbox" id="ca-day-fri" value="fri">
+                                        <label class="form-check-label small" for="ca-day-fri">Fri</label>
+                                    </div>
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="checkbox" id="ca-day-sat" value="sat">
+                                        <label class="form-check-label small" for="ca-day-sat">Sat</label>
+                                    </div>
+                                    <div class="form-check form-check-inline m-0">
+                                        <input class="form-check-input" type="checkbox" id="ca-day-sun" value="sun">
+                                        <label class="form-check-label small" for="ca-day-sun">Sun</label>
+                                    </div>
                                 </div>
                             </div>
 

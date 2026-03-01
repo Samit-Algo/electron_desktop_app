@@ -925,10 +925,11 @@
     if (!openBtn || !modalEl) return;
 
     // ── local state ──────────────────────────────────────────────────────────
-    var currentStep   = 1;
-    var selectedRuleId = null;
-    var ruleMeta      = null;   // RULE_META entry for selectedRuleId
-    var totalSteps    = 2;      // updated when zone rule selected
+    var currentStep        = 1;
+    var selectedRuleId     = null;
+    var ruleMeta           = null;   // RULE_META entry for selectedRuleId
+    var totalSteps         = 2;      // updated when zone rule selected
+    var selectedScheduleType = null; // "always" | "daily" | "weekly" | "once"
 
     // ── refs ─────────────────────────────────────────────────────────────────
     function el(id) { return document.getElementById(id); }
@@ -936,12 +937,23 @@
     // ── helpers ──────────────────────────────────────────────────────────────
 
     function toISOUTC(dtLocalValue) {
-      // datetime-local gives "YYYY-MM-DDTHH:MM" — treat as UTC
+      // datetime-local gives "YYYY-MM-DDTHH:MM" — treat as local time and convert to UTC
       if (!dtLocalValue) return null;
-      var v = dtLocalValue.trim();
-      if (v.length === 16) v += ':00';
-      if (!v.endsWith('Z') && !v.includes('+')) v += '+00:00';
-      return v;
+      var d = new Date(dtLocalValue);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString().replace('.000Z', ':00+00:00');
+    }
+
+    function todToISOUTC(timeValue) {
+      // Convert "HH:MM" (local time, today's date) → UTC ISO string.
+      // Anchors to today so the runner can extract the time-of-day portion.
+      if (!timeValue) return null;
+      var parts = timeValue.split(':');
+      var h = parseInt(parts[0], 10);
+      var m = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+      var now = new Date();
+      var local = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
+      return local.toISOString().replace('.000Z', ':00+00:00');
     }
 
     function showError(msg) {
@@ -955,6 +967,101 @@
     function hideError() {
       var alertEl = el('ca-error-alert');
       if (alertEl) alertEl.classList.add('d-none');
+    }
+
+    // ── Inline field-level error helpers ─────────────────────────────────────
+
+    function setFieldError(inputId, errorId, msg) {
+      var inp = el(inputId);
+      var err = el(errorId);
+      if (!inp || !err) return;
+      if (msg) {
+        inp.classList.add('is-invalid');
+        err.textContent = msg;
+        err.classList.remove('d-none');
+      } else {
+        inp.classList.remove('is-invalid');
+        err.textContent = '';
+        err.classList.add('d-none');
+      }
+    }
+
+    function clearFieldError(inputId, errorId) {
+      setFieldError(inputId, errorId, '');
+    }
+
+    // Validate once datetime fields — returns true if valid (no error)
+    function validateOnceTimes() {
+      var stVal = el('ca-start-time') && el('ca-start-time').value;
+      var etVal = el('ca-end-time') && el('ca-end-time').value;
+      var now   = Date.now();
+      var startOk = true, endOk = true;
+
+      if (stVal) {
+        var stMs = new Date(stVal).getTime();
+        if (isNaN(stMs)) {
+          setFieldError('ca-start-time', 'ca-start-time-error', 'Invalid date or time.');
+          startOk = false;
+        } else if (stMs < now) {
+          setFieldError('ca-start-time', 'ca-start-time-error', 'This date and time has already passed.');
+          startOk = false;
+        } else {
+          clearFieldError('ca-start-time', 'ca-start-time-error');
+        }
+      } else {
+        clearFieldError('ca-start-time', 'ca-start-time-error');
+      }
+
+      if (etVal) {
+        var etMs = new Date(etVal).getTime();
+        if (isNaN(etMs)) {
+          setFieldError('ca-end-time', 'ca-end-time-error', 'Invalid date or time.');
+          endOk = false;
+        } else if (etMs < now) {
+          setFieldError('ca-end-time', 'ca-end-time-error', 'This date and time has already passed.');
+          endOk = false;
+        } else if (stVal && startOk) {
+          var stMs2 = new Date(stVal).getTime();
+          if (etMs <= stMs2) {
+            setFieldError('ca-end-time', 'ca-end-time-error', 'End must be after the start time.');
+            endOk = false;
+          } else {
+            clearFieldError('ca-end-time', 'ca-end-time-error');
+          }
+        } else {
+          clearFieldError('ca-end-time', 'ca-end-time-error');
+        }
+      } else {
+        clearFieldError('ca-end-time', 'ca-end-time-error');
+      }
+
+      return startOk && endOk;
+    }
+
+    // Validate time-of-day fields (daily / weekly) — returns true if valid
+    function validateTodTimes() {
+      var stVal = el('ca-start-tod') && el('ca-start-tod').value;
+      var etVal = el('ca-end-tod') && el('ca-end-tod').value;
+
+      // Only validate order when both are filled
+      if (stVal && etVal) {
+        if (etVal <= stVal) {
+          setFieldError('ca-end-tod', 'ca-end-tod-error', 'End time must be after the start time.');
+          clearFieldError('ca-start-tod', 'ca-start-tod-error');
+          return false;
+        }
+      }
+      clearFieldError('ca-start-tod', 'ca-start-tod-error');
+      clearFieldError('ca-end-tod', 'ca-end-tod-error');
+      return true;
+    }
+
+    // Clear all time inline errors (called on schedule type switch / reset)
+    function clearAllTimeErrors() {
+      ['ca-start-time','ca-end-time','ca-start-tod','ca-end-tod'].forEach(function (id) {
+        var errId = id + '-error';
+        clearFieldError(id, errId);
+      });
     }
 
     function updateStepPills(step) {
@@ -1064,6 +1171,18 @@
         });
     }
 
+    // ── Schedule-type field visibility ────────────────────────────────────────
+
+    function applyScheduleFields(sched) {
+      var onceGrp = el('ca-time-once-group');
+      var todGrp  = el('ca-time-tod-group');
+      var daysGrp = el('ca-active-days-group');
+      var hasTOD  = sched === 'daily' || sched === 'weekly';
+      if (onceGrp) onceGrp.classList.toggle('d-none', sched !== 'once');
+      if (todGrp)  todGrp.classList.toggle('d-none',  !hasTOD);
+      if (daysGrp) daysGrp.classList.toggle('d-none', sched !== 'weekly');
+    }
+
     // ── Rule-specific field visibility ────────────────────────────────────────
 
     function applyRuleFields(rule) {
@@ -1122,9 +1241,33 @@
         if (!av || av < 1) ok = false;
       }
 
-      var st = el('ca-start-time') && el('ca-start-time').value;
-      var et = el('ca-end-time') && el('ca-end-time').value;
-      if (!st || !et) ok = false;
+      // Schedule type must be selected
+      if (!selectedScheduleType) {
+        ok = false;
+      } else if (selectedScheduleType === 'once') {
+        var st = el('ca-start-time') && el('ca-start-time').value;
+        var et = el('ca-end-time') && el('ca-end-time').value;
+        if (!st || !et) ok = false;
+        // Run inline validation; if any error → block submit
+        if (!validateOnceTimes()) ok = false;
+      } else if (selectedScheduleType === 'daily') {
+        var ts = el('ca-start-tod') && el('ca-start-tod').value;
+        var te = el('ca-end-tod') && el('ca-end-tod').value;
+        if (!ts || !te) ok = false;
+        if (!validateTodTimes()) ok = false;
+      } else if (selectedScheduleType === 'weekly') {
+        var ts2 = el('ca-start-tod') && el('ca-start-tod').value;
+        var te2 = el('ca-end-tod') && el('ca-end-tod').value;
+        if (!ts2 || !te2) ok = false;
+        if (!validateTodTimes()) ok = false;
+        var DAY_CODES = ['mon','tue','wed','thu','fri','sat','sun'];
+        var anyDay = DAY_CODES.some(function (d) {
+          var cb = el('ca-day-' + d);
+          return cb && cb.checked;
+        });
+        if (!anyDay) ok = false;
+      }
+      // 'always': no time fields required
 
       var isPatrol = document.querySelector('input[name="ca-run-mode"]:checked');
       if (isPatrol && isPatrol.value === 'patrol') {
@@ -1149,14 +1292,30 @@
       var runMode = document.querySelector('input[name="ca-run-mode"]:checked');
       runMode = runMode ? runMode.value : 'continuous';
 
+      var sched = selectedScheduleType || 'once';
       var body = {
-        rule_id:    selectedRuleId,
-        name:       (el('ca-name') && el('ca-name').value.trim()) || null,
-        camera_id:  el('ca-camera') && el('ca-camera').value || null,
-        run_mode:   runMode,
-        start_time: toISOUTC(el('ca-start-time') && el('ca-start-time').value),
-        end_time:   toISOUTC(el('ca-end-time') && el('ca-end-time').value)
+        rule_id:       selectedRuleId,
+        name:          (el('ca-name') && el('ca-name').value.trim()) || null,
+        camera_id:     el('ca-camera') && el('ca-camera').value || null,
+        run_mode:      runMode,
+        schedule_type: sched
       };
+
+      if (sched === 'once') {
+        body.start_time = toISOUTC(el('ca-start-time') && el('ca-start-time').value);
+        body.end_time   = toISOUTC(el('ca-end-time') && el('ca-end-time').value);
+      } else if (sched === 'daily' || sched === 'weekly') {
+        body.start_time = todToISOUTC(el('ca-start-tod') && el('ca-start-tod').value);
+        body.end_time   = todToISOUTC(el('ca-end-tod') && el('ca-end-tod').value);
+        if (sched === 'weekly') {
+          var DAY_CODES = ['mon','tue','wed','thu','fri','sat','sun'];
+          body.active_days = DAY_CODES.filter(function (d) {
+            var cb = el('ca-day-' + d);
+            return cb && cb.checked;
+          });
+        }
+      }
+      // 'always': no start_time / end_time sent
 
       if (ruleMeta.needsClass) {
         body.detect_class = el('ca-class') && el('ca-class').value || null;
@@ -1257,21 +1416,40 @@
     // ── Full reset (on modal open / close) ────────────────────────────────────
 
     function resetModal() {
-      currentStep    = 1;
-      selectedRuleId = null;
-      ruleMeta       = null;
-      totalSteps     = 2;
-      camerasLoaded  = false;
+      currentStep          = 1;
+      selectedRuleId       = null;
+      ruleMeta             = null;
+      totalSteps           = 2;
+      camerasLoaded        = false;
+      selectedScheduleType = null;
       _zoneReset('polygon');
 
-      // Clear fields
+      // Clear text / number fields
       ['ca-name', 'ca-watch-names', 'ca-idle-threshold', 'ca-absence-threshold',
        'ca-interval-minutes', 'ca-check-duration'].forEach(function (id) {
         var f = el(id); if (f) f.value = '';
       });
-      var startEl = el('ca-start-time'), endEl = el('ca-end-time');
-      if (startEl) startEl.value = '';
-      if (endEl) endEl.value = '';
+
+      // Clear time fields (once + tod)
+      ['ca-start-time', 'ca-end-time', 'ca-start-tod', 'ca-end-tod'].forEach(function (id) {
+        var f = el(id); if (f) f.value = '';
+      });
+
+      // Uncheck all day checkboxes
+      ['mon','tue','wed','thu','fri','sat','sun'].forEach(function (d) {
+        var cb = el('ca-day-' + d); if (cb) cb.checked = false;
+      });
+
+      // Hide all schedule sub-groups and clear their errors
+      ['ca-time-once-group', 'ca-time-tod-group', 'ca-active-days-group'].forEach(function (id) {
+        var g = el(id); if (g) g.classList.add('d-none');
+      });
+      clearAllTimeErrors();
+
+      // Deselect schedule cards
+      var schedCards = el('ca-sched-cards');
+      if (schedCards) schedCards.querySelectorAll('.ca-sched-card').forEach(function (c) { c.classList.remove('selected'); });
+
       var contRadio = el('ca-run-continuous');
       if (contRadio) contRadio.checked = true;
       var patrolGrp = el('ca-patrol-group');
@@ -1376,6 +1554,22 @@
       });
     }
 
+    // ── Wire up: schedule type cards ─────────────────────────────────────────
+
+    var schedCardsEl = el('ca-sched-cards');
+    if (schedCardsEl) {
+      schedCardsEl.querySelectorAll('.ca-sched-card').forEach(function (card) {
+        card.addEventListener('click', function () {
+          schedCardsEl.querySelectorAll('.ca-sched-card').forEach(function (c) { c.classList.remove('selected'); });
+          card.classList.add('selected');
+          selectedScheduleType = card.getAttribute('data-sched');
+          applyScheduleFields(selectedScheduleType);
+          clearAllTimeErrors();
+          validateStep2Fields();
+        });
+      });
+    }
+
     // ── Wire up: run mode toggle ──────────────────────────────────────────────
 
     modalEl.querySelectorAll('input[name="ca-run-mode"]').forEach(function (radio) {
@@ -1389,11 +1583,36 @@
     // ── Wire up: step 2 field change → live validate ──────────────────────────
 
     ['ca-camera', 'ca-class', 'ca-watch-names', 'ca-idle-threshold',
-     'ca-absence-threshold', 'ca-start-time', 'ca-end-time',
-     'ca-interval-minutes', 'ca-check-duration'].forEach(function (id) {
+     'ca-absence-threshold', 'ca-interval-minutes', 'ca-check-duration'].forEach(function (id) {
       var f = el(id);
       if (f) f.addEventListener('change', validateStep2Fields);
       if (f && f.tagName === 'INPUT') f.addEventListener('input', validateStep2Fields);
+    });
+
+    // Once datetime fields — inline past/order check fires immediately
+    ['ca-start-time', 'ca-end-time'].forEach(function (id) {
+      var f = el(id);
+      if (!f) return;
+      function onOnceChange() { validateOnceTimes(); validateStep2Fields(); }
+      f.addEventListener('change', onOnceChange);
+      f.addEventListener('input',  onOnceChange);
+      f.addEventListener('blur',   onOnceChange);
+    });
+
+    // TOD fields — inline order check fires immediately
+    ['ca-start-tod', 'ca-end-tod'].forEach(function (id) {
+      var f = el(id);
+      if (!f) return;
+      function onTodChange() { validateTodTimes(); validateStep2Fields(); }
+      f.addEventListener('change', onTodChange);
+      f.addEventListener('input',  onTodChange);
+      f.addEventListener('blur',   onTodChange);
+    });
+
+    // Day checkboxes live validate
+    ['mon','tue','wed','thu','fri','sat','sun'].forEach(function (d) {
+      var cb = el('ca-day-' + d);
+      if (cb) cb.addEventListener('change', validateStep2Fields);
     });
 
     // ── Wire up: zone undo / clear / retry ───────────────────────────────────
