@@ -499,6 +499,12 @@
     margin-top: -120px;
   }
 
+/* Match Phoenix-style state-driven UI:
+   hide launcher while chat panel is open. */
+#app-root.chatbot-open .setting-toggle {
+  display: none !important;
+}
+
   .chatbot-toggle-icon {
     height: 34px;
     width: 28px;
