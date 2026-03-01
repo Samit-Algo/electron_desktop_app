@@ -866,6 +866,42 @@
       }
     }
 
+    // Render analyzed frame attachments in general chat (e.g. from analyse_live_camera, VLM, instant_agent)
+    // Uses token query param for auth (backend get_current_user supports ?token= for img src)
+    function renderAttachmentsInBubble(pendingId, attachments) {
+      if (!attachments || !Array.isArray(attachments) || attachments.length === 0) return;
+      const bubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
+      if (!bubble) return;
+      const container = bubble.querySelector('.markdown-content') || bubble.querySelector('.ai-message-transparent') || bubble.querySelector('div');
+      if (!container) return;
+      const api = window.visionAPI;
+      if (!api || !api.baseURL) return;
+      const baseUrl = (api.baseURL || '').replace(/\/$/, '');
+      const token = api.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('visionai_token') : null);
+      const sep = (url) => (url.indexOf('?') !== -1 ? '&' : '?');
+      const withToken = (url) => (token ? url + sep(url) + 'token=' + encodeURIComponent(token) : url);
+      for (const att of attachments) {
+        if (att?.type !== 'image' || !att?.url) continue;
+        const wrap = document.createElement('div');
+        wrap.className = 'chatbot-attachment-wrap mt-2';
+        const label = document.createElement('div');
+        label.className = 'text-body-tertiary fs-10 mb-1';
+        label.textContent = '📷 Analyzed frame';
+        wrap.appendChild(label);
+        const img = document.createElement('img');
+        img.className = 'chatbot-analysis-frame rounded';
+        img.alt = 'Analyzed frame';
+        img.loading = 'lazy';
+        img.style.maxWidth = '320px';
+        img.style.cursor = 'pointer';
+        const fullUrl = att.url.startsWith('http') ? att.url : baseUrl + (att.url.startsWith('/') ? '' : '/') + att.url;
+        img.src = withToken(fullUrl);
+        img.onclick = function () { window.open(withToken(fullUrl), '_blank'); };
+        wrap.appendChild(img);
+        container.appendChild(wrap);
+      }
+    }
+
     // Send text message to backend and handle streaming response
     async function sendTextMessage(text, options = {}) {
       const trimmed = (text || '').trim();
@@ -1064,9 +1100,14 @@
         const isError = (finalPayload?.status === 'error') || sawError;
         replaceAssistantPending(pendingId, answer || '(empty response)', isError);
 
-        // Render flow diagram if present in response
+        // Render flow diagram if present in response (agent mode)
         if (!isError && finalPayload?.flow_diagram_data) {
           await renderFlowDiagram(pendingId, finalPayload.flow_diagram_data);
+        }
+
+        // Render analyzed frame attachments in general chat (Ask & Task mode)
+        if (!isError && mode === 'general' && finalPayload?.attachments?.length) {
+          await renderAttachmentsInBubble(pendingId, finalPayload.attachments);
         }
 
         // Handle zone editor UI for agent mode as needed

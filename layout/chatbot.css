@@ -900,6 +900,16 @@
     line-height: 1.5;
   }
 
+  #chatbot-offcanvas .chat-messages .chatbot-attachment-wrap {
+    margin-top: 0.5rem;
+  }
+
+  #chatbot-offcanvas .chat-messages .chatbot-analysis-frame {
+    max-width: 320px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
   #chatbot-offcanvas .chat-messages .markdown-content img {
     max-width: 100%;
     height: auto;
