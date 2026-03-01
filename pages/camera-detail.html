@@ -1809,9 +1809,12 @@
 
                     function mapAgentStatus(status) {
                         const s = String(status || '').toUpperCase();
-                        if (s === 'RUNNING') return 'active';
-                        if (s === 'COMPLETED') return 'completed';
-                        return 'scheduled'; // everything else -> scheduled
+                        // System-driven active state
+                        if (s === 'MONITORING' || s === 'RUNNING') return 'active';
+                        // Terminal / end states
+                        if (s === 'COMPLETED' || s === 'INACTIVE' || s === 'ERROR') return 'completed';
+                        // Scheduled / waiting states: Scheduled, Sleeping, Paused
+                        return 'scheduled';
                     }
 
                     function formatTimeLabel(agent) {
