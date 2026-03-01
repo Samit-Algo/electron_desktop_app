@@ -200,9 +200,9 @@
         </div>
       </div>
       <div class="zone-draw-bubble__content d-none" data-zone-draw-content>
-        <div class="zone-draw-bubble__img-wrap" data-zone-draw-img-wrap>
-          <img class="zone-draw-bubble__img" alt="Camera snapshot" data-zone-draw-img />
-          <div class="zone-draw-bubble__hint" data-zone-draw-hint>Click Draw to draw a zone</div>
+        <div class="zone-draw-bubble__img-wrap" data-zone-draw-img-wrap style="cursor:pointer;">
+          <img class="zone-draw-bubble__img" alt="Camera snapshot" data-zone-draw-img draggable="false" />
+          <div class="zone-draw-bubble__hint" data-zone-draw-hint>Click to draw a zone</div>
         </div>
         <button type="button" class="btn btn-sm btn-primary mt-2" data-zone-draw-btn>
           <span class="fas fa-draw-polygon me-1"></span>Draw
@@ -247,46 +247,42 @@
   function getOrCreateZoneEditorModal() {
     const id = 'zone-editor-modal';
     let modalEl = document.getElementById(id);
-    if (modalEl) {
-      const bodyEl = modalEl.querySelector('.zone-editor-modal__body');
-      const bsModal = window.bootstrap?.Modal?.getOrCreateInstance?.(modalEl);
-      return {
-        modalEl,
-        bodyEl: bodyEl || modalEl.querySelector('.modal-body'),
-        show: () => bsModal?.show?.(),
-        hide: () => bsModal?.hide?.()
-      };
+
+    if (!modalEl) {
+      modalEl = document.createElement('div');
+      modalEl.className = 'modal fade';
+      modalEl.id = id;
+      modalEl.setAttribute('tabindex', '-1');
+      modalEl.setAttribute('aria-labelledby', id + '-label');
+      modalEl.setAttribute('aria-hidden', 'true');
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered zone-editor-modal__dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="${id}-label" data-zone-modal-title>Draw Monitoring Zone</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body zone-editor-modal__body"></div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modalEl);
     }
 
-    modalEl = document.createElement('div');
-    modalEl.className = 'modal fade';
-    modalEl.id = id;
-    modalEl.setAttribute('tabindex', '-1');
-    modalEl.setAttribute('aria-labelledby', id + '-label');
-    modalEl.setAttribute('aria-hidden', 'true');
-    const isLineMode = false; // title set when we open
-    modalEl.innerHTML = `
-      <div class="modal-dialog modal-dialog-centered zone-editor-modal__dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="${id}-label" data-zone-modal-title>Draw Monitoring Zone</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body zone-editor-modal__body"></div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modalEl);
     const bodyEl = modalEl.querySelector('.zone-editor-modal__body');
-    const bsModal = window.bootstrap ? new window.bootstrap.Modal(modalEl) : null;
-    if (bsModal) {
-      modalEl.addEventListener('hidden.bs.modal', function () {
-        bsModal.dispose();
-      });
-    }
+
+    // Always resolve a fresh Bootstrap instance — never call dispose() ourselves.
+    // getOrCreateInstance returns the existing live instance or creates a new one;
+    // this is safe to call repeatedly without dispose().
+    const bsModal = window.bootstrap?.Modal?.getOrCreateInstance?.(modalEl, {
+      backdrop: true,
+      keyboard: true,
+      focus: true
+    });
+
     return {
       modalEl,
-      bodyEl,
+      bodyEl: bodyEl || modalEl.querySelector('.modal-body'),
       show: () => bsModal?.show?.(),
       hide: () => bsModal?.hide?.()
     };
@@ -303,23 +299,51 @@
     const modal = getOrCreateZoneEditorModal();
     if (!modal.bodyEl) return;
 
-    const editorId = generateEditorId();
     const isLineMode = mode === 'line';
-    const titleEl = modal.modalEl.querySelector('[data-zone-modal-title]');
-    if (titleEl) titleEl.textContent = isLineMode ? 'Draw Counting Line' : 'Draw Monitoring Zone';
 
-    modal.bodyEl.innerHTML = '';
-    const editorEl = createZoneEditorElement(editorId, cameraId, mode, saveWithResumeFn);
-    editorEl._onSaveDone = () => modal.hide();
+    // Populate the modal body and call show().
+    // Called immediately if the modal is fully hidden, or deferred until
+    // 'hidden.bs.modal' fires when the modal is mid-transition (user clicked
+    // close then Draw very quickly — Bootstrap blocks show() while _isTransitioning).
+    function setupAndShow() {
+      const editorId = generateEditorId();
+      const titleEl = modal.modalEl.querySelector('[data-zone-modal-title]');
+      if (titleEl) titleEl.textContent = isLineMode ? 'Draw Counting Line' : 'Draw Monitoring Zone';
 
-    modal.bodyEl.appendChild(editorEl);
+      modal.bodyEl.innerHTML = '';
+      const editorEl = createZoneEditorElement(editorId, cameraId, mode, saveWithResumeFn);
+      editorEl._onSaveDone = () => modal.hide();
 
-    showDrawingCanvas(editorEl);
-    const imgEl = editorEl.querySelector('[data-zone-img]');
-    if (imgEl) imgEl.src = snapshot.imageUrl;
-    initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
+      modal.bodyEl.appendChild(editorEl);
 
-    modal.show();
+      showDrawingCanvas(editorEl);
+      // Attach canvas/load listeners BEFORE setting src so the load event is never missed
+      // (blob URLs in memory can resolve before the next line if src were set first)
+      initializeDrawingCanvas(editorEl, mode, cameraId, snapshot.width, snapshot.height);
+      const imgEl = editorEl.querySelector('[data-zone-img]');
+      if (imgEl) imgEl.src = snapshot.imageUrl;
+
+      modal.show();
+    }
+
+    // Detect whether Bootstrap is still running its hide transition.
+    // Bootstrap sets _isTransitioning=true during the fade and blocks show().
+    // We check both the public class and the internal flag for safety.
+    const bsInstance = window.bootstrap?.Modal?.getInstance?.(modal.modalEl);
+    const isTransitioning = bsInstance?._isTransitioning ?? false;
+    const isStillShown = modal.modalEl.classList.contains('show');
+
+    if (isTransitioning || isStillShown) {
+      // Wait for the current hide animation to finish, then open fresh
+      modal.modalEl.addEventListener('hidden.bs.modal', function waitHide() {
+        modal.modalEl.removeEventListener('hidden.bs.modal', waitHide);
+        setupAndShow();
+      });
+      // Ensure hide is in progress (in case show() was called in a weird state)
+      if (isStillShown) modal.hide();
+    } else {
+      setupAndShow();
+    }
   }
 
   // ============================================================
@@ -484,7 +508,7 @@
    * Each polygon is converted to a bounding box [x1,y1,x2,y2] for the backend.
    * @private
    */
-  function initializeDrawingCanvasMotionRois(container, canvasEl, imgEl, btnUndo, btnClear, btnSave, statusEl, cameraId, imageWidth, imageHeight) {
+  function initializeDrawingCanvasMotionRois(container, canvasEl, imgEl, btnUndo, btnClear, btnSave, statusEl, cameraId, imageWidth, imageHeight, saveWithResumeFn) {
     var polygons = []; // each: array of { x, y } in canvas coordinates
     var currentPolygon = []; // points for the ROI being drawn
     var isDisabled = false;
@@ -689,7 +713,9 @@
       setDisabled(true);
       try {
         var confirmMessage = 'Motion ROIs selected (' + looms.length + ' machine(s)). Please continue.';
-        if (sendTextMessageFn && typeof sendTextMessageFn === 'function') {
+        if (saveWithResumeFn && typeof saveWithResumeFn === 'function') {
+          await saveWithResumeFn(zoneData);
+        } else if (sendTextMessageFn && typeof sendTextMessageFn === 'function') {
           await sendTextMessageFn(confirmMessage, { zoneData });
         } else {
           showStatus('Could not send zone data. Please try again.', 'error');
@@ -747,7 +773,7 @@
     // MOTION ROIs MODE (multiple rectangles, one per machine)
     // -------------------------------------------------------------------------
     if (mode === 'motion_rois') {
-      initializeDrawingCanvasMotionRois(container, canvasEl, imgEl, btnUndo, btnClear, btnSave, statusEl, cameraId, imageWidth, imageHeight);
+      initializeDrawingCanvasMotionRois(container, canvasEl, imgEl, btnUndo, btnClear, btnSave, statusEl, cameraId, imageWidth, imageHeight, saveWithResumeFn);
       return;
     }
 
@@ -1096,7 +1122,14 @@
     const statusEl = drawBubbleEl.querySelector('[data-zone-draw-status]');
     const contentEl = drawBubbleEl.querySelector('[data-zone-draw-content]');
     const imgEl = drawBubbleEl.querySelector('[data-zone-draw-img]');
+    const imgWrap = drawBubbleEl.querySelector('[data-zone-draw-img-wrap]');
     const drawBtn = drawBubbleEl.querySelector('[data-zone-draw-btn]');
+
+    function openEditorIfReady() {
+      if (drawBubbleEl._snapshot) {
+        openModalWithZoneEditor(drawBubbleEl._snapshot, cameraId, mode, saveWithResumeFn);
+      }
+    }
 
     const loadAndShow = async () => {
       const snapshot = await fetchCameraSnapshot(cameraId, snapshotUrl);
@@ -1104,11 +1137,12 @@
       if (contentEl) contentEl.classList.remove('d-none');
       if (imgEl) imgEl.src = snapshot.imageUrl;
       drawBubbleEl._snapshot = snapshot;
-      drawBtn.onclick = function () {
-        if (drawBubbleEl._snapshot) {
-          openModalWithZoneEditor(drawBubbleEl._snapshot, cameraId, mode, saveWithResumeFn);
-        }
-      };
+      drawBtn.onclick = openEditorIfReady;
+      // Clicking the image thumbnail also opens the editor (same as clicking Draw)
+      if (imgWrap && !imgWrap._zoneClickBound) {
+        imgWrap._zoneClickBound = true;
+        imgWrap.addEventListener('click', openEditorIfReady);
+      }
     };
 
     try {
@@ -1148,8 +1182,14 @@
     const statusEl = drawBubbleEl.querySelector('[data-zone-draw-status]');
     const contentEl = drawBubbleEl.querySelector('[data-zone-draw-content]');
     const imgEl = drawBubbleEl.querySelector('[data-zone-draw-img]');
+    const imgWrap = drawBubbleEl.querySelector('[data-zone-draw-img-wrap]');
     const drawBtn = drawBubbleEl.querySelector('[data-zone-draw-btn]');
-    // Full editor (canvas) loads only in modal when user clicks Draw
+
+    function openEditorIfReady() {
+      if (drawBubbleEl._snapshot) {
+        openModalWithZoneEditor(drawBubbleEl._snapshot, cameraId, mode, saveWithResumeFn);
+      }
+    }
 
     const loadAndShow = async () => {
       const snapshot = await fetchCameraSnapshot(cameraId, snapshotUrl);
@@ -1157,11 +1197,12 @@
       if (contentEl) contentEl.classList.remove('d-none');
       if (imgEl) imgEl.src = snapshot.imageUrl;
       drawBubbleEl._snapshot = snapshot;
-      drawBtn.onclick = function () {
-        if (drawBubbleEl._snapshot) {
-          openModalWithZoneEditor(drawBubbleEl._snapshot, cameraId, mode, saveWithResumeFn);
-        }
-      };
+      drawBtn.onclick = openEditorIfReady;
+      // Clicking the image thumbnail also opens the editor (same as clicking Draw)
+      if (imgWrap && !imgWrap._zoneClickBound) {
+        imgWrap._zoneClickBound = true;
+        imgWrap.addEventListener('click', openEditorIfReady);
+      }
     };
 
     try {

@@ -1157,12 +1157,17 @@
     overflow: hidden;
     background: rgba(0, 0, 0, 0.04);
     border: 1px solid rgba(0, 0, 0, 0.08);
+    cursor: pointer;
   }
 
   .zone-draw-bubble__img {
     display: block;
     width: 100%;
     height: auto;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
   }
 
   .zone-draw-bubble__hint {
