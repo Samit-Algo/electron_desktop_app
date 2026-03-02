@@ -81,7 +81,7 @@
     /* Workflow Designer Layout using Bootstrap utility classes with custom extensions */
     .workflow-designer {
       display: grid;
-      grid-template-columns: 280px 1fr;
+      grid-template-columns: 200px 1fr;
       height: calc(100vh - 60px);
       background: var(--wf-canvas-bg);
       overflow: hidden;
@@ -423,6 +423,32 @@
       background: var(--lf-play-btn-hover-bg);
       color: var(--lf-card-color);
     }
+
+    /* Scheduler conditional groups – hide when not applicable */
+    .wf-sched-hidden {
+      display: none !important;
+    }
+
+    /* Notification node when schedule is "always" – no End connection, red indicator */
+    .drawflow-node.wf-no-end .output {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    .drawflow-node.wf-no-end .drawflow_content_node .lf-card {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 0 1px #ef4444, 0 4px 20px rgba(239, 68, 68, 0.2) !important;
+    }
+
+    /* End node when schedule is Always – show red, "don't use" */
+    .drawflow-node.wf-end-unused .drawflow_content_node .lf-card {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 0 1px #ef4444, 0 4px 20px rgba(239, 68, 68, 0.25) !important;
+      background: rgba(239, 68, 68, 0.08) !important;
+    }
+    .drawflow-node.wf-end-unused .drawflow_content_node .lf-card .lf-footer {
+      color: #f87171 !important;
+    }
     </style>
 
     <!-- Top Bar -->
@@ -463,7 +489,7 @@
     <!-- Main Content -->
     <div class="workflow-designer">
       <!-- Sidebar with collapsible sections -->
-      <div class="d-flex flex-column overflow-hidden border-end" style="width: 280px; background: var(--wf-sidebar-bg); border-color: var(--wf-canvas-border) !important;">
+      <div class="d-flex flex-column overflow-hidden border-end" style="width: 200px; background: var(--wf-sidebar-bg); border-color: var(--wf-canvas-border) !important;">
         <div class="d-flex align-items-center gap-2 p-3 border-bottom" style="border-color: var(--wf-canvas-border) !important;">
           <i class="fa-solid fa-layer-group text-muted fs-5"></i>
           <h3 class="m-0 fs-6 fw-semibold" style="color: var(--wf-designer-color);">Components</h3>
@@ -521,10 +547,6 @@
               <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="camera" data-category="activity" style="color: var(--wf-designer-color);">
                 <i class="fa-solid fa-video text-muted"></i>
                 <span>Camera</span>
-              </div>
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="classMonitor" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-layer-group text-muted"></i>
-                <span>Class Monitor</span>
               </div>
             </div>
           </div>
@@ -690,21 +712,29 @@
     const importFile = document.getElementById('file-import');
 
     const NODE_COMPATIBILITY = {
-      // Start of the workflow can only connect to Camera
       start: ['camera'],
-      // Camera feeds frames into the Agent
       camera: ['agent'],
-      // Agent sends results to the Class Monitor node
-      agent: ['classMonitor'],
-      // Class Monitor outputs to Scheduler
-      classMonitor: ['scheduler'],
-      // Scheduler controls when notifications are sent
+      agent: ['scheduler'],
       scheduler: ['notification'],
-      // Notification is typically the last step before End
       notification: ['end'],
-      // End has no outgoing connections
       end: []
     };
+
+    // Rule metadata (aligned with agents-board Create Agent modal)
+    const RULE_META = [
+      { id: 'class_presence', name: 'Class Presence Detection', needsClass: true, classes: ['person', 'car', 'bicycle', 'truck', 'bus'], needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
+      { id: 'weapon_detection', name: 'Weapon Detection', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
+      { id: 'sleep_detection', name: 'Sleep Detection', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
+      { id: 'class_count', name: 'Object Counter', needsClass: true, classes: ['person', 'car', 'truck', 'bicycle', 'bus', 'motorcycle'], needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: true, zoneType: 'line', zoneDesc: 'Draw 2 points for counting line.' },
+      { id: 'box_count', name: 'Box Counter', needsClass: false, fixedClass: 'box', needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: true, zoneType: 'line', zoneDesc: 'Draw 2 points for counting line.' },
+      { id: 'restricted_zone', name: 'Restricted Zone', needsClass: true, classes: ['person', 'car', 'truck', 'bicycle', 'motorcycle'], needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: true, zoneType: 'polygon', zoneDesc: 'Draw polygon (min 3 points).' },
+      { id: 'wall_climb_detection', name: 'Wall Climb Detection', needsClass: false, fixedClass: 'person', needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: true, zoneType: 'polygon', zoneDesc: 'Draw polygon around wall/fence.' },
+      { id: 'fall_detection', name: 'Fall Detection', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
+      { id: 'fire_detection', name: 'Fire Detection', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
+      { id: 'face_detection', name: 'Face / Person ID', needsClass: false, needsWatchNames: true, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
+      { id: 'loom_machine_state', name: 'Machine Idle Alert', needsClass: false, needsWatchNames: false, needsIdleThreshold: true, needsAbsenceThreshold: false, needsZone: true, zoneType: 'polygon', zoneDesc: 'Draw polygon around machine.' },
+      { id: 'person_near_machine', name: 'Person Near Machine', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: true, needsZone: true, zoneType: 'polygon', zoneDesc: 'Draw polygon around machine zone.' }
+    ];
 
     const NODE_DEFINITIONS = {
       start: {
@@ -734,140 +764,47 @@
         fields: [
           { key: 'label', type: 'text', label: 'Node label', default: 'Camera' },
           {
-            key: 'selection_mode',
-            type: 'select',
-            label: 'Selection mode',
-            options: ['Single camera', 'Multiple cameras'],
-            default: 'Single camera'
-          },
-          {
             key: 'camera_ids',
             type: 'camera_select',
-            label: 'Camera identifier(s)',
-            placeholder: 'Select camera(s) from the list'
+            label: 'Camera',
+            placeholder: 'Select camera'
           }
         ]
       },
       agent: {
-  name: 'agent',
-  label: 'Agent',
-  category: 'activity',
-  inputs: 1,
-  outputs: 1,
-  icon: 'fa-microchip',
-  fields: [
-
-    // Basic
-    { key: 'agent_name', type: 'text', label: 'Agent Name', required: true },
-
-    { 
-      key: 'rule_type', 
-      type: 'select', 
-      label: 'Rule Type',
-      options: [
-        'Class_presence',
-        'Weapon Detection',
-        'Person Count',
-        'Box Count',
-        'Fire Detection',
-        'Motion Detection',
-        'Object Detection',
-        'Restricted Zone Object Detection',
-        'Sleep Detection',
-        'Wall Climbing Detection',
-        'Zone Intrusion',
-        'Person Near Machine'
-      ],
-      required: true
-    },
-
-    {
-      key: 'model_name',
-      type: 'select',
-      label: 'Model',
-      options: ['yolov8n.pt', 'yolov8m.pt'],
-      default: 'yolov8m.pt'
-    },
-
-    // Advanced (collapsible)
-    {
-      key: 'fps',
-      type: 'number',
-      label: 'FPS',
-      default: 5
-    },
-
-    {
-      key: 'confidence_threshold',
-      type: 'number',
-      label: 'Confidence Threshold',
-      default: 0.5
-    },
-
-    {
-      key: 'alert_cooldown_seconds',
-      type: 'number',
-      label: 'Alert Cooldown (seconds)',
-      default: 10
-    }
-
-  ]
-},
-      classMonitor: {
-        name: 'classMonitor',
-        label: 'Class Monitor',
+        name: 'agent',
+        label: 'Agent',
         category: 'activity',
         inputs: 1,
         outputs: 1,
-        icon: 'fa-layer-group',
+        icon: 'fa-microchip',
         fields: [
-          {
-            key: 'label',
-            type: 'text',
-            label: 'Node label',
-            default: 'Class Monitor'
-          },
-          {
-            key: 'classes',
-            type: 'text',
-            label: 'Classes to monitor',
-            placeholder: 'e.g. Person, Vehicle, Helmet'
-          }
+          { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
+          { key: 'rule_id', type: 'select', label: 'Rule Type', default: 'class_presence' },
+          { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8n.pt', 'yolov8m.pt'], default: 'yolov8m.pt' },
+          { key: 'fps', type: 'number', label: 'FPS', default: 5 },
+          { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
+          { key: 'alert_cooldown_seconds', type: 'number', label: 'Alert Cooldown (seconds)', default: 10 }
         ]
       },
-scheduler: {
-  name: 'scheduler',
-  label: 'Scheduler',
-  category: 'trigger',
-  inputs: 1,
-  outputs: 1,
-  icon: 'fa-clock',
-  fields: [
-    { 
-      key: 'label', 
-      type: 'text', 
-      label: 'Node label', 
-      default: 'Scheduler' 
-    },
-    {
-      key: 'start_time',
-      type: 'time',
-      label: 'Start Time'
-    },
-    {
-      key: 'end_time',
-      type: 'time',
-      label: 'End Time'
-    },
-    {
-      key: 'run_mode',
-      type: 'select',
-      label: 'Run Mode',
-      options: ['continuous', 'Patrol'],
-      default: 'continuous'
-    }
-  ]
-},
+      scheduler: {
+        name: 'scheduler',
+        label: 'Scheduler',
+        category: 'trigger',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-clock',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'Scheduler' },
+          { key: 'schedule_type', type: 'select', label: 'Schedule', options: ['always', 'daily', 'weekly', 'once'], default: 'always' },
+          { key: 'start_time', type: 'text', label: 'Start', default: '' },
+          { key: 'end_time', type: 'text', label: 'End', default: '' },
+          { key: 'active_days', type: 'text', label: 'Active days', default: '' },
+          { key: 'run_mode', type: 'select', label: 'Run Mode', options: ['continuous', 'patrol'], default: 'continuous' },
+          { key: 'interval_minutes', type: 'number', label: 'Interval (min)', default: 10 },
+          { key: 'check_duration_seconds', type: 'number', label: 'Check duration (sec)', default: 30 }
+        ]
+      },
       notification: {
         name: 'notification',
         label: 'Notification',
@@ -955,12 +892,13 @@ scheduler: {
         return renderInlineField(field, data[field.key], index, def.name);
       }).join('');
 
-      // Special sections for Agent node to match screenshot
       let bodyContent = fieldsHtml;
       if (def.name === 'agent') {
         bodyContent = renderAgentSections(data, nodeId);
       } else if (def.name === 'camera') {
         bodyContent = renderCameraSections(data, nodeId);
+      } else if (def.name === 'scheduler') {
+        bodyContent = renderSchedulerSections(data, nodeId);
       }
 
       return `
@@ -989,123 +927,55 @@ scheduler: {
     function renderAgentSections(data, nodeId) {
       const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
       const agentName = data.agent_name || '';
-      const ruleType = data.rule_type || 'Face Detection';
+      const ruleId = data.rule_id || 'class_presence';
+      const ruleMeta = RULE_META.find(function (r) { return r.id === ruleId; }) || RULE_META[0];
       const modelName = data.model_name || 'yolov8m.pt';
       const fps = data.fps || 5;
       const confidenceThreshold = data.confidence_threshold || 0.5;
       const alertCooldown = data.alert_cooldown_seconds || 10;
+      const detectClass = data.detect_class || '';
+      const watchNames = data.watch_names || '';
+      const idleThreshold = data.idle_threshold_minutes || '';
+      const absenceThreshold = data.absence_threshold_minutes || '';
+      const hasZone = !!(data.zone && data.zone.coordinates && data.zone.coordinates.length);
 
-      return `
-        <!-- Agent Name Section -->
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Agent Name</span>
-              </div>
-              <div class="lf-input-wrapper position-relative">
-                <input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="agent_name" data-node-id="${nodeId || ''}"
-                  placeholder="Enter agent name" value="${safe(agentName)}" />
-              </div>
-            </div>
-          </div>
-        </div>
+      const ruleOptions = RULE_META.map(function (r) {
+        return '<option value="' + r.id + '"' + (ruleId === r.id ? ' selected' : '') + '>' + (r.name || r.id) + '</option>';
+      }).join('');
 
-        <!-- Rule Type Section -->
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator cyan"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Rule Type</span>
-              </div>
-              <div class="lf-input-wrapper position-relative">
-                <select class="lf-node-input w-100 form-select form-select-sm" data-field="rule_type" data-node-id="${nodeId || ''}">
-                  <option value="Class_presence" ${ruleType === 'Class_presence' ? 'selected' : ''}>Class_presence</option>
-                  <option value="Weapon Detection" ${ruleType === 'Weapon Detection' ? 'selected' : ''}>Weapon Detection</option>
-                  <option value="Person Count" ${ruleType === 'Person Count' ? 'selected' : ''}>Person Count</option>
-                  <option value="Box Count" ${ruleType === 'Box Count' ? 'selected' : ''}>Box Count</option>
-                  <option value="Fire Detection" ${ruleType === 'Fire Detection' ? 'selected' : ''}>Fire Detection</option>
-                  <option value="Motion Detection" ${ruleType === 'Motion Detection' ? 'selected' : ''}>Motion Detection</option>
-                  <option value="Object Detection" ${ruleType === 'Object Detection' ? 'selected' : ''}>Object Detection</option>
-                  <option value="Restricted Zone Object Detection" ${ruleType === 'Restricted Zone Object Detection' ? 'selected' : ''}>Restricted Zone Object Detection</option>
-                  <option value="Sleep Detection" ${ruleType === 'Sleep Detection' ? 'selected' : ''}>Sleep Detection</option>
-                  <option value="Wall Climbing Detection" ${ruleType === 'Wall Climbing Detection' ? 'selected' : ''}>Wall Climbing Detection</option>
-                  <option value="Zone Intrusion" ${ruleType === 'Zone Intrusion' ? 'selected' : ''}>Zone Intrusion</option>
-                  <option value="Person Near Machine" ${ruleType === 'Person Near Machine' ? 'selected' : ''}>Person Near Machine</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
+      let ruleSpecificHtml = '';
+      if (ruleMeta.needsClass && ruleMeta.classes && ruleMeta.classes.length) {
+        const classOpts = ruleMeta.classes.map(function (c) {
+          const label = c.charAt(0).toUpperCase() + c.slice(1);
+          return '<option value="' + c + '"' + (detectClass === c ? ' selected' : '') + '>' + label + '</option>';
+        }).join('');
+        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Detect</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="detect_class" data-node-id="' + (nodeId || '') + '"><option value="">Select class…</option>' + classOpts + '</select></div></div></div></div>';
+      } else if (ruleMeta.fixedClass) {
+        ruleSpecificHtml += '<input type="hidden" class="lf-node-input" data-field="detect_class" data-node-id="' + (nodeId || '') + '" value="' + safe(ruleMeta.fixedClass) + '" />';
+      }
+      if (ruleMeta.needsWatchNames) {
+        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Watch names (comma-separated)</div><div class="lf-input-wrapper"><input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="watch_names" data-node-id="' + (nodeId || '') + '" placeholder="e.g. sachin, john" value="' + safe(watchNames) + '" /></div></div></div></div>';
+      }
+      if (ruleMeta.needsIdleThreshold) {
+        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Idle Time <span style="color:var(--lf-placeholder-color);font-weight:400">(minutes)</span></div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="idle_threshold_minutes" data-node-id="' + (nodeId || '') + '" min="1" max="1440" placeholder="e.g. 15" value="' + safe(idleThreshold) + '" /></div></div></div></div>';
+      }
+      if (ruleMeta.needsAbsenceThreshold) {
+        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Absence Time <span style="color:var(--lf-placeholder-color);font-weight:400">(minutes)</span></div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="absence_threshold_minutes" data-node-id="' + (nodeId || '') + '" min="1" max="1440" placeholder="e.g. 15" value="' + safe(absenceThreshold) + '" /></div></div></div></div>';
+      }
 
-        <!-- Model Section -->
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Model</span>
-              </div>
-              <div class="lf-input-wrapper position-relative">
-                <select class="lf-node-input w-100 form-select form-select-sm" data-field="model_name" data-node-id="${nodeId || ''}">
-                  <option value="yolov8n.pt" ${modelName === 'yolov8n.pt' ? 'selected' : ''}>yolov8n.pt</option>
-                  <option value="yolov8m.pt" ${modelName === 'yolov8m.pt' ? 'selected' : ''}>yolov8m.pt</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
+      let zoneHtml = '';
+      if (ruleMeta.needsZone) {
+        zoneHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><button type="button" class="btn btn-sm w-100 wf-draw-zone-btn" style="border:1px dashed var(--lf-input-border);background:var(--lf-input-bg);color:var(--lf-card-color);font-size:11px;" data-node-id="' + (nodeId || '') + '" data-zone-type="' + (ruleMeta.zoneType || 'polygon') + '"><i class="fa-solid fa-draw-polygon me-1"></i>' + (hasZone ? 'Edit zone' : 'Draw zone') + '</button>' + (hasZone ? ' <span class="small text-success ms-1"><i class="fa-solid fa-check"></i></span>' : '') + '</div></div></div>';
+      }
 
-        <!-- FPS Section -->
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator cyan"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>FPS</span>
-              </div>
-              <div class="lf-input-wrapper position-relative">
-                <input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="fps" data-node-id="${nodeId || ''}"
-                  value="${safe(fps)}" step="1" min="1" max="60" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Confidence Threshold Section -->
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Confidence Threshold</span>
-              </div>
-              <div class="lf-input-wrapper position-relative">
-                <input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="confidence_threshold" data-node-id="${nodeId || ''}"
-                  value="${safe(confidenceThreshold)}" step="0.1" min="0" max="1" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Alert Cooldown Section -->
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator cyan"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Alert Cooldown (seconds)</span>
-              </div>
-              <div class="lf-input-wrapper position-relative">
-                <input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="alert_cooldown_seconds" data-node-id="${nodeId || ''}"
-                  value="${safe(alertCooldown)}" step="1" min="0" />
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
+      return '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Agent Name</div><div class="lf-input-wrapper"><input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="agent_name" data-node-id="' + (nodeId || '') + '" placeholder="Optional" value="' + safe(agentName) + '" /></div></div></div></div>' +
+        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Rule Type</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm lf-agent-rule-select" data-field="rule_id" data-node-id="' + (nodeId || '') + '">' + ruleOptions + '</select></div></div></div></div>' +
+        ruleSpecificHtml +
+        zoneHtml +
+        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Model</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="model_name" data-node-id="' + (nodeId || '') + '"><option value="yolov8n.pt"' + (modelName === 'yolov8n.pt' ? ' selected' : '') + '>yolov8n.pt</option><option value="yolov8m.pt"' + (modelName === 'yolov8m.pt' ? ' selected' : '') + '>yolov8m.pt</option></select></div></div></div></div>' +
+        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">FPS</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="fps" data-node-id="' + (nodeId || '') + '" value="' + safe(fps) + '" step="1" min="1" max="60" /></div></div></div></div>' +
+        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Confidence</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="confidence_threshold" data-node-id="' + (nodeId || '') + '" value="' + safe(confidenceThreshold) + '" step="0.1" min="0" max="1" /></div></div></div></div>' +
+        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Alert cooldown (s)</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="alert_cooldown_seconds" data-node-id="' + (nodeId || '') + '" value="' + safe(alertCooldown) + '" step="1" min="0" /></div></div></div></div>';
     }
     
     // Camera list cache
@@ -1160,7 +1030,6 @@ scheduler: {
     
     function renderCameraSections(data, nodeId) {
       const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
-      const selectionMode = data.selection_mode || 'Single camera';
       const cameraIds = data.camera_ids || '';
       const frameRate = data.frame_rate || 25;
       const label = data.label || 'Camera';
@@ -1182,38 +1051,19 @@ scheduler: {
           </div>
         </div>
 
-        <!-- Selection Mode Section -->
+        <!-- Camera Selection -->
         <div class="d-flex align-items-start gap-2">
           <span class="lf-section-indicator cyan"></span>
           <div class="flex-grow-1 min-w-0">
             <div class="mb-1">
               <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Selection mode</span>
-              </div>
-              <div class="lf-input-wrapper position-relative">
-                <select class="lf-node-input w-100 form-select form-select-sm" data-field="selection_mode" data-node-id="${nodeId || ''}">
-                  <option value="Single camera" ${selectionMode === 'Single camera' ? 'selected' : ''}>Single camera</option>
-                  <option value="Multiple cameras" ${selectionMode === 'Multiple cameras' ? 'selected' : ''}>Multiple cameras</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Camera Selection Section -->
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Camera identifier(s)</span>
+                <span>Camera</span>
               </div>
               <div class="lf-input-wrapper position-relative camera-dropdown-wrapper" data-node-id="${nodeId || ''}">
                 <select class="lf-node-input w-100 form-select form-select-sm camera-select" 
                         data-field="camera_ids" 
                         data-node-id="${nodeId || ''}"
-                        data-selection-mode="${selectionMode}"
-                        ${selectionMode === 'Multiple cameras' ? 'multiple' : ''}>
+                        data-current-value="${safe(cameraIds)}">
                   <option value="">Loading cameras...</option>
                 </select>
               </div>
@@ -1238,19 +1088,137 @@ scheduler: {
         </div>
       `;
     }
-    
-    // Function to populate camera dropdowns
+
+    function renderSchedulerSections(data, nodeId) {
+      const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
+      const label = data.label || 'Scheduler';
+      const scheduleType = data.schedule_type || 'always';
+      const startTime = data.start_time || '';
+      const endTime = data.end_time || '';
+      const activeDaysStr = data.active_days || '';
+      const runMode = data.run_mode || 'continuous';
+      const intervalMinutes = data.interval_minutes ?? 10;
+      const checkDuration = data.check_duration_seconds ?? 30;
+      const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+      const activeSet = new Set((typeof activeDaysStr === 'string' ? activeDaysStr.split(',') : []).map(s => s.trim()).filter(Boolean));
+
+      const dayChecks = DAYS.map(d => '<div class="form-check form-check-inline m-0"><input class="form-check-input lf-node-input" type="checkbox" data-field="active_days" data-node-id="' + (nodeId || '') + '" data-day="' + d + '" id="wf-day-' + (nodeId || '') + '-' + d + '"' + (activeSet.has(d) ? ' checked' : '') + '><label class="form-check-label small" for="wf-day-' + (nodeId || '') + '-' + d + '">' + d.charAt(0).toUpperCase() + d.slice(1, 3) + '</label></div>').join('');
+
+      return `
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">Label</div>
+              <div class="lf-input-wrapper"><input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="label" data-node-id="${nodeId || ''}" value="${safe(label)}" /></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">Schedule</div>
+              <div class="lf-input-wrapper">
+                <select class="lf-node-input w-100 form-select form-select-sm" data-field="schedule_type" data-node-id="${nodeId || ''}">
+                  <option value="always" ${scheduleType === 'always' ? 'selected' : ''}>Always</option>
+                  <option value="daily" ${scheduleType === 'daily' ? 'selected' : ''}>Daily</option>
+                  <option value="weekly" ${scheduleType === 'weekly' ? 'selected' : ''}>Weekly</option>
+                  <option value="once" ${scheduleType === 'once' ? 'selected' : ''}>Once</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2 wf-sched-once-group ${scheduleType !== 'once' ? 'wf-sched-hidden' : ''}">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">From (datetime)</div>
+              <div class="lf-input-wrapper"><input type="datetime-local" class="lf-node-input w-100 form-control form-control-sm" data-field="start_time" data-node-id="${nodeId || ''}" value="${safe(startTime)}" /></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2 wf-sched-once-group ${scheduleType !== 'once' ? 'wf-sched-hidden' : ''}">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">Until (datetime)</div>
+              <div class="lf-input-wrapper"><input type="datetime-local" class="lf-node-input w-100 form-control form-control-sm" data-field="end_time" data-node-id="${nodeId || ''}" value="${safe(endTime)}" /></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2 wf-sched-tod-group ${scheduleType !== 'daily' && scheduleType !== 'weekly' ? 'wf-sched-hidden' : ''}">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">From (time)</div>
+              <div class="lf-input-wrapper"><input type="time" class="lf-node-input w-100 form-control form-control-sm" data-field="start_time" data-node-id="${nodeId || ''}" value="${safe(startTime)}" /></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2 wf-sched-tod-group ${scheduleType !== 'daily' && scheduleType !== 'weekly' ? 'wf-sched-hidden' : ''}">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">Until (time)</div>
+              <div class="lf-input-wrapper"><input type="time" class="lf-node-input w-100 form-control form-control-sm" data-field="end_time" data-node-id="${nodeId || ''}" value="${safe(endTime)}" /></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2 wf-sched-days-group ${scheduleType !== 'weekly' ? 'wf-sched-hidden' : ''}">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">Active days</div>
+              <div class="d-flex flex-wrap gap-1">${dayChecks}</div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">Run mode</div>
+              <div class="lf-input-wrapper">
+                <select class="lf-node-input w-100 form-select form-select-sm" data-field="run_mode" data-node-id="${nodeId || ''}">
+                  <option value="continuous" ${runMode === 'continuous' ? 'selected' : ''}>Continuous</option>
+                  <option value="patrol" ${runMode === 'patrol' ? 'selected' : ''}>Patrol</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2 wf-sched-patrol-group ${runMode !== 'patrol' ? 'wf-sched-hidden' : ''}">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">Interval (min)</div>
+              <div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="interval_minutes" data-node-id="${nodeId || ''}" min="1" max="1440" value="${safe(intervalMinutes)}" /></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2 wf-sched-patrol-group ${runMode !== 'patrol' ? 'wf-sched-hidden' : ''}">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">Check duration (sec)</div>
+              <div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="check_duration_seconds" data-node-id="${nodeId || ''}" min="1" max="86400" value="${safe(checkDuration)}" /></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Function to populate camera dropdowns (single camera per node)
     async function populateCameraDropdowns() {
       const cameras = await fetchCameraList();
       
       document.querySelectorAll('.camera-select').forEach(select => {
         const nodeId = select.getAttribute('data-node-id');
-        const selectionMode = select.getAttribute('data-selection-mode') || 'Single camera';
+        const node = editor && editor.getNodeFromId && editor.getNodeFromId(nodeId);
+        const currentValue = (node && node.data && node.data.camera_ids != null) ? String(node.data.camera_ids).split(',')[0].trim() : (select.getAttribute('data-current-value') || '').split(',')[0].trim();
         
-        // Get current value from the select's data attribute instead of editor
-        const currentValue = select.getAttribute('data-current-value') || '';
-        
-        // Clear existing options
         select.innerHTML = '';
         
         if (cameras.length === 0) {
@@ -1259,54 +1227,16 @@ scheduler: {
           option.textContent = 'No cameras available';
           select.appendChild(option);
         } else {
-          // Add placeholder option for single select
-          if (selectionMode === 'Single camera') {
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = 'Select a camera...';
-            select.appendChild(placeholder);
-          }
-          
-          // Add camera options
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Select a camera...';
+          select.appendChild(placeholder);
           cameras.forEach(camera => {
             const option = document.createElement('option');
             option.value = camera.id;
             option.textContent = camera.name || camera.id;
-            
-            // Set selected if matches current value
-            if (selectionMode === 'Single camera') {
-              if (currentValue === camera.id) {
-                option.selected = true;
-              }
-            } else {
-              // For multiple selection, check if camera id is in comma-separated list
-              const selectedIds = currentValue.split(',').map(id => id.trim()).filter(id => id);
-              if (selectedIds.includes(camera.id)) {
-                option.selected = true;
-              }
-            }
-            
+            if (currentValue === camera.id) option.selected = true;
             select.appendChild(option);
-          });
-        }
-        
-        // Handle selection mode change
-        const selectionModeSelect = document.querySelector(`select[data-field="selection_mode"][data-node-id="${nodeId}"]`);
-        if (selectionModeSelect) {
-          selectionModeSelect.addEventListener('change', (e) => {
-            const newMode = e.target.value;
-            select.setAttribute('data-selection-mode', newMode);
-            select.multiple = newMode === 'Multiple cameras';
-            
-            // Reset selection when mode changes
-            if (newMode === 'Single camera') {
-              // Keep only first selected
-              const firstSelected = select.querySelector('option[selected]');
-              Array.from(select.options).forEach(opt => opt.selected = false);
-              if (firstSelected) {
-                firstSelected.selected = true;
-              }
-            }
           });
         }
       });
@@ -1465,11 +1395,122 @@ scheduler: {
       return node ? node.name : null;
     }
 
+    function getConnectedCameraId(nodeId) {
+      const data = editor.drawflow.drawflow.Home.data;
+      const node = data[nodeId];
+      if (!node || !node.inputs) return null;
+      for (const key of Object.keys(node.inputs)) {
+        const conns = node.inputs[key].connections || [];
+        if (conns.length > 0) {
+          const sourceId = conns[0].node;
+          const source = data[sourceId];
+          if (source && source.name === 'camera' && source.data) {
+            const ids = source.data.camera_ids;
+            if (typeof ids === 'string') {
+              const first = ids.split(',')[0].trim();
+              return first || null;
+            }
+            return ids || null;
+          }
+        }
+      }
+      return null;
+    }
+
+    function getUpstreamSchedulerId(nodeId) {
+      const data = editor.drawflow.drawflow.Home.data;
+      const node = data[nodeId];
+      if (!node || !node.inputs) return null;
+      for (const key of Object.keys(node.inputs)) {
+        const conns = node.inputs[key].connections || [];
+        if (conns.length > 0) {
+          const sourceId = conns[0].node;
+          const source = data[sourceId];
+          if (source && source.name === 'scheduler') return sourceId;
+        }
+      }
+      return null;
+    }
+
+    function getUpstreamNodeId(nodeId) {
+      const data = editor?.drawflow?.drawflow?.Home?.data || {};
+      const node = data[nodeId];
+      if (!node || !node.inputs) return null;
+      for (const key of Object.keys(node.inputs)) {
+        const conns = node.inputs[key].connections || [];
+        if (conns.length > 0) return conns[0].node;
+      }
+      return null;
+    }
+
+    function updateNotificationNodesForSchedule() {
+      const data = editor?.drawflow?.drawflow?.Home?.data || {};
+      Object.keys(data).forEach(function (id) {
+        const node = data[id];
+        if (node.name !== 'notification') return;
+        const nodeEl = document.getElementById('node-' + id);
+        if (!nodeEl) return;
+        const schedulerId = getUpstreamSchedulerId(id);
+        const scheduler = schedulerId && data[schedulerId] ? data[schedulerId] : null;
+        const scheduleType = scheduler && scheduler.data ? (scheduler.data.schedule_type || 'always') : 'always';
+        if (scheduleType === 'always') {
+          nodeEl.classList.add('wf-no-end');
+        } else {
+          nodeEl.classList.remove('wf-no-end');
+        }
+      });
+      Object.keys(data).forEach(function (id) {
+        const node = data[id];
+        if (node.name !== 'end') return;
+        const nodeEl = document.getElementById('node-' + id);
+        if (!nodeEl) return;
+        const sourceId = getUpstreamNodeId(id);
+        const source = sourceId && data[sourceId] ? data[sourceId] : null;
+        if (source && source.name === 'notification') {
+          const schedulerId = getUpstreamSchedulerId(sourceId);
+          const scheduler = schedulerId && data[schedulerId] ? data[schedulerId] : null;
+          const scheduleType = scheduler && scheduler.data ? (scheduler.data.schedule_type || 'always') : 'always';
+          if (scheduleType === 'always') {
+            nodeEl.classList.add('wf-end-unused');
+          } else {
+            nodeEl.classList.remove('wf-end-unused');
+          }
+        } else {
+          nodeEl.classList.remove('wf-end-unused');
+        }
+      });
+    }
+
+    function hasUnusedEndNode() {
+      const data = editor?.drawflow?.drawflow?.Home?.data || {};
+      for (const id of Object.keys(data)) {
+        const node = data[id];
+        if (node.name !== 'end') continue;
+        const sourceId = getUpstreamNodeId(id);
+        const source = sourceId && data[sourceId] ? data[sourceId] : null;
+        if (source && source.name === 'notification') {
+          const schedulerId = getUpstreamSchedulerId(sourceId);
+          const scheduler = schedulerId && data[schedulerId] ? data[schedulerId] : null;
+          const scheduleType = scheduler && scheduler.data ? (scheduler.data.schedule_type || 'always') : 'always';
+          if (scheduleType === 'always') return true;
+        }
+      }
+      return false;
+    }
+
     function validateConnection(sourceNodeId, targetNodeId) {
       const sourceNodeKey = getNodeKeyFromCanvasNode(sourceNodeId);
       const targetNodeKey = getNodeKeyFromCanvasNode(targetNodeId);
 
       if (!sourceNodeKey || !targetNodeKey) return false;
+
+      if (sourceNodeKey === 'notification' && targetNodeKey === 'end') {
+        const schedulerId = getUpstreamSchedulerId(sourceNodeId);
+        const data = editor?.drawflow?.drawflow?.Home?.data || {};
+        const scheduler = schedulerId && data[schedulerId] ? data[schedulerId] : null;
+        const scheduleType = scheduler && scheduler.data ? (scheduler.data.schedule_type || 'always') : 'always';
+        if (scheduleType === 'always') return false;
+      }
 
       return areNodesCompatible(sourceNodeKey, targetNodeKey);
     }
@@ -1647,6 +1688,37 @@ scheduler: {
       }
     });
 
+    function refreshAgentNodeHtml(nodeId) {
+      const node = editor.getNodeFromId(nodeId);
+      if (!node || node.name !== 'agent') return;
+      const data = node.data || {};
+      const def = NODE_DEFINITIONS.agent;
+      const html = createNodeContentHtml(def, data, nodeId);
+      const contentNode = document.querySelector('#node-' + nodeId + ' .drawflow_content_node');
+      if (contentNode) {
+        contentNode.innerHTML = html;
+        if (editor.drawflow.drawflow.Home.data[nodeId]) editor.drawflow.drawflow.Home.data[nodeId].html = html;
+      }
+    }
+
+    function updateSchedulerVisibility(card, data) {
+      if (!card) return;
+      var st = (data && data.schedule_type) || 'always';
+      var rm = (data && data.run_mode) || 'continuous';
+      card.querySelectorAll('.wf-sched-once-group').forEach(function (el) {
+        el.classList.toggle('wf-sched-hidden', st !== 'once');
+      });
+      card.querySelectorAll('.wf-sched-tod-group').forEach(function (el) {
+        el.classList.toggle('wf-sched-hidden', st !== 'daily' && st !== 'weekly');
+      });
+      card.querySelectorAll('.wf-sched-days-group').forEach(function (el) {
+        el.classList.toggle('wf-sched-hidden', st !== 'weekly');
+      });
+      card.querySelectorAll('.wf-sched-patrol-group').forEach(function (el) {
+        el.classList.toggle('wf-sched-hidden', rm !== 'patrol');
+      });
+    }
+
     function setupNodeInputHandlers(nodeId) {
       const nodeElement = document.getElementById(`node-${nodeId}`);
       if (!nodeElement) return;
@@ -1677,18 +1749,36 @@ scheduler: {
         if (target.classList.contains('lf-node-input')) {
           const fieldKey = target.getAttribute('data-field');
           let value;
-          
-          // Handle multi-select for camera dropdown
+          if (target.type === 'checkbox') {
+            const node = editor.getNodeFromId(nodeId);
+            const day = target.getAttribute('data-day');
+            if (fieldKey === 'active_days' && day && node && node.data) {
+              const current = (node.data.active_days || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+              const set = new Set(current);
+              if (target.checked) set.add(day); else set.delete(day);
+              value = Array.from(set).join(',');
+              node.data.active_days = value;
+              if (editor.drawflow.drawflow.Home.data[nodeId]) editor.drawflow.drawflow.Home.data[nodeId].data.active_days = value;
+            }
+            return;
+          }
           if (target.hasAttribute('multiple')) {
             value = Array.from(target.selectedOptions).map(opt => opt.value).join(',');
           } else {
             value = target.value;
           }
-          
           const node = editor.getNodeFromId(nodeId);
           if (node && node.data) {
             node.data[fieldKey] = value;
             editor.drawflow.drawflow.Home.data[nodeId].data[fieldKey] = value;
+          }
+          var card = contentNode.querySelector && contentNode.querySelector('.lf-card') || contentNode;
+          if (card && node && node.name === 'scheduler') {
+            updateSchedulerVisibility(card, node.data);
+            updateNotificationNodesForSchedule();
+          }
+          if (card && node && node.name === 'agent' && fieldKey === 'rule_id') {
+            refreshAgentNodeHtml(nodeId);
           }
         }
       });
@@ -1699,6 +1789,12 @@ scheduler: {
           e.stopPropagation();
         }
       });
+
+      var node = editor.getNodeFromId(nodeId);
+      if (node && node.name === 'scheduler') {
+        var card = contentNode.querySelector && contentNode.querySelector('.lf-card') || contentNode;
+        updateSchedulerVisibility(card, node.data || {});
+      }
       
       nodeElement.setAttribute('data-input-handlers', 'true');
     }
@@ -1732,7 +1828,8 @@ scheduler: {
         }
       }
       setupNodeInputHandlers(nodeId);
-      
+      if (name === 'notification') updateNotificationNodesForSchedule();
+
       // Populate camera dropdowns if this is a camera node
       if (name === 'camera') {
         // Multiple attempts to populate as DOM may not be ready immediately
@@ -1776,8 +1873,17 @@ scheduler: {
         const sourceDef = NODE_DEFINITIONS[sourceNode.name];
         const targetDef = NODE_DEFINITIONS[targetNode.name];
 
-        alert(`Invalid connection: "${sourceDef.label}" cannot connect to "${targetDef.label}". Please check the node compatibility rules.`);
+        var msg = sourceNode.name === 'notification' && targetNode.name === 'end'
+          ? 'When the Scheduler is set to "Always", the Notification node does not connect to End. Change the Scheduler to Daily, Weekly, or Once to add an End node.'
+          : `Invalid connection: "${sourceDef.label}" cannot connect to "${targetDef.label}". Please check the node compatibility rules.`;
+        alert(msg);
+      } else {
+        updateNotificationNodesForSchedule();
       }
+    });
+
+    editor.on('connectionRemoved', function () {
+      updateNotificationNodesForSchedule();
     });
 
     editor.on('nodeSelected', function (id) {
@@ -1793,9 +1899,212 @@ scheduler: {
       resetPortsVisibility();
     });
 
+    var zoneForNodeId = null;
+    var wfZoneState = { points: [], mode: 'polygon', imgEl: null, imgW: 640, imgH: 360, savedCoords: null, savedType: null, mousePt: null };
+
+    function wfZoneReset(mode) {
+      wfZoneState.points = [];
+      wfZoneState.mode = mode || 'polygon';
+      wfZoneState.imgEl = null;
+      wfZoneState.imgW = 640;
+      wfZoneState.imgH = 360;
+      wfZoneState.savedCoords = null;
+      wfZoneState.savedType = null;
+      wfZoneState.mousePt = null;
+    }
+
+    function wfZoneDraw() {
+      var canvas = document.getElementById('wf-zone-canvas');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (wfZoneState.imgEl) ctx.drawImage(wfZoneState.imgEl, 0, 0, canvas.width, canvas.height);
+      else { ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+      var pts = wfZoneState.points;
+      if (pts.length >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        if (wfZoneState.mode === 'polygon' && pts.length >= 3) ctx.lineTo(pts[0].x, pts[0].y);
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        if (wfZoneState.mode === 'polygon' && pts.length >= 3) { ctx.fillStyle = 'rgba(34,211,238,.15)'; ctx.fill(); }
+      }
+      if (wfZoneState.mousePt && pts.length > 0) {
+        var last = pts[pts.length - 1];
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(wfZoneState.mousePt.x, wfZoneState.mousePt.y);
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = 'rgba(255,255,255,.4)';
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      pts.forEach(function (pt, idx) {
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, idx === 0 ? 7 : 5, 0, Math.PI * 2);
+        ctx.fillStyle = idx === 0 ? '#22c55e' : '#22d3ee';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+    }
+
+    function wfZoneNormalize() {
+      var W = wfZoneState.imgW, H = wfZoneState.imgH;
+      return wfZoneState.points.map(function (pt) {
+        return [Math.round(pt.x / W * 1000) / 1000, Math.round(pt.y / H * 1000) / 1000];
+      });
+    }
+
+    function wfZoneCanFinish() {
+      var n = wfZoneState.points.length;
+      return (wfZoneState.mode === 'polygon' && n >= 3) || (wfZoneState.mode === 'line' && n === 2);
+    }
+
+    function wfZoneIsNearFirst(px, py) {
+      if (wfZoneState.points.length < 3) return false;
+      var f = wfZoneState.points[0];
+      return Math.sqrt((px - f.x) * (px - f.x) + (py - f.y) * (py - f.y)) < 14;
+    }
+
+    function wfZoneUpdateHint() {
+      var hintEl = document.getElementById('wf-zone-hint');
+      var undoBtn = document.getElementById('wf-zone-undo');
+      var clearBtn = document.getElementById('wf-zone-clear');
+      var n = wfZoneState.points.length;
+      var hint = wfZoneState.mode === 'line' ? (n === 0 ? 'Click first point.' : n === 1 ? 'Click second point.' : 'Line ready.') : (n < 3 ? 'Add ' + (3 - n) + ' more point(s).' : 'Click first point (green) to close or Save.');
+      if (hintEl) hintEl.textContent = hint;
+      if (undoBtn) undoBtn.disabled = n === 0;
+      if (clearBtn) clearBtn.disabled = n === 0;
+    }
+
+    function wfZoneBindCanvas() {
+      var canvas = document.getElementById('wf-zone-canvas');
+      if (!canvas) return;
+      var fresh = canvas.cloneNode(true);
+      canvas.parentNode.replaceChild(fresh, canvas);
+      canvas = fresh;
+      canvas.style.cursor = 'crosshair';
+      function getPt(e) {
+        var rect = canvas.getBoundingClientRect();
+        var sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+        return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+      }
+      canvas.addEventListener('mousemove', function (e) {
+        wfZoneState.mousePt = getPt(e);
+        wfZoneDraw();
+      });
+      canvas.addEventListener('mouseleave', function () { wfZoneState.mousePt = null; wfZoneDraw(); });
+      canvas.addEventListener('click', function (e) {
+        var pt = getPt(e);
+        if (wfZoneState.mode === 'polygon' && wfZoneIsNearFirst(pt.x, pt.y)) { wfZoneUpdateHint(); wfZoneDraw(); return; }
+        if (wfZoneState.mode === 'line' && wfZoneState.points.length >= 2) return;
+        wfZoneState.points.push(pt);
+        if (wfZoneState.mode === 'line' && wfZoneState.points.length === 2) { wfZoneUpdateHint(); wfZoneDraw(); return; }
+        wfZoneUpdateHint();
+        wfZoneDraw();
+      });
+      wfZoneDraw();
+      wfZoneUpdateHint();
+    }
+
+    function wfZoneLoadSnapshot(cameraId, onDone) {
+      var loadingEl = document.getElementById('wf-zone-loading');
+      var errorEl = document.getElementById('wf-zone-error');
+      var errorMsgEl = document.getElementById('wf-zone-error-msg');
+      if (loadingEl) loadingEl.classList.remove('d-none');
+      if (errorEl) errorEl.classList.add('d-none');
+      var token = getAuthToken();
+      var headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      fetch('http://localhost:8000/api/v1/cameras/' + encodeURIComponent(cameraId) + '/snapshot', { method: 'GET', headers: headers })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (loadingEl) loadingEl.classList.add('d-none');
+          var b64 = data && data.frame_base64;
+          if (!b64) throw new Error('No frame');
+          var img = new Image();
+          img.onload = function () {
+            var canvas = document.getElementById('wf-zone-canvas');
+            if (!canvas) return;
+            canvas.width = img.naturalWidth || 640;
+            canvas.height = img.naturalHeight || 360;
+            wfZoneState.imgEl = img;
+            wfZoneState.imgW = canvas.width;
+            wfZoneState.imgH = canvas.height;
+            wfZoneBindCanvas();
+            if (onDone) onDone();
+          };
+          img.src = 'data:image/jpeg;base64,' + b64;
+        })
+        .catch(function (err) {
+          if (loadingEl) loadingEl.classList.add('d-none');
+          if (errorEl) errorEl.classList.remove('d-none');
+          if (errorMsgEl) errorMsgEl.textContent = (err && err.message) || 'Failed to load frame';
+        });
+    }
+
+    function openZoneModal(nodeId, zoneType) {
+      var cameraId = getConnectedCameraId(nodeId);
+      if (!cameraId) {
+        alert('Connect this Agent node to a Camera node first, and set the camera in that node.');
+        return;
+      }
+      zoneForNodeId = nodeId;
+      var ruleMeta = RULE_META.find(function (r) {
+        var node = editor.getNodeFromId(nodeId);
+        return node && node.data && node.data.rule_id === r.id;
+      });
+      var desc = (ruleMeta && ruleMeta.zoneDesc) || (zoneType === 'line' ? 'Draw 2 points for the line.' : 'Draw polygon (min 3 points).');
+      document.getElementById('wf-zone-desc').textContent = desc;
+      wfZoneReset(zoneType || 'polygon');
+      var modalEl = document.getElementById('wf-zone-modal');
+      if (typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      wfZoneLoadSnapshot(cameraId, function () { });
+    }
+
+    container.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('.wf-draw-zone-btn');
+      if (btn) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openZoneModal(btn.getAttribute('data-node-id'), btn.getAttribute('data-zone-type') || 'polygon');
+      }
+    });
+
+    var wfZoneModalEl = document.getElementById('wf-zone-modal');
+    if (wfZoneModalEl) {
+      wfZoneModalEl.querySelector('#wf-zone-save').addEventListener('click', function () {
+        if (!wfZoneCanFinish() || !zoneForNodeId) return;
+        var node = editor.getNodeFromId(zoneForNodeId);
+        if (node && node.data) {
+          node.data.zone = { type: wfZoneState.mode === 'line' ? 'line' : 'polygon', coordinates: wfZoneNormalize() };
+          if (editor.drawflow.drawflow.Home.data[zoneForNodeId]) editor.drawflow.drawflow.Home.data[zoneForNodeId].data.zone = node.data.zone;
+        }
+        if (typeof bootstrap !== 'undefined') { var m = bootstrap.Modal.getInstance(wfZoneModalEl); if (m) m.hide(); }
+        refreshAgentNodeHtml(zoneForNodeId);
+        zoneForNodeId = null;
+      });
+      wfZoneModalEl.querySelector('#wf-zone-undo').addEventListener('click', function () {
+        if (wfZoneState.points.length > 0) { wfZoneState.points.pop(); wfZoneUpdateHint(); wfZoneDraw(); }
+      });
+      wfZoneModalEl.querySelector('#wf-zone-clear').addEventListener('click', function () {
+        wfZoneState.points = []; wfZoneUpdateHint(); wfZoneDraw();
+      });
+    }
+
     zoomInBtn.addEventListener('click', () => editor.zoom_in());
     zoomOutBtn.addEventListener('click', () => editor.zoom_out());
     zoomResetBtn.addEventListener('click', () => editor.zoom_reset());
+
+    container.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      if (e.deltaY < 0) editor.zoom_in();
+      else if (e.deltaY > 0) editor.zoom_out();
+    }, { passive: false });
     clearBtn.addEventListener('click', () => {
       editor.clear();
     });
@@ -1815,6 +2124,10 @@ scheduler: {
     });
 
     saveBtn.addEventListener('click', async () => {
+      if (hasUnusedEndNode()) {
+        alert('Cannot save: the Scheduler is set to "Always" but an End node is still connected. Remove the End node (or change the Scheduler to Daily, Weekly, or Once) and try again.');
+        return;
+      }
       const exportedFlow = editor.export();
       prepareWorkflowData(exportedFlow);
       
@@ -1908,27 +2221,22 @@ scheduler: {
         return lastNodeId;
       };
 
-      // Example: Start -> Camera -> Agent -> Class Monitor -> Scheduler -> Notification -> End
+      // Example: Start -> Camera -> Agent -> Scheduler -> Notification -> End
       const nStart = add('start', 40, 120, { __label: 'Start' });
       const nCamera = add('camera', 260, 120, {
-        __label: 'Entry cameras',
-        camera_ids: 'Cam-1, Cam-2'
+        __label: 'Camera',
+        camera_ids: ''
       });
       const nAgent = add('agent', 520, 120, {
         __label: 'Safety agent',
         agent_name: 'PPE safety agent',
-        model_provider: 'OpenAI',
-        model_name: 'gpt-4.1-mini'
-      });
-      const nClass = add('classMonitor', 800, 120, {
-        __label: 'PPE classes',
-        classes: 'Person, Helmet, Vest'
+        rule_id: 'class_presence',
+        model_name: 'yolov8m.pt'
       });
       const nScheduler = add('scheduler', 1080, 120, {
-        __label: 'Every 1 min',
-        schedule_type: 'Fixed interval',
-        interval_value: 1,
-        interval_unit: 'minutes'
+        __label: 'Schedule',
+        schedule_type: 'always',
+        run_mode: 'continuous'
       });
       const nNotification = add('notification', 1360, 120, {
         __label: 'Ops email',
@@ -1939,8 +2247,7 @@ scheduler: {
 
       editor.addConnection(nStart, nCamera, 'output_1', 'input_1');
       editor.addConnection(nCamera, nAgent, 'output_1', 'input_1');
-      editor.addConnection(nAgent, nClass, 'output_1', 'input_1');
-      editor.addConnection(nClass, nScheduler, 'output_1', 'input_1');
+      editor.addConnection(nAgent, nScheduler, 'output_1', 'input_1');
       editor.addConnection(nScheduler, nNotification, 'output_1', 'input_1');
       editor.addConnection(nNotification, nEnd, 'output_1', 'input_1');
 
@@ -1982,6 +2289,7 @@ scheduler: {
           if (workflowData.drawflow_data) {
             editor.import(workflowData.drawflow_data);
             setupAllNodeInputHandlers();
+            updateNotificationNodesForSchedule();
           }
 
           document.title = `Edit Workflow: ${window.currentWorkflowName}`;
@@ -2016,6 +2324,42 @@ scheduler: {
   }
 })();
         </script>
+
+    <!-- Zone drawing modal for Agent node (when rule requires zone) -->
+    <div class="modal fade" id="wf-zone-modal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background: var(--lf-card-bg); border-color: var(--lf-card-border);">
+          <div class="modal-header border-secondary">
+            <h5 class="modal-title" style="color: var(--lf-card-color);">Draw zone</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="small mb-2" style="color: var(--lf-label-color);" id="wf-zone-desc"></p>
+            <div id="wf-zone-canvas-wrap" style="position:relative;background:#0f172a;border-radius:8px;overflow:hidden;min-height:180px;cursor:crosshair;">
+              <canvas id="wf-zone-canvas" width="640" height="360" style="display:block;width:100%;height:auto;"></canvas>
+              <div id="wf-zone-loading" class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="background:rgba(0,0,0,.65);color:#94a3b8;z-index:2;">
+                <div class="text-center small">Loading frame…</div>
+              </div>
+              <div id="wf-zone-error" class="d-none position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="background:rgba(0,0,0,.65);color:#f87171;z-index:2;">
+                <div class="text-center small px-2" id="wf-zone-error-msg"></div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 mt-2">
+              <span class="small" style="color: var(--lf-label-color);" id="wf-zone-hint"></span>
+              <div class="ms-auto">
+                <button type="button" class="btn btn-sm me-1" id="wf-zone-undo" style="background: var(--lf-input-bg); color: var(--lf-card-color); border: 1px solid var(--lf-input-border);">Undo</button>
+                <button type="button" class="btn btn-sm" id="wf-zone-clear" style="background: var(--lf-input-bg); color: var(--lf-card-color); border: 1px solid var(--lf-input-border);">Clear</button>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer border-secondary">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" id="wf-zone-save" style="background:#6366f1;border-color:#6366f1;">Save zone</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </body>
 
