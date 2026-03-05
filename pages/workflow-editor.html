@@ -449,6 +449,67 @@
     .drawflow-node.wf-end-unused .drawflow_content_node .lf-card .lf-footer {
       color: #f87171 !important;
     }
+
+    /* Camera Dropdown with Preview Styles */
+    .camera-custom-dropdown .dropdown-menu {
+      background: var(--lf-card-bg);
+      border: 1px solid var(--lf-input-border);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      padding: 0;
+      margin-top: 2px;
+    }
+    .camera-custom-dropdown .dropdown-item {
+      color: var(--lf-card-color);
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--lf-input-border);
+      font-size: 12px;
+      min-height: 36px;
+    }
+    .camera-custom-dropdown .dropdown-item:last-child {
+      border-bottom: none;
+    }
+    .camera-custom-dropdown .dropdown-item:hover,
+    .camera-custom-dropdown .dropdown-item.active {
+      background: var(--lf-hover-bg);
+    }
+    .camera-custom-dropdown .camera-preview-thumb {
+      flex-shrink: 0;
+      width: 32px;
+      height: 24px;
+      background: #1a1a2e;
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .camera-custom-dropdown .camera-thumb-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .camera-custom-dropdown .camera-thumb-placeholder {
+      font-size: 10px;
+      color: var(--lf-placeholder-color);
+    }
+    .camera-dropdown-toggle {
+      background: var(--lf-input-bg) !important;
+      border-color: var(--lf-input-border) !important;
+      color: var(--lf-card-color) !important;
+      font-size: 12px;
+      padding: 4px 8px;
+      height: 28px;
+    }
+    .camera-dropdown-toggle:hover,
+    .camera-dropdown-toggle:focus {
+      background: var(--lf-hover-bg) !important;
+      border-color: var(--lf-input-border) !important;
+      color: var(--lf-card-color) !important;
+    }
+    .camera-dropdown-toggle .fa-chevron-down {
+      font-size: 10px;
+      color: var(--lf-icon-color);
+    }
     </style>
 
     <!-- Top Bar -->
@@ -527,9 +588,25 @@
               <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
             </div>
             <div class="wf-section-content ps-5 pe-3 py-1">
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="agent" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-robot text-muted"></i>
-                <span>Agent</span>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="class_detection_agent" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-eye text-muted"></i>
+                <span>Class Detection Agent</span>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="class_detection_zone_agent" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-draw-polygon text-muted"></i>
+                <span>Class Detection Agent with Zone</span>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="object_count_agent" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-list-ol text-muted"></i>
+                <span>Object Count Agent</span>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="person_behaviour_agent" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-person-falling text-muted"></i>
+                <span>Person Behaviour Agent</span>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="report" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-file-lines text-muted"></i>
+                <span>Report Node</span>
               </div>
             </div>
           </div>
@@ -547,23 +624,6 @@
               <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="camera" data-category="activity" style="color: var(--wf-designer-color);">
                 <i class="fa-solid fa-video text-muted"></i>
                 <span>Camera</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Data Section -->
-          <div class="wf-section mb-1" data-section="data">
-            <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
-              <div class="d-flex align-items-center gap-2">
-                <i class="fa-solid fa-database text-muted small" style="width: 20px; text-align: center;"></i>
-                <span class="fw-medium small" style="color: var(--wf-designer-color);">Data</span>
-              </div>
-              <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
-            </div>
-            <div class="wf-section-content ps-5 pe-3 py-1">
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="scheduler" data-category="trigger" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-clock text-muted"></i>
-                <span>Scheduler</span>
               </div>
             </div>
           </div>
@@ -713,10 +773,13 @@
 
     const NODE_COMPATIBILITY = {
       start: ['camera'],
-      camera: ['agent'],
-      agent: ['scheduler'],
-      scheduler: ['notification'],
-      notification: ['end'],
+      camera: ['class_detection_agent', 'class_detection_zone_agent', 'object_count_agent', 'person_behaviour_agent'],
+      class_detection_agent: ['notification', 'report'],
+      class_detection_zone_agent: ['notification', 'report'],
+      object_count_agent: ['notification', 'report'],
+      person_behaviour_agent: ['notification', 'report'],
+      notification: ['end', 'report'],
+      report: ['end', 'notification'],
       end: []
     };
 
@@ -751,7 +814,14 @@
             type: 'textarea',
             label: 'Description',
             placeholder: 'Describe the purpose of this workflow entry point.'
-          }
+          },
+          { key: 'schedule_type', type: 'select', label: 'Schedule', options: ['always', 'daily', 'weekly', 'once'], default: 'always' },
+          { key: 'start_time', type: 'text', label: 'Start', default: '' },
+          { key: 'end_time', type: 'text', label: 'End', default: '' },
+          { key: 'active_days', type: 'text', label: 'Active days', default: '' },
+          { key: 'run_mode', type: 'select', label: 'Run Mode', options: ['continuous', 'patrol'], default: 'continuous' },
+          { key: 'interval_minutes', type: 'number', label: 'Interval (min)', default: 10 },
+          { key: 'check_duration_seconds', type: 'number', label: 'Check duration (sec)', default: 30 }
         ]
       },
       camera: {
@@ -771,38 +841,70 @@
           }
         ]
       },
-      agent: {
-        name: 'agent',
-        label: 'Agent',
+      class_detection_agent: {
+        name: 'class_detection_agent',
+        label: 'Class Detection Agent',
         category: 'activity',
         inputs: 1,
         outputs: 1,
-        icon: 'fa-microchip',
+        icon: 'fa-eye',
         fields: [
           { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
-          { key: 'rule_id', type: 'select', label: 'Rule Type', default: 'class_presence' },
-          { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8n.pt', 'yolov8m.pt'], default: 'yolov8m.pt' },
+          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['Class Presence Detection', 'Fire Detection', 'Weapon Detection', 'Face Recognition'], default: 'Class Presence Detection' },
+          { key: 'model_name', type: 'select', label: 'Model', options: ['fire_detection.pt','yolov8n.pt', 'yolov8m.pt', 'yolov8s.pt'], default: 'yolov8m.pt' },
           { key: 'fps', type: 'number', label: 'FPS', default: 5 },
           { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
           { key: 'alert_cooldown_seconds', type: 'number', label: 'Alert Cooldown (seconds)', default: 10 }
         ]
       },
-      scheduler: {
-        name: 'scheduler',
-        label: 'Scheduler',
-        category: 'trigger',
+      person_behaviour_agent: {
+        name: 'person_behaviour_agent',
+        label: 'Person Behaviour Agent',
+        category: 'activity',
         inputs: 1,
         outputs: 1,
-        icon: 'fa-clock',
+        icon: 'fa-person-falling',
         fields: [
-          { key: 'label', type: 'text', label: 'Node label', default: 'Scheduler' },
-          { key: 'schedule_type', type: 'select', label: 'Schedule', options: ['always', 'daily', 'weekly', 'once'], default: 'always' },
-          { key: 'start_time', type: 'text', label: 'Start', default: '' },
-          { key: 'end_time', type: 'text', label: 'End', default: '' },
-          { key: 'active_days', type: 'text', label: 'Active days', default: '' },
-          { key: 'run_mode', type: 'select', label: 'Run Mode', options: ['continuous', 'patrol'], default: 'continuous' },
-          { key: 'interval_minutes', type: 'number', label: 'Interval (min)', default: 10 },
-          { key: 'check_duration_seconds', type: 'number', label: 'Check duration (sec)', default: 30 }
+          { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
+          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['Fall Detection', 'Sleep Detection'], default: 'Fall Detection' },
+          { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8m-pose.pt','yolov8n-pose.pt'], default: 'yolov8m-pose.pt' },
+          { key: 'fps', type: 'number', label: 'FPS', default: 5 },
+          { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
+          { key: 'alert_cooldown_seconds', type: 'number', label: 'Alert Cooldown (seconds)', default: 10 }
+        ]
+      },
+      class_detection_zone_agent: {
+        name: 'class_detection_zone_agent',
+        label: 'Class Detection Agent with Zone',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-draw-polygon',
+        fields: [
+          { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
+          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['Restricted Zone Detection', 'Wall Climb Detection', 'Person Near Machine Detection', 'Machine Idle State Detection'], default: 'Restricted Zone Detection' },
+          { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8n.pt', 'yolov8m.pt'], default: 'yolov8m.pt' },
+          { key: 'fps', type: 'number', label: 'FPS', default: 5 },
+          { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
+          { key: 'alert_cooldown_seconds', type: 'number', label: 'Alert Cooldown (seconds)', default: 10 },
+          { key: 'zone_configured', type: 'hidden', label: '', default: false }
+        ]
+      },
+      object_count_agent: {
+        name: 'object_count_agent',
+        label: 'Object Count Agent',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-list-ol',
+        fields: [
+          { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
+          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['Object Counter', 'Box Counter'], default: 'Object Counter' },
+          { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8n.pt','yolov8m.pt', 'box_detection.pt'], default: 'yolov8m.pt' },
+          { key: 'fps', type: 'number', label: 'FPS', default: 5 },
+          { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
+          { key: 'alert_cooldown_seconds', type: 'number', label: 'Alert Cooldown (seconds)', default: 10 },
+          { key: 'zone_configured', type: 'hidden', label: '', default: false }
         ]
       },
       notification: {
@@ -853,6 +955,21 @@
           }
         ]
       },
+      report: {
+        name: 'report',
+        label: 'Report Node',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-file-lines',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'Report' },
+          { key: 'report_name', type: 'text', label: 'Report Name', default: '' },
+          { key: 'report_type', type: 'select', label: 'Report Type', options: ['Summary', 'Detailed', 'Analytics'], default: 'Summary' },
+          { key: 'include_charts', type: 'select', label: 'Include Charts', options: ['Yes', 'No'], default: 'Yes' },
+          { key: 'notes', type: 'textarea', label: 'Notes', placeholder: 'Additional notes for report generation' }
+        ]
+      },
       end: {
         name: 'end',
         label: 'End',
@@ -893,12 +1010,12 @@
       }).join('');
 
       let bodyContent = fieldsHtml;
-      if (def.name === 'agent') {
-        bodyContent = renderAgentSections(data, nodeId);
+      if (def.name === 'class_detection_agent' || def.name === 'class_detection_zone_agent' || def.name === 'object_count_agent' || def.name === 'person_behaviour_agent') {
+        bodyContent = renderAgentSections(data, nodeId, def.name);
       } else if (def.name === 'camera') {
         bodyContent = renderCameraSections(data, nodeId);
-      } else if (def.name === 'scheduler') {
-        bodyContent = renderSchedulerSections(data, nodeId);
+      } else if (def.name === 'start') {
+        bodyContent = renderStartSections(data, nodeId);
       }
 
       return `
@@ -908,71 +1025,108 @@
               <span class="lf-header-icon d-flex align-items-center justify-content-center"><i class="fa-solid ${def.icon}" aria-hidden="true"></i></span>
               <span>${title}</span>
             </div>
-            <button class="lf-play-btn d-flex align-items-center justify-content-center" title="Run Node"><i class="fa-solid fa-play"></i></button>
           </div>
           <div class="lf-card-body d-flex flex-column gap-2">
             ${bodyContent}
-          </div>
-          <div class="lf-footer d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-1">
-              <span class="lf-section-indicator blue"></span>
-              <span>Response</span>
-            </div>
-            <span class="lf-footer-icon"><i class="fa-solid fa-bars"></i></span>
           </div>
         </div>
       `;
     }
     
-    function renderAgentSections(data, nodeId) {
+    function renderAgentSections(data, nodeId, agentType) {
       const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
       const agentName = data.agent_name || '';
-      const ruleId = data.rule_id || 'class_presence';
-      const ruleMeta = RULE_META.find(function (r) { return r.id === ruleId; }) || RULE_META[0];
       const modelName = data.model_name || 'yolov8m.pt';
       const fps = data.fps || 5;
       const confidenceThreshold = data.confidence_threshold || 0.5;
       const alertCooldown = data.alert_cooldown_seconds || 10;
-      const detectClass = data.detect_class || '';
-      const watchNames = data.watch_names || '';
-      const idleThreshold = data.idle_threshold_minutes || '';
-      const absenceThreshold = data.absence_threshold_minutes || '';
+      
+      // Rule options based on agent type
+      let ruleOptions = [];
+      let needsZone = false;
+      let zoneType = 'polygon'; // 'polygon' or 'line'
+      let zoneDesc = '';
+      let needsClass = false;
+      let classOptions = [];
+      
+      if (agentType === 'class_detection_agent') {
+        // Class Detection Agent: class presence, fire, weapon, face recognition (fall and sleep removed)
+        ruleOptions = ['Class Presence Detection', 'Fire Detection', 'Weapon Detection', 'Face Recognition'];
+        const classRules = ['Class Presence Detection'];
+        needsClass = classRules.includes(data.rule_id || 'Class Presence Detection');
+        classOptions = ['person', 'car', 'truck', 'bicycle', 'bus', 'motorcycle'];
+      } else if (agentType === 'person_behaviour_agent') {
+        // Person Behaviour Agent: fall detection, sleep detection
+        ruleOptions = ['Fall Detection', 'Sleep Detection'];
+        needsClass = false;
+        classOptions = [];
+      } else if (agentType === 'class_detection_zone_agent') {
+        // Class Detection Agent with Zone: restricted zone, wall climb, person near machine, machine idle
+        ruleOptions = ['Restricted Zone Detection', 'Wall Climb Detection', 'Person Near Machine Detection', 'Machine Idle State Detection'];
+        needsZone = true;
+        zoneType = 'polygon';
+        zoneDesc = 'Draw polygon for zone configuration.';
+        needsClass = (data.rule_id === 'Restricted Zone Detection');
+        classOptions = ['person', 'car', 'truck', 'bicycle', 'motorcycle'];
+      } else if (agentType === 'object_count_agent') {
+        // Object Count Agent: object counter, box counter
+        ruleOptions = ['Object Counter', 'Box Counter'];
+        needsZone = true;
+        zoneType = 'line';
+        zoneDesc = 'Draw 2 points for counting line.';
+        needsClass = (data.rule_id === 'Object Counter');
+        classOptions = ['person', 'car', 'truck', 'bicycle', 'bus', 'motorcycle'];
+      }
+      
+      const ruleId = data.rule_id || ruleOptions[0];
       const hasZone = !!(data.zone && data.zone.coordinates && data.zone.coordinates.length);
+      
+      // Build rule type select options
+      const ruleSelectOptions = ruleOptions.map(function (r) {
+        return '<option value="' + r + '"' + (ruleId === r ? ' selected' : '') + '>' + r + '</option>';
+      }).join('');
+      
+      // Build rule-specific HTML (class selection if needed)
+      let ruleSpecificHtml = '';
+      if (needsClass) {
+        const currentClass = data.detect_class || classOptions[0];
+        const classOpts = classOptions.map(function (c) {
+          const label = c.charAt(0).toUpperCase() + c.slice(1);
+          return '<option value="' + c + '"' + (currentClass === c ? ' selected' : '') + '>' + label + '</option>';
+        }).join('');
+        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Detect Class</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="detect_class" data-node-id="' + (nodeId || '') + '">' + classOpts + '</select></div></div></div></div>';
+      }
+      
+      // Zone configuration HTML
+      let zoneHtml = '';
+      if (needsZone) {
+        zoneHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><button type="button" class="btn btn-sm w-100 wf-draw-zone-btn" style="border:1px dashed var(--lf-input-border);background:var(--lf-input-bg);color:var(--lf-card-color);font-size:11px;" data-node-id="' + (nodeId || '') + '" data-zone-type="' + zoneType + '"><i class="fa-solid fa-draw-polygon me-1"></i>' + (hasZone ? 'Edit zone' : 'Draw zone') + '</button>' + (hasZone ? ' <span class="small text-success ms-1"><i class="fa-solid fa-check"></i></span>' : '') + '</div></div></div>';
+      }
+      
+      // Zone description if zone is required
+      let zoneDescHtml = '';
+      if (needsZone && zoneDesc) {
+        zoneDescHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="small text-muted" style="font-size: 10px; color: var(--lf-placeholder-color);">' + zoneDesc + '</div></div></div></div>';
+      }
 
-      const ruleOptions = RULE_META.map(function (r) {
-        return '<option value="' + r.id + '"' + (ruleId === r.id ? ' selected' : '') + '>' + (r.name || r.id) + '</option>';
+      // Get model options from NODE_DEFINITIONS for this agent type
+      const nodeDef = NODE_DEFINITIONS[agentType];
+      const modelField = nodeDef && nodeDef.fields ? nodeDef.fields.find(f => f.key === 'model_name') : null;
+      const modelOptions = modelField && modelField.options ? modelField.options : ['yolov8n.pt', 'yolov8m.pt'];
+      const defaultModel = modelField && modelField.default ? modelField.default : 'yolov8m.pt';
+      const currentModel = modelName || defaultModel;
+      
+      // Build model select options dynamically
+      const modelSelectOptions = modelOptions.map(function(opt) {
+        return '<option value="' + opt + '"' + (currentModel === opt ? ' selected' : '') + '>' + opt + '</option>';
       }).join('');
 
-      let ruleSpecificHtml = '';
-      if (ruleMeta.needsClass && ruleMeta.classes && ruleMeta.classes.length) {
-        const classOpts = ruleMeta.classes.map(function (c) {
-          const label = c.charAt(0).toUpperCase() + c.slice(1);
-          return '<option value="' + c + '"' + (detectClass === c ? ' selected' : '') + '>' + label + '</option>';
-        }).join('');
-        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Detect</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="detect_class" data-node-id="' + (nodeId || '') + '"><option value="">Select class…</option>' + classOpts + '</select></div></div></div></div>';
-      } else if (ruleMeta.fixedClass) {
-        ruleSpecificHtml += '<input type="hidden" class="lf-node-input" data-field="detect_class" data-node-id="' + (nodeId || '') + '" value="' + safe(ruleMeta.fixedClass) + '" />';
-      }
-      if (ruleMeta.needsWatchNames) {
-        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Watch names (comma-separated)</div><div class="lf-input-wrapper"><input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="watch_names" data-node-id="' + (nodeId || '') + '" placeholder="e.g. sachin, john" value="' + safe(watchNames) + '" /></div></div></div></div>';
-      }
-      if (ruleMeta.needsIdleThreshold) {
-        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Idle Time <span style="color:var(--lf-placeholder-color);font-weight:400">(minutes)</span></div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="idle_threshold_minutes" data-node-id="' + (nodeId || '') + '" min="1" max="1440" placeholder="e.g. 15" value="' + safe(idleThreshold) + '" /></div></div></div></div>';
-      }
-      if (ruleMeta.needsAbsenceThreshold) {
-        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Absence Time <span style="color:var(--lf-placeholder-color);font-weight:400">(minutes)</span></div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="absence_threshold_minutes" data-node-id="' + (nodeId || '') + '" min="1" max="1440" placeholder="e.g. 15" value="' + safe(absenceThreshold) + '" /></div></div></div></div>';
-      }
-
-      let zoneHtml = '';
-      if (ruleMeta.needsZone) {
-        zoneHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><button type="button" class="btn btn-sm w-100 wf-draw-zone-btn" style="border:1px dashed var(--lf-input-border);background:var(--lf-input-bg);color:var(--lf-card-color);font-size:11px;" data-node-id="' + (nodeId || '') + '" data-zone-type="' + (ruleMeta.zoneType || 'polygon') + '"><i class="fa-solid fa-draw-polygon me-1"></i>' + (hasZone ? 'Edit zone' : 'Draw zone') + '</button>' + (hasZone ? ' <span class="small text-success ms-1"><i class="fa-solid fa-check"></i></span>' : '') + '</div></div></div>';
-      }
-
       return '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Agent Name</div><div class="lf-input-wrapper"><input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="agent_name" data-node-id="' + (nodeId || '') + '" placeholder="Optional" value="' + safe(agentName) + '" /></div></div></div></div>' +
-        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Rule Type</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm lf-agent-rule-select" data-field="rule_id" data-node-id="' + (nodeId || '') + '">' + ruleOptions + '</select></div></div></div></div>' +
+        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Rule Type</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm lf-agent-rule-select" data-field="rule_id" data-node-id="' + (nodeId || '') + '">' + ruleSelectOptions + '</select></div></div></div></div>' +
         ruleSpecificHtml +
+        zoneDescHtml +
         zoneHtml +
-        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Model</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="model_name" data-node-id="' + (nodeId || '') + '"><option value="yolov8n.pt"' + (modelName === 'yolov8n.pt' ? ' selected' : '') + '>yolov8n.pt</option><option value="yolov8m.pt"' + (modelName === 'yolov8m.pt' ? ' selected' : '') + '>yolov8m.pt</option></select></div></div></div></div>' +
+        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Model</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="model_name" data-node-id="' + (nodeId || '') + '">' + modelSelectOptions + '</select></div></div></div></div>' +
         '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">FPS</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="fps" data-node-id="' + (nodeId || '') + '" value="' + safe(fps) + '" step="1" min="1" max="60" /></div></div></div></div>' +
         '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Confidence</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="confidence_threshold" data-node-id="' + (nodeId || '') + '" value="' + safe(confidenceThreshold) + '" step="0.1" min="0" max="1" /></div></div></div></div>' +
         '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Alert cooldown (s)</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="alert_cooldown_seconds" data-node-id="' + (nodeId || '') + '" value="' + safe(alertCooldown) + '" step="1" min="0" /></div></div></div></div>';
@@ -1060,12 +1214,16 @@
                 <span>Camera</span>
               </div>
               <div class="lf-input-wrapper position-relative camera-dropdown-wrapper" data-node-id="${nodeId || ''}">
-                <select class="lf-node-input w-100 form-select form-select-sm camera-select" 
-                        data-field="camera_ids" 
-                        data-node-id="${nodeId || ''}"
-                        data-current-value="${safe(cameraIds)}">
-                  <option value="">Loading cameras...</option>
-                </select>
+                <!-- Custom Camera Dropdown with Preview -->
+                <div class="dropdown w-100 camera-custom-dropdown">
+                  <button class="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-between camera-dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-field="camera_ids" data-node-id="${nodeId || ''}" data-current-value="${safe(cameraIds)}">
+                    <span class="camera-selected-text">Select a camera...</span>
+                    <i class="fa-solid fa-chevron-down small"></i>
+                  </button>
+                  <ul class="dropdown-menu w-100 camera-dropdown-menu p-0" style="max-height: 250px; overflow-y: auto;">
+                    <li><span class="dropdown-item-text text-muted small py-2 px-3">Loading cameras...</span></li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
@@ -1089,9 +1247,10 @@
       `;
     }
 
-    function renderSchedulerSections(data, nodeId) {
+    function renderStartSections(data, nodeId) {
       const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
-      const label = data.label || 'Scheduler';
+      const label = data.label || 'Start';
+      const description = data.description || '';
       const scheduleType = data.schedule_type || 'always';
       const startTime = data.start_time || '';
       const endTime = data.end_time || '';
@@ -1118,9 +1277,18 @@
           <span class="lf-section-indicator cyan"></span>
           <div class="flex-grow-1 min-w-0">
             <div class="mb-1">
+              <div class="lf-field-label mb-1">Description</div>
+              <div class="lf-input-wrapper"><textarea class="lf-node-input w-100 form-control form-control-sm" data-field="description" data-node-id="${nodeId || ''}" placeholder="Describe the purpose of this workflow entry point.">${safe(description)}</textarea></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
               <div class="lf-field-label mb-1">Schedule</div>
               <div class="lf-input-wrapper">
-                <select class="lf-node-input w-100 form-select form-select-sm" data-field="schedule_type" data-node-id="${nodeId || ''}">
+                <select class="lf-node-input w-100 form-select form-select-sm lf-start-schedule-select" data-field="schedule_type" data-node-id="${nodeId || ''}">
                   <option value="always" ${scheduleType === 'always' ? 'selected' : ''}>Always</option>
                   <option value="daily" ${scheduleType === 'daily' ? 'selected' : ''}>Daily</option>
                   <option value="weekly" ${scheduleType === 'weekly' ? 'selected' : ''}>Weekly</option>
@@ -1210,34 +1378,119 @@
       `;
     }
 
+    // Function to fetch camera snapshot
+    async function fetchCameraSnapshot(cameraId) {
+      try {
+        const token = getAuthToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const url = `http://localhost:8000/api/v1/cameras/${encodeURIComponent(cameraId)}/snapshot`;
+        console.log('Fetching camera snapshot from:', url);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: headers
+        });
+        console.log('Snapshot response status:', response.status);
+        if (!response.ok) {
+          console.error('Snapshot fetch failed:', response.status, response.statusText);
+          return null;
+        }
+        const data = await response.json();
+        console.log('Snapshot data received:', data ? 'yes' : 'no', 'frame_base64:', data.frame_base64 ? 'present' : 'missing');
+        return data.frame_base64 || null;
+      } catch (error) {
+        console.error('Error fetching camera snapshot:', error);
+        return null;
+      }
+    }
+
     // Function to populate camera dropdowns (single camera per node)
     async function populateCameraDropdowns() {
       const cameras = await fetchCameraList();
       
-      document.querySelectorAll('.camera-select').forEach(select => {
-        const nodeId = select.getAttribute('data-node-id');
+      document.querySelectorAll('.camera-custom-dropdown').forEach(dropdown => {
+        const menu = dropdown.querySelector('.camera-dropdown-menu');
+        const toggle = dropdown.querySelector('.camera-dropdown-toggle');
+        const nodeId = toggle.getAttribute('data-node-id');
         const node = editor && editor.getNodeFromId && editor.getNodeFromId(nodeId);
-        const currentValue = (node && node.data && node.data.camera_ids != null) ? String(node.data.camera_ids).split(',')[0].trim() : (select.getAttribute('data-current-value') || '').split(',')[0].trim();
+        const currentValue = (node && node.data && node.data.camera_ids != null) ? String(node.data.camera_ids).split(',')[0].trim() : (toggle.getAttribute('data-current-value') || '').split(',')[0].trim();
         
-        select.innerHTML = '';
+        // Clear menu
+        menu.innerHTML = '';
         
         if (cameras.length === 0) {
-          const option = document.createElement('option');
-          option.value = '';
-          option.textContent = 'No cameras available';
-          select.appendChild(option);
+          menu.innerHTML = '<li><span class="dropdown-item-text text-muted small py-2 px-3">No cameras available</span></li>';
+          toggle.querySelector('.camera-selected-text').textContent = 'No cameras available';
         } else {
-          const placeholder = document.createElement('option');
-          placeholder.value = '';
-          placeholder.textContent = 'Select a camera...';
-          select.appendChild(placeholder);
           cameras.forEach(camera => {
-            const option = document.createElement('option');
-            option.value = camera.id;
-            option.textContent = camera.name || camera.id;
-            if (currentValue === camera.id) option.selected = true;
-            select.appendChild(option);
+            const li = document.createElement('li');
+            const isSelected = currentValue === camera.id;
+            li.innerHTML = `
+              <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 ${isSelected ? 'active' : ''}" href="#" data-camera-id="${camera.id}" data-camera-name="${camera.name || camera.id}">
+                <div class="camera-preview-thumb flex-shrink-0" style="width: 32px; height: 24px; background: #1a1a2e; border-radius: 3px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                  <img class="camera-thumb-img" data-camera-id="${camera.id}" style="width: 100%; height: 100%; object-fit: cover; display: none;" alt="">
+                  <i class="fa-solid fa-video text-muted small camera-thumb-placeholder" style="font-size: 10px;"></i>
+                </div>
+                <span class="small text-truncate">${camera.name || camera.id}</span>
+                ${isSelected ? '<i class="fa-solid fa-check ms-auto text-primary small"></i>' : ''}
+              </a>
+            `;
+            menu.appendChild(li);
+            
+            // Load snapshot
+            const img = li.querySelector('.camera-thumb-img');
+            const placeholder = li.querySelector('.camera-thumb-placeholder');
+            const cameraId = camera.camera_id || camera.id;
+            console.log('Fetching snapshot for camera:', cameraId, camera);
+            fetchCameraSnapshot(cameraId).then(frameBase64 => {
+              console.log('Snapshot result for', cameraId, ':', frameBase64 ? 'success' : 'failed');
+              if (frameBase64 && img) {
+                img.src = `data:image/jpeg;base64,${frameBase64}`;
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+              }
+            }).catch(err => {
+              console.error('Error loading snapshot for', cameraId, err);
+            });
+            
+            // Handle click
+            const link = li.querySelector('a');
+            link.addEventListener('click', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              const selectedCameraId = this.getAttribute('data-camera-id');
+              const selectedCameraName = this.getAttribute('data-camera-name');
+              
+              // Update toggle text
+              toggle.querySelector('.camera-selected-text').textContent = selectedCameraName;
+              toggle.setAttribute('data-current-value', selectedCameraId);
+              
+              // Update node data
+              const node = editor.getNodeFromId(nodeId);
+              if (node && node.data) {
+                node.data.camera_ids = selectedCameraId;
+                editor.drawflow.drawflow.Home.data[nodeId].data.camera_ids = selectedCameraId;
+              }
+              
+              // Update active state in menu
+              menu.querySelectorAll('.dropdown-item').forEach(item => {
+                item.classList.remove('active');
+                const check = item.querySelector('.fa-check');
+                if (check) check.remove();
+              });
+              this.classList.add('active');
+              this.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-check ms-auto text-primary small"></i>');
+              
+              // Close dropdown
+              const bsDropdown = bootstrap.Dropdown.getInstance(toggle);
+              if (bsDropdown) bsDropdown.hide();
+            });
           });
+          
+          // Set initial text
+          const selectedCamera = cameras.find(c => c.id === currentValue);
+          toggle.querySelector('.camera-selected-text').textContent = selectedCamera ? (selectedCamera.name || selectedCamera.id) : 'Select a camera...';
         }
       });
     }
@@ -1418,16 +1671,11 @@
     }
 
     function getUpstreamSchedulerId(nodeId) {
+      // Scheduler is now integrated into start node - find the start node for this workflow
       const data = editor.drawflow.drawflow.Home.data;
-      const node = data[nodeId];
-      if (!node || !node.inputs) return null;
-      for (const key of Object.keys(node.inputs)) {
-        const conns = node.inputs[key].connections || [];
-        if (conns.length > 0) {
-          const sourceId = conns[0].node;
-          const source = data[sourceId];
-          if (source && source.name === 'scheduler') return sourceId;
-        }
+      // Find start node in the workflow
+      for (const id of Object.keys(data)) {
+        if (data[id].name === 'start') return id;
       }
       return null;
     }
@@ -1690,9 +1938,11 @@
 
     function refreshAgentNodeHtml(nodeId) {
       const node = editor.getNodeFromId(nodeId);
-      if (!node || node.name !== 'agent') return;
+      if (!node) return;
+      const agentTypes = ['class_detection_agent', 'class_detection_zone_agent', 'object_count_agent', 'person_behaviour_agent'];
+      if (!agentTypes.includes(node.name)) return;
       const data = node.data || {};
-      const def = NODE_DEFINITIONS.agent;
+      const def = NODE_DEFINITIONS[node.name];
       const html = createNodeContentHtml(def, data, nodeId);
       const contentNode = document.querySelector('#node-' + nodeId + ' .drawflow_content_node');
       if (contentNode) {
@@ -1773,11 +2023,12 @@
             editor.drawflow.drawflow.Home.data[nodeId].data[fieldKey] = value;
           }
           var card = contentNode.querySelector && contentNode.querySelector('.lf-card') || contentNode;
-          if (card && node && node.name === 'scheduler') {
+          if (card && node && node.name === 'start' && (fieldKey === 'schedule_type' || fieldKey === 'run_mode')) {
             updateSchedulerVisibility(card, node.data);
             updateNotificationNodesForSchedule();
           }
-          if (card && node && node.name === 'agent' && fieldKey === 'rule_id') {
+          const agentTypes = ['class_detection_agent', 'class_detection_zone_agent', 'object_count_agent', 'person_behaviour_agent'];
+          if (card && node && agentTypes.includes(node.name) && fieldKey === 'rule_id') {
             refreshAgentNodeHtml(nodeId);
           }
         }
@@ -1785,13 +2036,15 @@
       
       // Prevent node dragging when interacting with inputs
       contentNode.addEventListener('mousedown', function(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || 
+            e.target.closest('.camera-custom-dropdown') || e.target.closest('.camera-dropdown-toggle') ||
+            e.target.closest('.camera-dropdown-menu')) {
           e.stopPropagation();
         }
       });
 
       var node = editor.getNodeFromId(nodeId);
-      if (node && node.name === 'scheduler') {
+      if (node && node.name === 'start') {
         var card = contentNode.querySelector && contentNode.querySelector('.lf-card') || contentNode;
         updateSchedulerVisibility(card, node.data || {});
       }
@@ -1834,8 +2087,8 @@
       if (name === 'camera') {
         // Multiple attempts to populate as DOM may not be ready immediately
         const attemptPopulate = (attempt = 1) => {
-          const selects = document.querySelectorAll('.camera-select');
-          if (selects.length > 0) {
+          const dropdowns = document.querySelectorAll('.camera-custom-dropdown');
+          if (dropdowns.length > 0) {
             populateCameraDropdowns();
           } else if (attempt < 10) {
             setTimeout(() => attemptPopulate(attempt + 1), 100);
@@ -1874,7 +2127,7 @@
         const targetDef = NODE_DEFINITIONS[targetNode.name];
 
         var msg = sourceNode.name === 'notification' && targetNode.name === 'end'
-          ? 'When the Scheduler is set to "Always", the Notification node does not connect to End. Change the Scheduler to Daily, Weekly, or Once to add an End node.'
+          ? 'When the Start node schedule is set to "Always", the Notification node does not connect to End. Change the schedule to Daily, Weekly, or Once to add an End node.'
           : `Invalid connection: "${sourceDef.label}" cannot connect to "${targetDef.label}". Please check the node compatibility rules.`;
         alert(msg);
       } else {
@@ -2125,7 +2378,7 @@
 
     saveBtn.addEventListener('click', async () => {
       if (hasUnusedEndNode()) {
-        alert('Cannot save: the Scheduler is set to "Always" but an End node is still connected. Remove the End node (or change the Scheduler to Daily, Weekly, or Once) and try again.');
+        alert('Cannot save: the Start node schedule is set to "Always" but an End node is still connected. Remove the End node (or change the schedule to Daily, Weekly, or Once) and try again.');
         return;
       }
       const exportedFlow = editor.export();
@@ -2221,35 +2474,40 @@
         return lastNodeId;
       };
 
-      // Example: Start -> Camera -> Agent -> Scheduler -> Notification -> End
-      const nStart = add('start', 40, 120, { __label: 'Start' });
+      // Example: Start -> Camera -> Class Detection Agent -> Notification -> Report -> End
+      // Scheduler is now integrated into Start node
+      const nStart = add('start', 40, 120, { 
+        __label: 'Start',
+        schedule_type: 'always',
+        run_mode: 'continuous'
+      });
       const nCamera = add('camera', 260, 120, {
         __label: 'Camera',
         camera_ids: ''
       });
-      const nAgent = add('agent', 520, 120, {
-        __label: 'Safety agent',
-        agent_name: 'PPE safety agent',
-        rule_id: 'class_presence',
+      const nAgent = add('class_detection_agent', 520, 120, {
+        __label: 'Class Detection Agent',
+        agent_name: 'Safety Detection Agent',
+        rule_id: 'Class Presence Detection',
         model_name: 'yolov8m.pt'
       });
-      const nScheduler = add('scheduler', 1080, 120, {
-        __label: 'Schedule',
-        schedule_type: 'always',
-        run_mode: 'continuous'
-      });
-      const nNotification = add('notification', 1360, 120, {
+      const nNotification = add('notification', 780, 120, {
         __label: 'Ops email',
         channel: 'Email',
         subject: 'Safety alert from camera workflow'
       });
-      const nEnd = add('end', 1640, 120, { __label: 'End' });
+      const nReport = add('report', 1040, 120, {
+        __label: 'Daily Report',
+        report_name: 'Safety Detection Report',
+        report_type: 'Summary'
+      });
+      const nEnd = add('end', 1300, 120, { __label: 'End' });
 
       editor.addConnection(nStart, nCamera, 'output_1', 'input_1');
       editor.addConnection(nCamera, nAgent, 'output_1', 'input_1');
-      editor.addConnection(nAgent, nScheduler, 'output_1', 'input_1');
-      editor.addConnection(nScheduler, nNotification, 'output_1', 'input_1');
-      editor.addConnection(nNotification, nEnd, 'output_1', 'input_1');
+      editor.addConnection(nAgent, nNotification, 'output_1', 'input_1');
+      editor.addConnection(nNotification, nReport, 'output_1', 'input_1');
+      editor.addConnection(nReport, nEnd, 'output_1', 'input_1');
 
       setupAllNodeInputHandlers();
     }
