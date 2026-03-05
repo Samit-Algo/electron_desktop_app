@@ -449,67 +449,6 @@
     .drawflow-node.wf-end-unused .drawflow_content_node .lf-card .lf-footer {
       color: #f87171 !important;
     }
-
-    /* Camera Dropdown with Preview Styles */
-    .camera-custom-dropdown .dropdown-menu {
-      background: var(--lf-card-bg);
-      border: 1px solid var(--lf-input-border);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-      padding: 0;
-      margin-top: 2px;
-    }
-    .camera-custom-dropdown .dropdown-item {
-      color: var(--lf-card-color);
-      padding: 6px 10px;
-      border-bottom: 1px solid var(--lf-input-border);
-      font-size: 12px;
-      min-height: 36px;
-    }
-    .camera-custom-dropdown .dropdown-item:last-child {
-      border-bottom: none;
-    }
-    .camera-custom-dropdown .dropdown-item:hover,
-    .camera-custom-dropdown .dropdown-item.active {
-      background: var(--lf-hover-bg);
-    }
-    .camera-custom-dropdown .camera-preview-thumb {
-      flex-shrink: 0;
-      width: 32px;
-      height: 24px;
-      background: #1a1a2e;
-      border-radius: 3px;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .camera-custom-dropdown .camera-thumb-img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .camera-custom-dropdown .camera-thumb-placeholder {
-      font-size: 10px;
-      color: var(--lf-placeholder-color);
-    }
-    .camera-dropdown-toggle {
-      background: var(--lf-input-bg) !important;
-      border-color: var(--lf-input-border) !important;
-      color: var(--lf-card-color) !important;
-      font-size: 12px;
-      padding: 4px 8px;
-      height: 28px;
-    }
-    .camera-dropdown-toggle:hover,
-    .camera-dropdown-toggle:focus {
-      background: var(--lf-hover-bg) !important;
-      border-color: var(--lf-input-border) !important;
-      color: var(--lf-card-color) !important;
-    }
-    .camera-dropdown-toggle .fa-chevron-down {
-      font-size: 10px;
-      color: var(--lf-icon-color);
-    }
     </style>
 
     <!-- Top Bar -->
@@ -850,7 +789,7 @@
         icon: 'fa-eye',
         fields: [
           { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
-          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['Class Presence Detection', 'Fire Detection', 'Weapon Detection', 'Face Recognition'], default: 'Class Presence Detection' },
+          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['class_presence', 'fire_detection', 'weapon_detection', 'face_detection'], default: 'class_presence' },
           { key: 'model_name', type: 'select', label: 'Model', options: ['fire_detection.pt','yolov8n.pt', 'yolov8m.pt', 'yolov8s.pt'], default: 'yolov8m.pt' },
           { key: 'fps', type: 'number', label: 'FPS', default: 5 },
           { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
@@ -866,7 +805,7 @@
         icon: 'fa-person-falling',
         fields: [
           { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
-          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['Fall Detection', 'Sleep Detection'], default: 'Fall Detection' },
+          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['fall_detection', 'sleep_detection'], default: 'fall_detection' },
           { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8m-pose.pt','yolov8n-pose.pt'], default: 'yolov8m-pose.pt' },
           { key: 'fps', type: 'number', label: 'FPS', default: 5 },
           { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
@@ -882,7 +821,7 @@
         icon: 'fa-draw-polygon',
         fields: [
           { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
-          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['Restricted Zone Detection', 'Wall Climb Detection', 'Person Near Machine Detection', 'Machine Idle State Detection'], default: 'Restricted Zone Detection' },
+          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['restricted_zone', 'wall_climb_detection', 'person_near_machine', 'loom_machine_state'], default: 'restricted_zone' },
           { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8n.pt', 'yolov8m.pt'], default: 'yolov8m.pt' },
           { key: 'fps', type: 'number', label: 'FPS', default: 5 },
           { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
@@ -899,7 +838,7 @@
         icon: 'fa-list-ol',
         fields: [
           { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
-          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['Object Counter', 'Box Counter'], default: 'Object Counter' },
+          { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['class_count', 'box_count'], default: 'class_count' },
           { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8n.pt','yolov8m.pt', 'box_detection.pt'], default: 'yolov8m.pt' },
           { key: 'fps', type: 'number', label: 'FPS', default: 5 },
           { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
@@ -1050,46 +989,66 @@
       let classOptions = [];
       
       if (agentType === 'class_detection_agent') {
-        // Class Detection Agent: class presence, fire, weapon, face recognition (fall and sleep removed)
-        ruleOptions = ['Class Presence Detection', 'Fire Detection', 'Weapon Detection', 'Face Recognition'];
-        const classRules = ['Class Presence Detection'];
-        needsClass = classRules.includes(data.rule_id || 'Class Presence Detection');
+        // Class Detection Agent: class presence, fire, weapon, face detection
+        ruleOptions = [
+          { id: 'class_presence',   name: 'Class Presence Detection' },
+          { id: 'fire_detection',   name: 'Fire Detection' },
+          { id: 'weapon_detection', name: 'Weapon Detection' },
+          { id: 'face_detection',   name: 'Face Recognition' }
+        ];
+        needsClass = ((data.rule_id || 'class_presence') === 'class_presence');
         classOptions = ['person', 'car', 'truck', 'bicycle', 'bus', 'motorcycle'];
       } else if (agentType === 'person_behaviour_agent') {
         // Person Behaviour Agent: fall detection, sleep detection
-        ruleOptions = ['Fall Detection', 'Sleep Detection'];
+        ruleOptions = [
+          { id: 'fall_detection',  name: 'Fall Detection' },
+          { id: 'sleep_detection', name: 'Sleep Detection' }
+        ];
         needsClass = false;
         classOptions = [];
       } else if (agentType === 'class_detection_zone_agent') {
-        // Class Detection Agent with Zone: restricted zone, wall climb, person near machine, machine idle
-        ruleOptions = ['Restricted Zone Detection', 'Wall Climb Detection', 'Person Near Machine Detection', 'Machine Idle State Detection'];
+        // Class Detection Agent with Zone: restricted zone, wall climb, person near machine, loom machine state
+        ruleOptions = [
+          { id: 'restricted_zone',      name: 'Restricted Zone Detection' },
+          { id: 'wall_climb_detection', name: 'Wall Climb Detection' },
+          { id: 'person_near_machine',  name: 'Person Near Machine Detection' },
+          { id: 'loom_machine_state',   name: 'Machine Idle State Detection' }
+        ];
         needsZone = true;
         zoneType = 'polygon';
         zoneDesc = 'Draw polygon for zone configuration.';
-        needsClass = (data.rule_id === 'Restricted Zone Detection');
+        needsClass = (data.rule_id === 'restricted_zone');
         classOptions = ['person', 'car', 'truck', 'bicycle', 'motorcycle'];
       } else if (agentType === 'object_count_agent') {
-        // Object Count Agent: object counter, box counter
-        ruleOptions = ['Object Counter', 'Box Counter'];
+        // Object Count Agent: class_count, box_count
+        ruleOptions = [
+          { id: 'class_count', name: 'Object Counter' },
+          { id: 'box_count',   name: 'Box Counter' }
+        ];
         needsZone = true;
         zoneType = 'line';
         zoneDesc = 'Draw 2 points for counting line.';
-        needsClass = (data.rule_id === 'Object Counter');
+        needsClass = (data.rule_id === 'class_count');
         classOptions = ['person', 'car', 'truck', 'bicycle', 'bus', 'motorcycle'];
       }
       
-      const ruleId = data.rule_id || ruleOptions[0];
+      const ruleId = data.rule_id || (ruleOptions[0] && ruleOptions[0].id) || '';
       const hasZone = !!(data.zone && data.zone.coordinates && data.zone.coordinates.length);
       
-      // Build rule type select options
+      // Build rule type select options (value = backend id, display = human label)
       const ruleSelectOptions = ruleOptions.map(function (r) {
-        return '<option value="' + r + '"' + (ruleId === r ? ' selected' : '') + '>' + r + '</option>';
+        return '<option value="' + r.id + '"' + (ruleId === r.id ? ' selected' : '') + '>' + r.name + '</option>';
       }).join('');
       
       // Build rule-specific HTML (class selection if needed)
       let ruleSpecificHtml = '';
       if (needsClass) {
         const currentClass = data.detect_class || classOptions[0];
+        // Initialize detect_class in node data if not set, so it's always sent to backend
+        if (!data.detect_class && classOptions.length && nodeId && editor.drawflow.drawflow.Home.data[nodeId]) {
+          editor.drawflow.drawflow.Home.data[nodeId].data.detect_class = classOptions[0];
+          data.detect_class = classOptions[0];
+        }
         const classOpts = classOptions.map(function (c) {
           const label = c.charAt(0).toUpperCase() + c.slice(1);
           return '<option value="' + c + '"' + (currentClass === c ? ' selected' : '') + '>' + label + '</option>';
@@ -1214,16 +1173,12 @@
                 <span>Camera</span>
               </div>
               <div class="lf-input-wrapper position-relative camera-dropdown-wrapper" data-node-id="${nodeId || ''}">
-                <!-- Custom Camera Dropdown with Preview -->
-                <div class="dropdown w-100 camera-custom-dropdown">
-                  <button class="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-between camera-dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-field="camera_ids" data-node-id="${nodeId || ''}" data-current-value="${safe(cameraIds)}">
-                    <span class="camera-selected-text">Select a camera...</span>
-                    <i class="fa-solid fa-chevron-down small"></i>
-                  </button>
-                  <ul class="dropdown-menu w-100 camera-dropdown-menu p-0" style="max-height: 250px; overflow-y: auto;">
-                    <li><span class="dropdown-item-text text-muted small py-2 px-3">Loading cameras...</span></li>
-                  </ul>
-                </div>
+                <select class="lf-node-input w-100 form-select form-select-sm camera-select" 
+                        data-field="camera_ids" 
+                        data-node-id="${nodeId || ''}"
+                        data-current-value="${safe(cameraIds)}">
+                  <option value="">Loading cameras...</option>
+                </select>
               </div>
             </div>
           </div>
@@ -1378,119 +1333,34 @@
       `;
     }
 
-    // Function to fetch camera snapshot
-    async function fetchCameraSnapshot(cameraId) {
-      try {
-        const token = getAuthToken();
-        const headers = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const url = `http://localhost:8000/api/v1/cameras/${encodeURIComponent(cameraId)}/snapshot`;
-        console.log('Fetching camera snapshot from:', url);
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: headers
-        });
-        console.log('Snapshot response status:', response.status);
-        if (!response.ok) {
-          console.error('Snapshot fetch failed:', response.status, response.statusText);
-          return null;
-        }
-        const data = await response.json();
-        console.log('Snapshot data received:', data ? 'yes' : 'no', 'frame_base64:', data.frame_base64 ? 'present' : 'missing');
-        return data.frame_base64 || null;
-      } catch (error) {
-        console.error('Error fetching camera snapshot:', error);
-        return null;
-      }
-    }
-
     // Function to populate camera dropdowns (single camera per node)
     async function populateCameraDropdowns() {
       const cameras = await fetchCameraList();
       
-      document.querySelectorAll('.camera-custom-dropdown').forEach(dropdown => {
-        const menu = dropdown.querySelector('.camera-dropdown-menu');
-        const toggle = dropdown.querySelector('.camera-dropdown-toggle');
-        const nodeId = toggle.getAttribute('data-node-id');
+      document.querySelectorAll('.camera-select').forEach(select => {
+        const nodeId = select.getAttribute('data-node-id');
         const node = editor && editor.getNodeFromId && editor.getNodeFromId(nodeId);
-        const currentValue = (node && node.data && node.data.camera_ids != null) ? String(node.data.camera_ids).split(',')[0].trim() : (toggle.getAttribute('data-current-value') || '').split(',')[0].trim();
+        const currentValue = (node && node.data && node.data.camera_ids != null) ? String(node.data.camera_ids).split(',')[0].trim() : (select.getAttribute('data-current-value') || '').split(',')[0].trim();
         
-        // Clear menu
-        menu.innerHTML = '';
+        select.innerHTML = '';
         
         if (cameras.length === 0) {
-          menu.innerHTML = '<li><span class="dropdown-item-text text-muted small py-2 px-3">No cameras available</span></li>';
-          toggle.querySelector('.camera-selected-text').textContent = 'No cameras available';
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'No cameras available';
+          select.appendChild(option);
         } else {
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Select a camera...';
+          select.appendChild(placeholder);
           cameras.forEach(camera => {
-            const li = document.createElement('li');
-            const isSelected = currentValue === camera.id;
-            li.innerHTML = `
-              <a class="dropdown-item d-flex align-items-center gap-2 py-2 px-3 ${isSelected ? 'active' : ''}" href="#" data-camera-id="${camera.id}" data-camera-name="${camera.name || camera.id}">
-                <div class="camera-preview-thumb flex-shrink-0" style="width: 32px; height: 24px; background: #1a1a2e; border-radius: 3px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                  <img class="camera-thumb-img" data-camera-id="${camera.id}" style="width: 100%; height: 100%; object-fit: cover; display: none;" alt="">
-                  <i class="fa-solid fa-video text-muted small camera-thumb-placeholder" style="font-size: 10px;"></i>
-                </div>
-                <span class="small text-truncate">${camera.name || camera.id}</span>
-                ${isSelected ? '<i class="fa-solid fa-check ms-auto text-primary small"></i>' : ''}
-              </a>
-            `;
-            menu.appendChild(li);
-            
-            // Load snapshot
-            const img = li.querySelector('.camera-thumb-img');
-            const placeholder = li.querySelector('.camera-thumb-placeholder');
-            const cameraId = camera.camera_id || camera.id;
-            console.log('Fetching snapshot for camera:', cameraId, camera);
-            fetchCameraSnapshot(cameraId).then(frameBase64 => {
-              console.log('Snapshot result for', cameraId, ':', frameBase64 ? 'success' : 'failed');
-              if (frameBase64 && img) {
-                img.src = `data:image/jpeg;base64,${frameBase64}`;
-                img.style.display = 'block';
-                placeholder.style.display = 'none';
-              }
-            }).catch(err => {
-              console.error('Error loading snapshot for', cameraId, err);
-            });
-            
-            // Handle click
-            const link = li.querySelector('a');
-            link.addEventListener('click', function(e) {
-              e.preventDefault();
-              e.stopPropagation();
-              
-              const selectedCameraId = this.getAttribute('data-camera-id');
-              const selectedCameraName = this.getAttribute('data-camera-name');
-              
-              // Update toggle text
-              toggle.querySelector('.camera-selected-text').textContent = selectedCameraName;
-              toggle.setAttribute('data-current-value', selectedCameraId);
-              
-              // Update node data
-              const node = editor.getNodeFromId(nodeId);
-              if (node && node.data) {
-                node.data.camera_ids = selectedCameraId;
-                editor.drawflow.drawflow.Home.data[nodeId].data.camera_ids = selectedCameraId;
-              }
-              
-              // Update active state in menu
-              menu.querySelectorAll('.dropdown-item').forEach(item => {
-                item.classList.remove('active');
-                const check = item.querySelector('.fa-check');
-                if (check) check.remove();
-              });
-              this.classList.add('active');
-              this.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-check ms-auto text-primary small"></i>');
-              
-              // Close dropdown
-              const bsDropdown = bootstrap.Dropdown.getInstance(toggle);
-              if (bsDropdown) bsDropdown.hide();
-            });
+            const option = document.createElement('option');
+            option.value = camera.id;
+            option.textContent = camera.name || camera.id;
+            if (currentValue === camera.id) option.selected = true;
+            select.appendChild(option);
           });
-          
-          // Set initial text
-          const selectedCamera = cameras.find(c => c.id === currentValue);
-          toggle.querySelector('.camera-selected-text').textContent = selectedCamera ? (selectedCamera.name || selectedCamera.id) : 'Select a camera...';
         }
       });
     }
@@ -1949,6 +1819,10 @@
         contentNode.innerHTML = html;
         if (editor.drawflow.drawflow.Home.data[nodeId]) editor.drawflow.drawflow.Home.data[nodeId].html = html;
       }
+      // Re-attach input handlers after HTML refresh (clear flag first since inner content was replaced)
+      const nodeElement = document.getElementById('node-' + nodeId);
+      if (nodeElement) nodeElement.removeAttribute('data-input-handlers');
+      setupNodeInputHandlers(nodeId);
     }
 
     function updateSchedulerVisibility(card, data) {
@@ -2036,9 +1910,7 @@
       
       // Prevent node dragging when interacting with inputs
       contentNode.addEventListener('mousedown', function(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || 
-            e.target.closest('.camera-custom-dropdown') || e.target.closest('.camera-dropdown-toggle') ||
-            e.target.closest('.camera-dropdown-menu')) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
           e.stopPropagation();
         }
       });
@@ -2087,8 +1959,8 @@
       if (name === 'camera') {
         // Multiple attempts to populate as DOM may not be ready immediately
         const attemptPopulate = (attempt = 1) => {
-          const dropdowns = document.querySelectorAll('.camera-custom-dropdown');
-          if (dropdowns.length > 0) {
+          const selects = document.querySelectorAll('.camera-select');
+          if (selects.length > 0) {
             populateCameraDropdowns();
           } else if (attempt < 10) {
             setTimeout(() => attemptPopulate(attempt + 1), 100);
@@ -2488,7 +2360,7 @@
       const nAgent = add('class_detection_agent', 520, 120, {
         __label: 'Class Detection Agent',
         agent_name: 'Safety Detection Agent',
-        rule_id: 'Class Presence Detection',
+        rule_id: 'class_presence',
         model_name: 'yolov8m.pt'
       });
       const nNotification = add('notification', 780, 120, {
@@ -2622,4 +2494,3 @@
 </body>
 
 </html>
-
