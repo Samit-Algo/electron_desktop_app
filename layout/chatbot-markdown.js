@@ -81,12 +81,20 @@
       .catch(function () {});
   }
 
+  // Strip [ATTACHMENT:image:URL] markers so they never appear in chat; images are rendered via renderAttachmentsInBubble
+  var _attachmentMarkerRe = /\[ATTACHMENT:image:[^\]]+\]/gi;
+  function stripAttachmentMarkers(text) {
+    return String(text || '').replace(_attachmentMarkerRe, '').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
   // Sanitize markdown text for safe streaming rendering (prevents broken syntax from causing errors)
   function safeMarkdownForStreaming(text) {
     let t = String(text || '');
 
     // Strip lightweight control wrappers occasionally emitted by the model.
     t = t.replace(/<\/?question>/gi, '');
+    // Strip attachment markers (images are rendered separately)
+    t = stripAttachmentMarkers(t);
 
     // Replace incomplete mermaid diagram blocks with placeholder during streaming
     (function suppressMermaidBlocks() {
@@ -244,7 +252,8 @@
     if (!node) return;
     const bubble = node.querySelector?.('div');
     if (!bubble) return;
-    const msg = String(text || '').replace(/<\/?question>/gi, '');
+    let msg = String(text || '').replace(/<\/?question>/gi, '');
+    msg = stripAttachmentMarkers(msg);
 
     // Handle error state: plain text with error styling
     if (isError) {
