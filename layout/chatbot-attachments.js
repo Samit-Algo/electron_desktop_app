@@ -13,7 +13,13 @@
    * @param {boolean} isError - Whether response indicates error
    * @param {Array} [evidence] - Optional message.evidence for media cards
    */
-  function renderContentBlocksInBubble(pendingId, contentBlocks, isError, evidence) {
+  async function renderContentBlocksInBubble(pendingId, contentBlocks, isError, evidence) {
+    if (window.ChatbotMarkdown && typeof window.ChatbotMarkdown.ensureMarkdownDeps === 'function') {
+      await window.ChatbotMarkdown.ensureMarkdownDeps();
+    }
+    console.log('[Chatbot] backend blocks received:', { content: contentBlocks, evidence, isError });
+    (contentBlocks || []).forEach(function (b, i) { console.log('[Chatbot] content[' + i + ']', b?.type, b); });
+    (evidence || []).forEach(function (e, i) { console.log('[Chatbot] evidence[' + i + ']', e?.type, e); });
     if (!contentBlocks || !Array.isArray(contentBlocks) || contentBlocks.length === 0) {
       if (!evidence || !Array.isArray(evidence) || evidence.length === 0) return;
     }
@@ -115,10 +121,21 @@
         const header = block.columns.map(function (c) { return '<th>' + _escapeHtml(c) + '</th>'; }).join('');
         const rows = (block.rows || []).map(function (row) {
           const cells = row.map(function (cell) {
-            if (typeof cell === 'object' && cell && cell.type === 'image' && cell.url) {
-              return '<td><img src="' + _escapeHtml(fullUrl(cell.url)) + '" alt="' + _escapeHtml(cell.caption || '') + '" /></td>';
+            var cellObj = cell;
+            if (typeof cell === 'string' && cell.trim().indexOf('{') === 0) {
+              try {
+                cellObj = JSON.parse(cell);
+              } catch (_) {}
             }
-            return '<td>' + _escapeHtml(String(cell ?? '')) + '</td>';
+            if (typeof cellObj === 'object' && cellObj && cellObj.type === 'image' && cellObj.url) {
+              return '<td><img src="' + _escapeHtml(fullUrl(cellObj.url)) + '" alt="' + _escapeHtml(cellObj.caption || '') + '" loading="lazy" /></td>';
+            }
+            var text = String(cell ?? '');
+            text = text.replace(/\\n/g, '\n');
+            var cellHtml = (window.ChatbotMarkdown && typeof window.ChatbotMarkdown.renderMarkdownFragment === 'function')
+              ? window.ChatbotMarkdown.renderMarkdownFragment(text)
+              : _escapeHtml(text).replace(/\n/g, '<br>');
+            return '<td class="chatbot-table-cell-markdown"><div class="markdown-content">' + cellHtml + '</div></td>';
           }).join('');
           return '<tr>' + cells + '</tr>';
         }).join('');

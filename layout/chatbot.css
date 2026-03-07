@@ -1079,6 +1079,33 @@
     border-radius: 4px;
   }
 
+  /* Markdown inside table cells (bold, italic, lists, etc.) */
+  #chatbot-offcanvas .chat-messages .chatbot-table td.markdown-content strong,
+  #chatbot-offcanvas .chat-messages .chatbot-table td.chatbot-table-cell-markdown .markdown-content strong {
+    font-weight: 600;
+  }
+  #chatbot-offcanvas .chat-messages .chatbot-table td.markdown-content em,
+  #chatbot-offcanvas .chat-messages .chatbot-table td.chatbot-table-cell-markdown .markdown-content em {
+    font-style: italic;
+  }
+  #chatbot-offcanvas .chat-messages .chatbot-table td.chatbot-table-cell-markdown .markdown-content ul,
+  #chatbot-offcanvas .chat-messages .chatbot-table td.chatbot-table-cell-markdown .markdown-content ol {
+    margin: 0.25rem 0;
+    padding-left: 1.25rem;
+  }
+  #chatbot-offcanvas .chat-messages .chatbot-table td.chatbot-table-cell-markdown .markdown-content li {
+    margin: 0.1rem 0;
+  }
+  #chatbot-offcanvas .chat-messages .chatbot-table td.chatbot-table-cell-markdown .markdown-content p {
+    margin: 0.25rem 0;
+  }
+  #chatbot-offcanvas .chat-messages .chatbot-table td.chatbot-table-cell-markdown .markdown-content p:first-child {
+    margin-top: 0;
+  }
+  #chatbot-offcanvas .chat-messages .chatbot-table td.chatbot-table-cell-markdown .markdown-content p:last-child {
+    margin-bottom: 0;
+  }
+
   /* (Mermaid removed) */
 
   /* -----------------------------

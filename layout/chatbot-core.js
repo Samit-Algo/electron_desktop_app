@@ -1049,6 +1049,7 @@
         const message = finalPayload?.message;
         const content = message?.content;
         const evidence = message?.evidence;
+        console.log('[Chatbot] backend blocks:', { content, evidence, session_id: finalPayload?.session_id, status: finalPayload?.status });
         const hasContent = content && Array.isArray(content) && content.length > 0;
         const hasEvidence = evidence && Array.isArray(evidence) && evidence.length > 0;
         const willUseContentBlocks = hasContent || hasEvidence;
