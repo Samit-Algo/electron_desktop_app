@@ -509,7 +509,7 @@
       const id = `chat_tab_${Date.now()}_${tabCounter}`;
       tabs.push({
         id,
-        title: title || `Agent chat ${tabCounter}`,
+        title: title || `Agent ${tabCounter}`,
         mode: {
           general: emptyModeState(),
           agent: emptyModeState()
@@ -525,7 +525,7 @@
       if (tabs.length <= 1) {
         // Reset the only remaining tab
         const only = tabs[0];
-        only.title = 'Agent chat 1';
+        only.title = 'Agent 1';
         only.mode.general = emptyModeState();
         only.mode.agent = emptyModeState();
         activeId = only.id;
@@ -755,9 +755,14 @@
           messagesEl.scrollTop = messagesEl.scrollHeight;
           return;
         }
-        const answer = finalPayload?.response ?? 'Done.';
+        const content = finalPayload?.message?.content;
         const isError = finalPayload?.status === 'error';
-        replaceAssistantPending(pendingId, answer, isError);
+        if (content && Array.isArray(content) && content.length > 0 && window.ChatbotAttachments && typeof window.ChatbotAttachments.renderContentBlocksInBubble === 'function') {
+          await ChatbotAttachments.renderContentBlocksInBubble(pendingId, content, isError);
+        } else {
+          const answer = content?.find(b => b && b.type === 'text')?.text ?? 'Done.';
+          replaceAssistantPending(pendingId, answer, isError);
+        }
         if (!isError && finalPayload?.flow_diagram_data) {
           await renderFlowDiagram(pendingId, finalPayload.flow_diagram_data);
         }
@@ -823,9 +828,14 @@
           messagesEl.scrollTop = messagesEl.scrollHeight;
           return;
         }
-        const answer = finalPayload?.response ?? acc ?? 'Done.';
+        const content = finalPayload?.message?.content;
         const isError = finalPayload?.status === 'error';
-        replaceAssistantPending(pendingId, answer, isError);
+        if (content && Array.isArray(content) && content.length > 0 && window.ChatbotAttachments && typeof window.ChatbotAttachments.renderContentBlocksInBubble === 'function') {
+          await ChatbotAttachments.renderContentBlocksInBubble(pendingId, content, isError);
+        } else {
+          const answer = content?.find(b => b && b.type === 'text')?.text ?? acc ?? 'Done.';
+          replaceAssistantPending(pendingId, answer, isError);
+        }
         if (!isError && finalPayload?.flow_diagram_data) {
           await renderFlowDiagram(pendingId, finalPayload.flow_diagram_data);
         }
@@ -863,42 +873,6 @@
     async function openZoneEditorInBubble(pendingId, cameraId, zoneMode = 'polygon', snapshotUrl = null, options = null) {
       if (window.ChatbotZoneEditor && typeof ChatbotZoneEditor.openZoneEditorInBubble === 'function') {
         return ChatbotZoneEditor.openZoneEditorInBubble(pendingId, cameraId, zoneMode, snapshotUrl, options);
-      }
-    }
-
-    // Render analyzed frame attachments in general chat (e.g. from analyse_live_camera, VLM, instant_agent)
-    // Uses token query param for auth (backend get_current_user supports ?token= for img src)
-    function renderAttachmentsInBubble(pendingId, attachments) {
-      if (!attachments || !Array.isArray(attachments) || attachments.length === 0) return;
-      const bubble = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
-      if (!bubble) return;
-      const container = bubble.querySelector('.markdown-content') || bubble.querySelector('.ai-message-transparent') || bubble.querySelector('div');
-      if (!container) return;
-      const api = window.visionAPI;
-      if (!api || !api.baseURL) return;
-      const baseUrl = (api.baseURL || '').replace(/\/$/, '');
-      const token = api.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('visionai_token') : null);
-      const sep = (url) => (url.indexOf('?') !== -1 ? '&' : '?');
-      const withToken = (url) => (token ? url + sep(url) + 'token=' + encodeURIComponent(token) : url);
-      for (const att of attachments) {
-        if (att?.type !== 'image' || !att?.url) continue;
-        const wrap = document.createElement('div');
-        wrap.className = 'chatbot-attachment-wrap mt-2';
-        const label = document.createElement('div');
-        label.className = 'text-body-tertiary fs-10 mb-1';
-        label.textContent = '📷 Analyzed frame';
-        wrap.appendChild(label);
-        const img = document.createElement('img');
-        img.className = 'chatbot-analysis-frame rounded';
-        img.alt = 'Analyzed frame';
-        img.loading = 'lazy';
-        img.style.maxWidth = '320px';
-        img.style.cursor = 'pointer';
-        const fullUrl = att.url.startsWith('http') ? att.url : baseUrl + (att.url.startsWith('/') ? '' : '/') + att.url;
-        img.src = withToken(fullUrl);
-        img.onclick = function () { window.open(withToken(fullUrl), '_blank'); };
-        wrap.appendChild(img);
-        container.appendChild(wrap);
       }
     }
 
@@ -1005,31 +979,39 @@
             continue;
           }
 
+          if (evName === 'start') {
+            // Optional: message_id for this turn (general chat new API)
+            continue;
+          }
+
           if (evName === 'token') {
             // Cancel "Thinking..." -> "Processing..." timer once backend has responded
             if (thinkingToProcessingTimer) {
               clearTimeout(thinkingToProcessingTimer);
               thinkingToProcessingTimer = null;
             }
-            // Accumulate streaming text tokens with micro-batching
+            // General Chat: do NOT render during tokens. Only render on done (structured blocks).
+            // Agent mode: show streaming text for typing effect.
             const delta = data?.delta != null ? String(data.delta) : '';
             if (delta) {
               acc += delta;
-              const boundary = /[\s.,!?;:\n]/.test(delta);
-              const now = Date.now();
-              const last = state._lastStreamUiFlushTs || 0;
-              const shouldFlush = boundary || (now - last) > 200;
-              if (shouldFlush) {
-                state._lastStreamUiFlushTs = now;
+              if (mode === 'agent') {
+                const boundary = /[\s.,!?;:\n]/.test(delta);
+                const now = Date.now();
+                const last = state._lastStreamUiFlushTs || 0;
+                const shouldFlush = boundary || (now - last) > 200;
+                if (shouldFlush) {
+                  state._lastStreamUiFlushTs = now;
 
-                // Auto-scroll only if user is near bottom
-                const distanceFromBottom = messagesEl.scrollHeight - (messagesEl.scrollTop + messagesEl.clientHeight);
-                const shouldAutoScroll = distanceFromBottom < 60;
+                  // Auto-scroll only if user is near bottom
+                  const distanceFromBottom = messagesEl.scrollHeight - (messagesEl.scrollTop + messagesEl.clientHeight);
+                  const shouldAutoScroll = distanceFromBottom < 60;
 
-                updateAssistantPendingText(pendingId, acc);
-                state.html = messagesEl.innerHTML;
-                if (shouldAutoScroll) {
-                  messagesEl.scrollTop = messagesEl.scrollHeight;
+                  updateAssistantPendingText(pendingId, acc);
+                  state.html = messagesEl.innerHTML;
+                  if (shouldAutoScroll) {
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                  }
                 }
               }
             }
@@ -1051,14 +1033,26 @@
             continue;
           }
 
+          if (evName === 'block') {
+            // New API: optional block events (we use final message.content on done)
+            continue;
+          }
+
           if (evName === 'done') {
             finalPayload = data;
             break;
           }
         }
 
-        // Flush any remaining text
-        if (acc) {
+        // Flush any remaining text only when we won't replace with content blocks
+        // (otherwise a scheduled RAF would overwrite the bubble after renderContentBlocksInBubble)
+        const message = finalPayload?.message;
+        const content = message?.content;
+        const evidence = message?.evidence;
+        const hasContent = content && Array.isArray(content) && content.length > 0;
+        const hasEvidence = evidence && Array.isArray(evidence) && evidence.length > 0;
+        const willUseContentBlocks = hasContent || hasEvidence;
+        if (acc && !willUseContentBlocks) {
           updateAssistantPendingText(pendingId, acc);
         }
 
@@ -1096,18 +1090,23 @@
           return;
         }
 
-        const answer = finalPayload?.response ?? acc ?? '';
         const isError = (finalPayload?.status === 'error') || sawError;
-        replaceAssistantPending(pendingId, answer || '(empty response)', isError);
+        if (willUseContentBlocks) {
+          if (window.ChatbotAttachments && typeof window.ChatbotAttachments.renderContentBlocksInBubble === 'function') {
+            await ChatbotAttachments.renderContentBlocksInBubble(pendingId, content || [], isError, evidence);
+          } else {
+            const textBlock = (content || []).find(b => b && (b.type === 'text' || b.type === 'markdown'));
+            const fallbackText = (textBlock && (textBlock.value ?? textBlock.text)) || acc || '(empty response)';
+            replaceAssistantPending(pendingId, fallbackText, isError);
+          }
+        } else {
+          const answer = acc || '(empty response)';
+          replaceAssistantPending(pendingId, answer, isError);
+        }
 
         // Render flow diagram if present in response (agent mode)
         if (!isError && finalPayload?.flow_diagram_data) {
           await renderFlowDiagram(pendingId, finalPayload.flow_diagram_data);
-        }
-
-        // Render analyzed frame attachments in general chat (Ask & Task mode)
-        if (!isError && mode === 'general' && finalPayload?.attachments?.length) {
-          await renderAttachmentsInBubble(pendingId, finalPayload.attachments);
         }
 
         // Handle zone editor UI for agent mode as needed
@@ -1514,11 +1513,11 @@
       window.ChatbotMarkdownPendingDeps = markdownDeps;
     }
 
-    createTab('Agent chat 1');
+    createTab('Agent 1');
     updateUploadVideoButtonVisibility();
     updateAttachedVideoIndicator();
 
-    // Expose helpers so pages can open agent chat with a video file (no camera_id)
+    // Expose helpers so pages can open Agentwith a video file (no camera_id)
     window.ChatbotCore = {
       setVideoPath: function (path) {
         const active = getActive();

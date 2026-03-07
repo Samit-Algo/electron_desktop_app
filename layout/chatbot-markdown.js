@@ -8,8 +8,8 @@
   let escapeHtml = null;
 
   /**
-   * Rewrite relative API image URLs (events, general-chat evidence) to absolute backend URL with auth token.
-   * Evidence images use /api/v1/general-chat/evidence/<id> and must be loaded from the backend (e.g. port 8000),
+   * Rewrite relative API image URLs for event images to absolute backend URL with auth token.
+   * Event images use /api/v1/events/.../image and must be loaded from the backend (e.g. port 8000),
    * not from the frontend origin (e.g. port 3000), otherwise the image 404s.
    */
   function rewriteApiImageUrls(html) {
@@ -19,9 +19,11 @@
     const separator = (url) => (url.indexOf('?') !== -1 ? '&' : '?');
     const withToken = (url) => (token ? url + separator(url) + 'token=' + encodeURIComponent(token) : url);
 
-    // Match both event images and general-chat evidence (relative /api/v1/... or full URL containing same path)
-    const rewritten = html.replace(
-      /src="([^"]*\/api\/v1\/(?:events\/[^"]*\/image|general-chat\/evidence\/[^"]+))"/g,
+    let rewritten = html;
+
+    // Match event images (relative /api/v1/events/.../image or full URL containing same path)
+    rewritten = rewritten.replace(
+      /src="([^"]*\/api\/v1\/events\/[^"]*\/image[^"]*)"/g,
       function (match, urlPath) {
         const isAbsolute = /^https?:\/\//i.test(urlPath);
         const fullUrl = isAbsolute ? urlPath : (baseURL ? (baseURL.replace(/\/$/, '') + (urlPath.startsWith('/') ? urlPath : '/' + urlPath)) : urlPath);
@@ -81,20 +83,12 @@
       .catch(function () {});
   }
 
-  // Strip [ATTACHMENT:image:URL] markers so they never appear in chat; images are rendered via renderAttachmentsInBubble
-  var _attachmentMarkerRe = /\[ATTACHMENT:image:[^\]]+\]/gi;
-  function stripAttachmentMarkers(text) {
-    return String(text || '').replace(_attachmentMarkerRe, '').replace(/\n{3,}/g, '\n\n').trim();
-  }
-
   // Sanitize markdown text for safe streaming rendering (prevents broken syntax from causing errors)
   function safeMarkdownForStreaming(text) {
     let t = String(text || '');
 
     // Strip lightweight control wrappers occasionally emitted by the model.
     t = t.replace(/<\/?question>/gi, '');
-    // Strip attachment markers (images are rendered separately)
-    t = stripAttachmentMarkers(t);
 
     // Replace incomplete mermaid diagram blocks with placeholder during streaming
     (function suppressMermaidBlocks() {
@@ -246,6 +240,26 @@
     });
   }
 
+  // Render a markdown fragment to sanitized HTML string (for content blocks). Returns string.
+  function renderMarkdownFragment(text) {
+    if (text == null || text === '') return '';
+    const msg = String(text).replace(/<\/?question>/gi, '');
+    try {
+      if (window.marked && window.DOMPurify) {
+        const allowedTags = ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'a', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'img'];
+        let rawHtml = typeof window.marked.parse === 'function' ? window.marked.parse(msg) : msg;
+        const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
+          ALLOWED_TAGS: allowedTags,
+          ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'id', 'style', 'type', 'class', 'src', 'alt'],
+          KEEP_CONTENT: true,
+          ADD_ATTR: ['id', 'style', 'class', 'src', 'alt']
+        });
+        return rewriteApiImageUrls(cleanHtml);
+      }
+    } catch (_) {}
+    return (typeof escapeHtml === 'function' ? escapeHtml(msg) : msg.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])).replace(/\n/g, '<br>');
+  }
+
   // Replace pending assistant message with final rendered markdown after streaming completes
   function replaceAssistantPending(pendingId, text, isError = false) {
     const node = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
@@ -253,7 +267,6 @@
     const bubble = node.querySelector?.('div');
     if (!bubble) return;
     let msg = String(text || '').replace(/<\/?question>/gi, '');
-    msg = stripAttachmentMarkers(msg);
 
     // Handle error state: plain text with error styling
     if (isError) {
@@ -341,7 +354,8 @@
     ensureMarkdownDeps: ensureMarkdownDeps,
     replaceAssistantPending: replaceAssistantPending,
     updateAssistantPendingText: updateAssistantPendingText,
-    safeMarkdownForStreaming: safeMarkdownForStreaming
+    safeMarkdownForStreaming: safeMarkdownForStreaming,
+    renderMarkdownFragment: renderMarkdownFragment
   };
 
   // Auto-initialize if dependencies were stashed before module loaded

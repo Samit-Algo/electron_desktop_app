@@ -911,12 +911,19 @@
   }
 
   #chatbot-offcanvas .chat-messages .markdown-content img {
-    max-width: 100%;
+    max-width: 280px;
     height: auto;
-    border-radius: 0.5rem;
+    border-radius: 8px;
     margin: 0.5rem 0;
     display: block;
     border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Images inside markdown tables (e.g. ![alt](url) in table cells) - same size as evidence cards */
+  #chatbot-offcanvas .chat-messages .markdown-content td img {
+    max-width: 280px;
+    width: auto;
   }
 
   #chatbot-offcanvas .chat-messages .markdown-content p:first-child {
@@ -1002,6 +1009,74 @@
   #chatbot-offcanvas .chat-messages .markdown-content th {
     background: rgba(0, 0, 0, 0.04);
     font-weight: 600;
+  }
+
+  /* General Chat: evidence section and block-based table */
+  #chatbot-offcanvas .chat-messages .chat-evidence {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  #chatbot-offcanvas .chat-messages .evidence-card {
+    flex: 0 0 auto;
+    max-width: 280px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  /* Inline image block: same card style as evidence, constrained size */
+  #chatbot-offcanvas .chat-messages .chatbot-content-block-image .evidence-card,
+  #chatbot-offcanvas .chat-messages .chatbot-content-block-image .image-block-card {
+    display: inline-block;
+    max-width: 280px;
+  }
+
+  #chatbot-offcanvas .chat-messages .evidence-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-width: 280px;
+  }
+
+  #chatbot-offcanvas .chat-messages .evidence-card h4 {
+    margin: 0.5rem 0.75rem 0;
+    font-size: 0.95rem;
+  }
+
+  #chatbot-offcanvas .chat-messages .evidence-card p {
+    margin: 0.25rem 0.75rem 0.75rem;
+    font-size: 0.875rem;
+    color: rgba(0, 0, 0, 0.7);
+  }
+
+  #chatbot-offcanvas .chat-messages .chatbot-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.5rem 0;
+    font-size: 0.92em;
+  }
+
+  #chatbot-offcanvas .chat-messages .chatbot-table th,
+  #chatbot-offcanvas .chat-messages .chatbot-table td {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  #chatbot-offcanvas .chat-messages .chatbot-table th {
+    background: rgba(0, 0, 0, 0.04);
+    font-weight: 600;
+  }
+
+  #chatbot-offcanvas .chat-messages .chatbot-table td img {
+    max-width: 200px;
+    height: auto;
+    border-radius: 4px;
   }
 
   /* (Mermaid removed) */
