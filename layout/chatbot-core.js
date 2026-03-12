@@ -1,31 +1,40 @@
 /**
- * Chatbot Core Module
+ * CHATBOT CORE MODULE
+ * ====================
+ * This is the main controller for the chatbot. It coordinates everything.
  *
- * Responsibilities:
- * - Layout: resize handle, grid integration when panel opens/closes
- * - Tabs: create, switch, close; per-tab state (general/agent mode, sessionId, cameraId, videoPath)
- * - Composer: textarea autosize, send/voice/stop button state
- * - Messaging: append user/assistant bubbles, stream tokens, HITL (approval cards, zone editor)
- * - Delegates: markdown (ChatbotMarkdown), zone drawing (ChatbotZoneEditor), flow diagrams (ChatbotFlowDiagram), voice (ChatbotVoice)
+ * WHAT IT DOES (simple flow):
+ * 1. LAYOUT  - Resizes the chat panel, handles open/close
+ * 2. TABS    - Creates/switches chat tabs (like browser tabs)
+ * 3. COMPOSER - Text input, send/voice button, Enter key
+ * 4. MESSAGES - Sends user text, shows AI response, handles streaming
+ * 5. DELEGATES - Calls other modules for markdown, zones, flow charts, voice
+ *
+ * Other modules it uses: ChatbotMarkdown, ChatbotZoneEditor, ChatbotFlowDiagram, ChatbotVoice
  */
 (function () {
   'use strict';
 
-  function vendorPath(relFromVendors) {
-    return new URL('/vendors/' + relFromVendors, window.location.origin).toString();
+  // ============================================================================
+  // SECTION 1: PATH & SCRIPT LOADING HELPERS
+  // ============================================================================
+
+  /** Build full URL for a file inside /vendors/ folder */
+  function getVendorScriptPath(pathFromVendors) {
+    return new URL('/vendors/' + pathFromVendors, window.location.origin).toString();
   }
 
-  // Load external script once, preventing duplicate loads
-  function loadScriptOnce(src) {
+  /** Load a script by URL. Does nothing if already loaded. */
+  function loadScriptOnce(scriptUrl) {
     return new Promise((resolve, reject) => {
       try {
-        const existing = document.querySelector(`script[src="${src}"]`);
+        const existing = document.querySelector(`script[src="${scriptUrl}"]`);
         if (existing) return resolve();
         const scriptEl = document.createElement('script');
-        scriptEl.src = src;
+        scriptEl.src = scriptUrl;
         scriptEl.defer = true;
         scriptEl.onload = () => resolve();
-        scriptEl.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        scriptEl.onerror = () => reject(new Error(`Failed to load script: ${scriptUrl}`));
         document.head.appendChild(scriptEl);
       } catch (e) {
         reject(e);
@@ -33,7 +42,7 @@
     });
   }
 
-  // Delegate markdown dependencies loading to ChatbotMarkdown module
+  /** Ask ChatbotMarkdown module to load its libraries (marked, DOMPurify) */
   function ensureMarkdownDeps() {
     if (window.ChatbotMarkdown && typeof window.ChatbotMarkdown.ensureMarkdownDeps === 'function') {
       return window.ChatbotMarkdown.ensureMarkdownDeps();
@@ -41,7 +50,7 @@
     return Promise.resolve();
   }
 
-  // Load Rete.js flow diagram renderer scripts on-demand
+  /** Load scripts needed for flow diagrams (Rete.js style) */
   function ensureReteFlowRenderer() {
     if (window.reteFlowRenderer && window.flowTransforms) return Promise.resolve();
     const transformsSrc = new URL('/custom_js/flow-transforms.js', window.location.origin).toString();
@@ -51,11 +60,15 @@
       .catch(function () {});
   }
 
-  // Global flag to prevent chart resizing during layout transitions
+  /** Flag: true while layout is changing (blocks chart resize to avoid bugs) */
   let layoutSettling = false;
 
-  // Initialize chatbot panel layout, resize handle, and grid integration
-  function initChatbotPush() {
+  // ============================================================================
+  // SECTION 2: LAYOUT & RESIZE (chat panel width, open/close, drag handle)
+  // ============================================================================
+
+  /** Set up the chatbot panel: width, resize handle, open/close behavior */
+  function initChatbotLayout() {
     const chatbotOffcanvas = document.getElementById('chatbot-offcanvas');
     const viewportElement = document.querySelector('.viewport-scrolls');
     const contentElement = document.querySelector('.content');
@@ -270,7 +283,11 @@
     initChatbotResize();
   }
 
-  // Initialize textarea autosize and send button state management
+  // ============================================================================
+  // SECTION 3: COMPOSER (text input, auto-resize, send/voice button states)
+  // ============================================================================
+
+  /** Set up the text input: auto-resize, Enter to send, send/voice button switching */
   function initChatbotComposer() {
     const textarea = document.getElementById('chatbot-input');
     const sendBtn = document.querySelector('#chatbot-offcanvas .send-btn');
@@ -339,7 +356,11 @@
     });
   }
 
-  // Initialize chat tabs, messaging, and module integration
+  // ============================================================================
+  // SECTION 4: TABS & MESSAGING (tabs, send message, stream response, HITL)
+  // ============================================================================
+
+  /** Set up tabs, message sending, streaming, approval cards, zone editor */
   function initChatbotTabs() {
     const chatbotOffcanvas = document.getElementById('chatbot-offcanvas');
     const tabsEl = document.getElementById('chatbot-tabs');
@@ -904,6 +925,8 @@
       saveActiveHtml();
       messagesEl.scrollTop = messagesEl.scrollHeight;
 
+      /** Accumulated response text from streaming tokens */
+      let accumulatedText = '';
       try {
         // Demo mode commands for testing without backend
         const DEMO_KEY = 'chatbot_demo_mode';
@@ -948,7 +971,6 @@
         try { state._abortController?.abort?.(); } catch (_) { }
         state._abortController = new AbortController();
 
-        let acc = '';
         let finalPayload = null;
         let sawError = false;
         let pendingApprovalData = null;
@@ -994,7 +1016,7 @@
             // Agent mode: show streaming text for typing effect.
             const delta = data?.delta != null ? String(data.delta) : '';
             if (delta) {
-              acc += delta;
+              accumulatedText += delta;
               if (mode === 'agent') {
                 const boundary = /[\s.,!?;:\n]/.test(delta);
                 const now = Date.now();
@@ -1007,7 +1029,7 @@
                   const distanceFromBottom = messagesEl.scrollHeight - (messagesEl.scrollTop + messagesEl.clientHeight);
                   const shouldAutoScroll = distanceFromBottom < 60;
 
-                  updateAssistantPendingText(pendingId, acc);
+                  updateAssistantPendingText(pendingId, accumulatedText);
                   state.html = messagesEl.innerHTML;
                   if (shouldAutoScroll) {
                     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -1053,8 +1075,8 @@
         const hasContent = content && Array.isArray(content) && content.length > 0;
         const hasEvidence = evidence && Array.isArray(evidence) && evidence.length > 0;
         const willUseContentBlocks = hasContent || hasEvidence;
-        if (acc && !willUseContentBlocks) {
-          updateAssistantPendingText(pendingId, acc);
+        if (accumulatedText && !willUseContentBlocks) {
+          updateAssistantPendingText(pendingId, accumulatedText);
         }
 
         // Process final response
@@ -1097,11 +1119,11 @@
             await ChatbotAttachments.renderContentBlocksInBubble(pendingId, content || [], isError, evidence);
           } else {
             const textBlock = (content || []).find(b => b && (b.type === 'text' || b.type === 'markdown'));
-            const fallbackText = (textBlock && (textBlock.value ?? textBlock.text)) || acc || '(empty response)';
+            const fallbackText = (textBlock && (textBlock.value ?? textBlock.text)) || accumulatedText || '(empty response)';
             replaceAssistantPending(pendingId, fallbackText, isError);
           }
         } else {
-          const answer = acc || '(empty response)';
+          const answer = accumulatedText || '(empty response)';
           replaceAssistantPending(pendingId, answer, isError);
         }
 
@@ -1167,6 +1189,10 @@
         }
         // Handle abort errors gracefully (expected when user cancels)
         if (err && (err.name === 'AbortError' || String(err).includes('AbortError'))) {
+          const stoppedText = accumulatedText && accumulatedText.trim() ? accumulatedText.trim() : '_Stopped_';
+          replaceAssistantPending(pendingId, stoppedText, false);
+          state.html = messagesEl.innerHTML;
+          messagesEl.scrollTop = messagesEl.scrollHeight;
           return;
         }
         const msg = err?.message ? String(err.message) : 'Chat request failed.';
@@ -1253,8 +1279,8 @@
         const active = getActive();
         if (active) {
           const mode = getMode();
-          const s = active.mode[mode];
-          try { s._abortController?.abort?.(); } catch (_) { }
+          const chatState = active.mode[mode];
+          try { chatState._abortController?.abort?.(); } catch (_) { }
         }
         window.ChatbotVoice.setTextStreaming(false);
         window.ChatbotVoice.syncSendButtonVisual();
@@ -1537,7 +1563,11 @@
     };
   }
 
-  // Initialize Find Person modal: upload reference photo for face recognition (no separate page)
+  // ============================================================================
+  // SECTION 5: FIND PERSON MODAL (upload reference photos for face recognition)
+  // ============================================================================
+
+  /** Set up the Find Person modal: upload photos, select from gallery */
   function initFindPersonModal() {
     const findPersonBtn = document.getElementById('chatbot-find-person-btn');
     const modalEl = document.getElementById('find-person-modal');
@@ -1651,7 +1681,11 @@
     });
   }
 
-  // Initialize keyboard shortcut (Ctrl+L / Cmd+L to toggle chatbot)
+  // ============================================================================
+  // SECTION 6: KEYBOARD SHORTCUT (Ctrl+L / Cmd+L toggles chatbot)
+  // ============================================================================
+
+  /** Listen for Ctrl+L / Cmd+L to open/close chatbot */
   function initChatbotKeyboardShortcut() {
     document.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'l' && !e.shiftKey && !e.altKey) {
@@ -1670,16 +1704,20 @@
     });
   }
 
-  // Initialize all chatbot functionality when DOM and Bootstrap are ready
+  // ============================================================================
+  // SECTION 7: STARTUP (runs when page is ready)
+  // ============================================================================
+
+  /** Run all init functions in order */
   function initAll() {
-    initChatbotPush();
+    initChatbotLayout();
     initChatbotComposer();
     initChatbotTabs();
     initFindPersonModal();
     initChatbotKeyboardShortcut();
   }
 
-  // Wait for DOM and Bootstrap to be ready before initializing
+  /** Wait for page to load, then run initAll. If Bootstrap is late, retry after 100ms. */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       if (typeof bootstrap !== 'undefined') {
