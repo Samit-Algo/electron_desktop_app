@@ -2248,73 +2248,187 @@
       // Start fresh - user can drag nodes from sidebar
     });
 
-    saveBtn.addEventListener('click', async () => {
+    // ─────────────────────────────────────────────────────────────────────────
+    // SHARED HELPER: Save the workflow canvas to the backend and return the
+    // saved workflow object (including its ID). Used by both the [Save] button
+    // and the [Run Workflow] button.
+    //
+    // Returns the saved workflow result object on success, or null on failure.
+    // ─────────────────────────────────────────────────────────────────────────
+    async function saveWorkflowToBackend() {
       if (hasUnusedEndNode()) {
         alert('Cannot save: the Start node schedule is set to "Always" but an End node is still connected. Remove the End node (or change the schedule to Daily, Weekly, or Once) and try again.');
-        return;
+        return null;
       }
+
       const exportedFlow = editor.export();
       prepareWorkflowData(exportedFlow);
-      
+
       const bindEvent = getBindEvent(exportedFlow) || "Unbound";
-      
-      // Get workflow name from input field (user can edit it)
       const nameInput = document.getElementById('workflow-name-input');
       const currentName = nameInput ? nameInput.value.trim() : '';
-      
+
       const payload = {
         name: currentName || workflowName || 'Unnamed Workflow',
         description: window.currentWorkflowDescription || workflowDescription || '',
         drawflow_data: exportedFlow,
         bind_to_event: bindEvent,
       };
-      
+
+      // POST for new workflows, PUT to update existing ones
+      let url = 'http://localhost:8000/api/v1/workflows/';
+      let method = 'POST';
+      if (isEditMode && editWorkflowId) {
+        url = `http://localhost:8000/api/v1/workflows/${editWorkflowId}`;
+        method = 'PUT';
+      }
+
+      const token = getAuthToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(url, {
+        method: method,
+        headers: headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (res.status === 401) {
+        alert('Session expired. Please login again.');
+        return null;
+      }
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        alert('Failed to save workflow: ' + (result.detail || 'Unknown error'));
+        console.error('[Save] Backend error:', result);
+        return null;
+      }
+
+      console.log('[Save] Workflow saved:', result);
+      return result;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // [Save] button — saves the canvas design and navigates back to the list.
+    // Does NOT start any agents.
+    // ─────────────────────────────────────────────────────────────────────────
+    saveBtn.addEventListener('click', async () => {
       try {
-        let url = 'http://localhost:8000/api/v1/workflows/';
-        let method = 'POST';
-        
-        // If editing existing workflow
-        if (isEditMode && editWorkflowId) {
-          url = `http://localhost:8000/api/v1/workflows/${editWorkflowId}`;
-          method = 'PUT';
+        const result = await saveWorkflowToBackend();
+        if (!result) return; // saveWorkflowToBackend already showed error
+
+        const message = isEditMode
+          ? `Workflow updated successfully!`
+          : `Workflow created successfully! Workflow ID: ${result.id}`;
+        alert(message);
+
+        // After saving, update the editWorkflowId so subsequent saves use PUT
+        if (!isEditMode && result.id) {
+          // Mark as edit mode now that we have an ID
+          window.history.replaceState(
+            {},
+            '',
+            `?workflow_id=${result.id}&name=${encodeURIComponent(result.name || '')}`
+          );
         }
-        
-        const token = getAuthToken();
-        const headers = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        
-        const res = await fetch(url, {
-          method: method,
-          headers: headers,
-          body: JSON.stringify(payload)
-        });
-        
-        if (res.status === 401) {
-          alert('Session expired. Please login again.');
-          return;
-        }
-        
-        const result = await res.json();
-        
-        if (res.ok) {
-          const message = isEditMode ?
-            `Workflow updated successfully!` :
-            `Workflow created successfully! Workflow ID: ${result.id}`;
-          alert(message);
-          console.log(result);
-          
-          setTimeout(() => {
-            navigateTo('workflow-list.html');
-          }, 1500);
-        } else {
-          alert('Failed to save workflow: ' + (result.detail || 'Unknown error'));
-          console.error(result);
-        }
+
+        setTimeout(() => { navigateTo('workflow-list.html'); }, 1500);
       } catch (err) {
-        console.error(err);
+        console.error('[Save] Unexpected error:', err);
         alert('Error while saving workflow.');
       }
     });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // [Run Workflow] button — saves the canvas first, then calls /execute to
+    // start the detection agents.
+    //
+    // Flow:
+    //   1. Save the canvas (POST or PUT /api/v1/workflows/)
+    //   2. Call POST /api/v1/workflows/{id}/execute
+    //      → SpiffWorkflow parses the node graph
+    //      → Creates WorkflowAgent documents in MongoDB
+    //      → run_vision_app.py starts detection workers within ~5 seconds
+    // ─────────────────────────────────────────────────────────────────────────
+    const runWorkflowBtn = document.getElementById('btn-run-workflow');
+    if (runWorkflowBtn) {
+      runWorkflowBtn.addEventListener('click', async () => {
+        try {
+          // Disable button to prevent double-clicks
+          runWorkflowBtn.disabled = true;
+          runWorkflowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Saving…</span>';
+
+          // Step 1: Save the canvas design
+          const saveResult = await saveWorkflowToBackend();
+          if (!saveResult) {
+            // saveWorkflowToBackend already showed an error alert
+            runWorkflowBtn.disabled = false;
+            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
+            return;
+          }
+
+          // Determine the workflow ID to execute
+          // For a new workflow, use the ID returned from save.
+          // For an existing workflow, use the editWorkflowId from the URL.
+          const workflowIdToRun = saveResult.id || editWorkflowId;
+          if (!workflowIdToRun) {
+            alert('Cannot run workflow: no workflow ID found after save.');
+            runWorkflowBtn.disabled = false;
+            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
+            return;
+          }
+
+          runWorkflowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Starting agents…</span>';
+
+          // Step 2: Execute the workflow (parse graph → create WorkflowAgents)
+          const token = getAuthToken();
+          const headers = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+
+          const execRes = await fetch(
+            `http://localhost:8000/api/v1/workflows/${workflowIdToRun}/execute`,
+            { method: 'POST', headers: headers }
+          );
+
+          if (execRes.status === 401) {
+            alert('Session expired. Please login again.');
+            runWorkflowBtn.disabled = false;
+            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
+            return;
+          }
+
+          const execResult = await execRes.json();
+
+          if (execRes.ok) {
+            const camList = (execResult.cameras || []).join(', ') || 'none';
+            alert(
+              `Workflow started successfully!\n\n` +
+              `• Agents created: ${execResult.agents_started || 0}\n` +
+              `• Cameras: ${camList}\n` +
+              `• Status: ${execResult.initial_status || 'Monitoring'}\n\n` +
+              `Detection workers will start within ~5 seconds.`
+            );
+            console.log('[RunWorkflow] Execute result:', execResult);
+            setTimeout(() => { navigateTo('workflow-list.html'); }, 1500);
+          } else {
+            alert(
+              'Workflow saved but failed to start agents:\n' +
+              (execResult.detail || execResult.message || 'Unknown error')
+            );
+            console.error('[RunWorkflow] Execute error:', execResult);
+          }
+
+        } catch (err) {
+          console.error('[RunWorkflow] Unexpected error:', err);
+          alert('Unexpected error while running workflow. Check the console.');
+        } finally {
+          runWorkflowBtn.disabled = false;
+          runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
+        }
+      });
+    }
 
     // Import file handler - updated to use new input handlers
     importBtn.addEventListener('click', () => importFile.click());
