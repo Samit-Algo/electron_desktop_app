@@ -262,13 +262,21 @@ class VisionAPIService {
     return await this.request(`/api/v1/cameras/get/${cameraId}`);
   }
 
-  async createCamera(name, streamUrl) {
+  /**
+   * Create a new camera
+   * @param {Object} payload - { name, stream_url, metadata?: { location?: { area, zone }, tags?: string[] } }
+   */
+  async createCamera(payload) {
+    const body = {
+      name: payload.name,
+      stream_url: payload.stream_url,
+    };
+    if (payload.metadata) {
+      body.metadata = payload.metadata;
+    }
     return await this.request('/api/v1/cameras/create', {
       method: 'POST',
-      body: JSON.stringify({
-        name,
-        stream_url: streamUrl,
-      }),
+      body: JSON.stringify(body),
     });
   }
 

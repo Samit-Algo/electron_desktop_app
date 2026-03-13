@@ -1,14 +1,26 @@
-// Markdown rendering and streaming utilities module for chatbot messages
-
+/**
+ * CHATBOT MARKDOWN MODULE
+ * =======================
+ * Renders markdown text in AI messages. Also:
+ * - Loads marked.js and DOMPurify for safe parsing
+ * - Fixes image URLs (add auth token)
+ * - Handles streaming text (partial markdown while AI types)
+ *
+ * Flow: Raw text -> Safe for streaming? -> Parse markdown -> Sanitize -> Show in bubble
+ */
 (function () {
   'use strict';
 
-  // Module dependencies injected from chatbot-core.js
+  /** Set by init() from chatbot-core */
   let messagesEl = null;
   let escapeHtml = null;
 
+  // ============================================================================
+  // SECTION 1: URL HELPERS (fix API image URLs with auth token)
+  // ============================================================================
+
   /**
-   * Rewrite relative API image URLs for event images to absolute backend URL with auth token.
+   * Rewrite /api/v1/events/.../image URLs to full backend URL + auth token.
    * Event images use /api/v1/events/.../image and must be loaded from the backend (e.g. port 8000),
    * not from the frontend origin (e.g. port 3000), otherwise the image 404s.
    */
@@ -35,7 +47,7 @@
     return rewritten;
   }
 
-  /** Attach console logs to images in the bubble to debug load/error. */
+  /** Log when images load or fail (for debugging) */
   function logImageLoadErrors(container) {
     if (!container || !container.querySelectorAll) return;
     container.querySelectorAll('img').forEach(function (img, i) {
@@ -50,9 +62,12 @@
     });
   }
 
-  // Generate root-relative vendor path for script loading
-  function vendorPath(relFromVendors) {
-    return new URL('/vendors/' + relFromVendors, window.location.origin).toString();
+  // ============================================================================
+  // SECTION 2: SCRIPT LOADING (marked.js, DOMPurify)
+  // ============================================================================
+
+  function getVendorPath(pathFromVendors) {
+    return new URL('/vendors/' + pathFromVendors, window.location.origin).toString();
   }
 
   // Load external script once, preventing duplicate loads
@@ -76,14 +91,21 @@
   // Load markdown parsing libraries (marked.js and DOMPurify) if not already loaded
   function ensureMarkdownDeps() {
     if (window.marked && window.DOMPurify) return Promise.resolve();
-    const markedSrc = vendorPath('marked/marked.min.js');
-    const purifySrc = vendorPath('dompurify/purify.min.js');
+    const markedSrc = getVendorPath('marked/marked.min.js');
+    const purifySrc = getVendorPath('dompurify/purify.min.js');
     return loadScriptOnce(markedSrc)
       .then(() => loadScriptOnce(purifySrc))
       .catch(function () {});
   }
 
-  // Sanitize markdown text for safe streaming rendering (prevents broken syntax from causing errors)
+  // ============================================================================
+  // SECTION 3: STREAMING-SAFE MARKDOWN (fix partial/incomplete syntax while AI types)
+  // ============================================================================
+
+  /**
+   * Clean markdown that might be incomplete (e.g. unclosed code blocks).
+   * Prevents parsing errors during streaming.
+   */
   function safeMarkdownForStreaming(text) {
     let t = String(text || '');
 
@@ -184,7 +206,11 @@
     return t;
   }
 
-  // Update assistant message text during streaming with markdown rendering
+  // ============================================================================
+  // SECTION 4: STREAMING UPDATE (update bubble as tokens arrive)
+  // ============================================================================
+
+  /** Update the AI message bubble with new text (during streaming). Uses RAF for smooth updates. */
   function updateAssistantPendingText(pendingId, text) {
     const node = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
     if (!node) return;
@@ -240,7 +266,7 @@
     });
   }
 
-  // Render a markdown fragment to sanitized HTML string (for content blocks). Returns string.
+  /** Turn markdown text into safe HTML string. Used by attachments module. */
   function renderMarkdownFragment(text) {
     if (text == null || text === '') return '';
     const msg = String(text).replace(/<\/?question>/gi, '');
@@ -260,7 +286,11 @@
     return (typeof escapeHtml === 'function' ? escapeHtml(msg) : msg.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])).replace(/\n/g, '<br>');
   }
 
-  // Replace pending assistant message with final rendered markdown after streaming completes
+  // ============================================================================
+  // SECTION 5: FINAL RENDER (when streaming ends, show complete message + actions)
+  // ============================================================================
+
+  /** Replace the pending bubble with final markdown. Adds Copy/Like/etc. buttons. */
   function replaceAssistantPending(pendingId, text, isError = false) {
     const node = messagesEl?.querySelector?.(`[data-chatbot-pending="${pendingId}"]`);
     if (!node) return;
@@ -340,7 +370,10 @@
     }
   }
 
-  // Initialize module with dependencies from chatbot-core.js
+  // ============================================================================
+  // INIT & PUBLIC API
+  // ============================================================================
+
   function init(deps) {
     messagesEl = deps.messagesEl;
     escapeHtml = deps.escapeHtml;
@@ -348,7 +381,6 @@
     ensureMarkdownDeps();
   }
 
-  // Expose public API
   window.ChatbotMarkdown = {
     init: init,
     ensureMarkdownDeps: ensureMarkdownDeps,

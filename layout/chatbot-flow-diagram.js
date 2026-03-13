@@ -1,13 +1,23 @@
-// Flow diagram renderer module - renders Rete.js-style SVG flow diagrams in chat messages
-
+/**
+ * CHATBOT FLOW DIAGRAM MODULE
+ * ===========================
+ * Renders Rete.js-style flow diagrams inside AI message bubbles.
+ * Used when the backend returns flow_diagram_data (e.g. agent plans).
+ *
+ * Flow: flowDiagramData -> Transform to Rete format -> Render in container
+ */
 (function () {
   'use strict';
 
-  // Module dependencies injected from chatbot-core.js
+  /** Set by init() from chatbot-core */
   let messagesEl = null;
   let ensureReteFlowRenderer = null;
 
-  // Render a flow diagram inside a pending assistant message bubble
+  // ============================================================================
+  // MAIN RENDER FUNCTION
+  // ============================================================================
+
+  /** Render a flow diagram in the bubble with the given pendingId */
   async function renderFlowDiagram(pendingId, flowDiagramData) {
     try {
       // Validate flow diagram data structure
@@ -63,13 +73,15 @@
     } catch (_) {}
   }
 
-  // Initialize module with dependencies from chatbot-core.js
+  // ============================================================================
+  // INIT & PUBLIC API
+  // ============================================================================
+
   function init(deps) {
     messagesEl = deps.messagesEl;
     ensureReteFlowRenderer = deps.ensureReteFlowRenderer;
   }
 
-  // Expose public API
   window.ChatbotFlowDiagram = {
     init: init,
     renderFlowDiagram: renderFlowDiagram

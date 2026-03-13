@@ -1,9 +1,65 @@
 /**
  * Cameras List - Shows all cameras as cards (no live video). Click opens camera detail page.
+ * Create Camera modal: collect name, stream_url, location, tags and call create API.
  * Same pattern as agents-board: runs on vision:spa:navigated and when #vision-cameras-list-grid exists.
  */
 (function () {
   'use strict';
+
+  function resetCreateCameraModal() {
+    var nameEl = document.getElementById('cc-name');
+    var streamUrlEl = document.getElementById('cc-stream-url');
+    var areaEl = document.getElementById('cc-location-area');
+    var zoneEl = document.getElementById('cc-location-zone');
+    var tagsEl = document.getElementById('cc-tags');
+    var nameErr = document.getElementById('cc-name-error');
+    var streamErr = document.getElementById('cc-stream-url-error');
+    var alertEl = document.getElementById('cc-error-alert');
+    if (nameEl) nameEl.value = '';
+    if (streamUrlEl) streamUrlEl.value = '';
+    if (areaEl) areaEl.value = '';
+    if (zoneEl) zoneEl.value = '';
+    if (tagsEl) tagsEl.value = '';
+    if (nameErr) { nameErr.classList.add('d-none'); nameErr.textContent = ''; }
+    if (streamErr) { streamErr.classList.add('d-none'); streamErr.textContent = ''; }
+    if (alertEl) {
+      alertEl.classList.add('d-none');
+      var m = document.getElementById('cc-error-msg');
+      if (m) m.textContent = '';
+    }
+  }
+
+  function showCreateCameraError(msg) {
+    var alertEl = document.getElementById('cc-error-alert');
+    var msgEl = document.getElementById('cc-error-msg');
+    if (alertEl && msgEl) {
+      msgEl.textContent = msg || 'An error occurred.';
+      alertEl.classList.remove('d-none');
+    }
+  }
+
+  function hideCreateCameraError() {
+    var alertEl = document.getElementById('cc-error-alert');
+    if (alertEl) alertEl.classList.add('d-none');
+  }
+
+  function setCreateButtonLoading(loading) {
+    var btn = document.getElementById('cc-create-btn');
+    var text = document.getElementById('cc-create-text');
+    var spinner = document.getElementById('cc-create-spinner');
+    if (!btn) return;
+    btn.disabled = loading;
+    if (text) text.textContent = loading ? 'Creating…' : 'Create Camera';
+    if (spinner) spinner.classList.toggle('d-none', !loading);
+  }
+
+  function openCreateCameraModal() {
+    resetCreateCameraModal();
+    var modalEl = document.getElementById('vision-create-camera-modal');
+    if (!modalEl || typeof bootstrap === 'undefined') return;
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
 
   function loadCameras() {
     var grid = document.getElementById('vision-cameras-list-grid');
@@ -66,10 +122,116 @@
       });
   }
 
+  function setupCreateCameraModal() {
+    var modalCreateBtn = document.getElementById('cc-create-btn');
+    var errorDismiss = document.getElementById('cc-error-dismiss');
+    var modalEl = document.getElementById('vision-create-camera-modal');
+
+    // Use event delegation for Create button (works when navigating via SPA - button may not exist when script first runs)
+    if (!document.body.hasAttribute('data-vision-cameras-create-bound')) {
+      document.body.setAttribute('data-vision-cameras-create-bound', 'true');
+      document.body.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('#vision-cameras-create-btn') : null;
+        if (btn) {
+          e.preventDefault();
+          openCreateCameraModal();
+        }
+      });
+    }
+
+    if (errorDismiss && !errorDismiss.hasAttribute('data-cc-bound')) {
+      errorDismiss.setAttribute('data-cc-bound', 'true');
+      errorDismiss.addEventListener('click', function () {
+        hideCreateCameraError();
+      });
+    }
+
+    if (modalCreateBtn && !modalCreateBtn.hasAttribute('data-cc-bound')) {
+      modalCreateBtn.setAttribute('data-cc-bound', 'true');
+      modalCreateBtn.addEventListener('click', function () {
+        var nameEl = document.getElementById('cc-name');
+        var streamUrlEl = document.getElementById('cc-stream-url');
+        var areaEl = document.getElementById('cc-location-area');
+        var zoneEl = document.getElementById('cc-location-zone');
+        var tagsEl = document.getElementById('cc-tags');
+        var nameErr = document.getElementById('cc-name-error');
+        var streamErr = document.getElementById('cc-stream-url-error');
+
+        var name = nameEl ? nameEl.value.trim() : '';
+        var streamUrl = streamUrlEl ? streamUrlEl.value.trim() : '';
+        var area = areaEl ? areaEl.value.trim() : '';
+        var zone = zoneEl ? zoneEl.value.trim() : '';
+        var tagsStr = tagsEl ? tagsEl.value.trim() : '';
+
+        if (nameErr) { nameErr.classList.add('d-none'); nameErr.textContent = ''; }
+        if (streamErr) { streamErr.classList.add('d-none'); streamErr.textContent = ''; }
+        hideCreateCameraError();
+
+        var hasError = false;
+        if (!name) {
+          if (nameErr) { nameErr.textContent = 'Camera name is required.'; nameErr.classList.remove('d-none'); }
+          hasError = true;
+        }
+        if (!streamUrl) {
+          if (streamErr) { streamErr.textContent = 'Stream URL is required.'; streamErr.classList.remove('d-none'); }
+          hasError = true;
+        }
+        if (hasError) return;
+
+        if (!window.visionAPI || typeof window.visionAPI.createCamera !== 'function') {
+          showCreateCameraError('API not available.');
+          return;
+        }
+        if (typeof window.visionAPI.isAuthenticated === 'function' && !window.visionAPI.isAuthenticated()) {
+          showCreateCameraError('Please sign in to create a camera.');
+          return;
+        }
+
+        var metadata = null;
+        if (area || zone || tagsStr) {
+          metadata = {};
+          if (area || zone) {
+            metadata.location = {};
+            if (area) metadata.location.area = area;
+            if (zone) metadata.location.zone = zone;
+          }
+          if (tagsStr) {
+            metadata.tags = tagsStr.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+          }
+        }
+
+        setCreateButtonLoading(true);
+        window.visionAPI.createCamera({
+          name: name,
+          stream_url: streamUrl,
+          metadata: metadata || undefined
+        })
+          .then(function (camera) {
+            setCreateButtonLoading(false);
+            if (typeof bootstrap !== 'undefined' && modalEl) {
+              var modal = bootstrap.Modal.getInstance(modalEl);
+              if (modal) modal.hide();
+            }
+            loadCameras();
+            var toast = window.toastService || window.VisionToast;
+            if (toast && typeof toast.success === 'function') {
+              toast.success('Camera created successfully.');
+            } else {
+              alert('Camera created successfully.');
+            }
+          })
+          .catch(function (err) {
+            setCreateButtonLoading(false);
+            showCreateCameraError(err.message || 'Failed to create camera.');
+          });
+      });
+    }
+  }
+
   function boot() {
     var grid = document.getElementById('vision-cameras-list-grid');
-    if (!grid) return;
-    loadCameras();
+    if (grid) loadCameras();
+    setupCreateCameraModal();
   }
 
   boot();

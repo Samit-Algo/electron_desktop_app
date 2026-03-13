@@ -1,9 +1,20 @@
-// ChatGPT-style voice assistant module - handles voice recording, playback, and UI animations
-
+/**
+ * CHATBOT VOICE MODULE
+ * ====================
+ * Handles voice input/output: record, send to backend, play response.
+ * - Animated orb reacts to microphone/speaker
+ * - Barge-in: user can interrupt AI while it speaks
+ * - Send button shows voice/recording/stop states
+ *
+ * Flow: User taps mic -> Record -> Send audio -> Backend STT+TTS -> Play response
+ */
 (function () {
   'use strict';
 
-  // Voice assistant state machine
+  // ============================================================================
+  // SECTION 1: STATE & CONSTANTS
+  // ============================================================================
+
   const VOICE_STATE = {
     IDLE: 'idle',
     LISTENING: 'listening',
@@ -12,7 +23,6 @@
     ERROR: 'error'
   };
 
-  // Core voice state variables
   let voiceState = VOICE_STATE.IDLE;
   let lastSpeakingEndedAt = 0;
 
@@ -59,7 +69,10 @@
   let sendBtn = null;
   let voiceBtn = null;
 
-  // Update voice status label text based on current state
+  // ============================================================================
+  // SECTION 2: UI UPDATES (status label, send button, overlay)
+  // ============================================================================
+
   function updateVoiceStatusLabel(state) {
     const labelEl = document.getElementById('voice-status-label');
     if (!labelEl) return;
@@ -195,7 +208,10 @@
     syncSendButtonVisual();
   }
 
-  // Start audio-reactive orb animation from microphone stream
+  // ============================================================================
+  // SECTION 3: ORB ANIMATION (reacts to mic/speaker audio)
+  // ============================================================================
+
   function startOrbAudioReactive(stream) {
     try {
       stopOrbAudioReactive();
@@ -403,7 +419,10 @@
     audioCtx = null;
   }
 
-  // Start barge-in detector to allow user to interrupt assistant speaking
+  // ============================================================================
+  // SECTION 4: BARGE-IN (user can interrupt AI while it speaks)
+  // ============================================================================
+
   function startBargeInDetector() {
     if (!navigator.mediaDevices?.getUserMedia) return;
     if (bargeRaf || bargeCtx || bargeStream) return;
@@ -523,7 +542,10 @@
     setVoiceState(VOICE_STATE.IDLE);
   }
 
-  // Start voice recording with microphone access
+  // ============================================================================
+  // SECTION 5: RECORDING & SENDING
+  // ============================================================================
+
   async function startVoiceRecording() {
     // Cooldown period after speaking to prevent accidental retriggers
     const now = performance.now();
@@ -734,7 +756,10 @@
     syncSendButtonVisual();
   }
 
-  // Legacy voice button handler (small mic button) - simpler implementation
+  // ============================================================================
+  // SECTION 6: LEGACY VOICE BUTTON (small mic icon fallback)
+  // ============================================================================
+
   function initLegacyVoiceBtn() {
     if (!voiceBtn || !getActive || !getMode || !messagesEl || !appendUserBubble || !appendAssistantPending || !saveActiveHtml) return;
     let recorder = null;
@@ -836,7 +861,10 @@
     });
   }
 
-  // Initialize module with dependencies from chatbot-core.js
+  // ============================================================================
+  // INIT & PUBLIC API
+  // ============================================================================
+
   function init(deps) {
     getActive = deps.getActive;
     getMode = deps.getMode;
@@ -855,7 +883,6 @@
     if (voiceBtn) initLegacyVoiceBtn();
   }
 
-  // Expose public API
   window.ChatbotVoice = {
     init,
     isVoiceAssistantActive,

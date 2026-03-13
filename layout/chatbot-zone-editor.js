@@ -1,15 +1,12 @@
 /**
- * Zone Editor Module for Chatbot
- * 
- * Provides polygon/line drawing on camera snapshots for defining
- * monitoring zones and counting lines in the chatbot interface.
- * 
- * Features:
- * - Fetches camera snapshot from backend
- * - Interactive polygon/line drawing on canvas
- * - Normalized coordinates (0-1 range) for backend compatibility
- * - Undo/Clear/Save controls
- * - Error handling with user-friendly messages
+ * CHATBOT ZONE EDITOR MODULE
+ * =========================
+ * Lets users draw zones (polygons) or lines on camera snapshots.
+ * Used for: "alert when person enters this area" or "count people crossing this line"
+ *
+ * Flow: Open bubble -> Load camera image -> User draws on canvas -> Save (sends coords to backend)
+ *
+ * Supports: polygon, line, motion_rois (multiple machine areas)
  */
 
 (function () {
@@ -134,20 +131,20 @@
       }
 
       // Validate base64
-          const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
-          if (!base64Regex.test(base64String)) {
+      const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+      if (!base64Regex.test(base64String)) {
         throw new Error('Invalid image data format');
-          }
-          
+      }
+
       // Decode and create blob
-          const binaryString = atob(base64String);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          
-          const blob = new Blob([bytes], { type: 'image/jpeg' });
-          if (blob.size === 0) {
+      const binaryString = atob(base64String);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const blob = new Blob([bytes], { type: 'image/jpeg' });
+      if (blob.size === 0) {
         throw new Error('Empty image data');
       }
 

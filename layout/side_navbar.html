@@ -508,6 +508,65 @@
       </div>
     </main>
 
+    <!-- Create Camera Modal (in layout so it exists for SPA navigation) -->
+    <div class="modal fade" id="vision-create-camera-modal"
+         tabindex="-1" aria-labelledby="cc-modal-label" aria-hidden="true"
+         data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header pb-2">
+            <h5 class="modal-title" id="cc-modal-label">Create Camera</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1">Camera Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" id="cc-name"
+                     placeholder="e.g. Front Gate" maxlength="200" autocomplete="off">
+              <div class="text-danger d-none mt-1" style="font-size:.72rem" id="cc-name-error"></div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1">Stream URL <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" id="cc-stream-url"
+                     placeholder="rtsp://... or https://..." maxlength="2048" autocomplete="off">
+              <div class="form-text small">RTSP, HTTP, or WebRTC stream URL.</div>
+              <div class="text-danger d-none mt-1" style="font-size:.72rem" id="cc-stream-url-error"></div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1 text-body-secondary">Location (optional)</label>
+              <div class="row g-2">
+                <div class="col-6">
+                  <input type="text" class="form-control form-control-sm" id="cc-location-area"
+                         placeholder="Area (e.g. Parking Lot)" maxlength="100" autocomplete="off">
+                </div>
+                <div class="col-6">
+                  <input type="text" class="form-control form-control-sm" id="cc-location-zone"
+                         placeholder="Zone (e.g. North)" maxlength="100" autocomplete="off">
+                </div>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1 text-body-secondary">Tags (optional)</label>
+              <input type="text" class="form-control form-control-sm" id="cc-tags"
+                     placeholder="outdoor, gate, entrance (comma-separated)" maxlength="500" autocomplete="off">
+            </div>
+            <div id="cc-error-alert" class="alert alert-danger d-none mt-3 mb-0 py-2 px-3 small" role="alert">
+              <span id="cc-error-msg"></span>
+              <button type="button" class="btn-close btn-sm float-end" id="cc-error-dismiss" style="font-size:.65rem" aria-label="Dismiss"></button>
+            </div>
+          </div>
+          <div class="modal-footer py-2 border-top">
+            <button type="button" class="btn btn-phoenix-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-success btn-sm" id="cc-create-btn">
+              <span class="fas fa-check me-1"></span>
+              <span id="cc-create-text">Create Camera</span>
+              <span class="spinner-border spinner-border-sm d-none ms-1" id="cc-create-spinner"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Chatbot Container - Component loaded dynamically via JavaScript -->
     <div id="chatbot-container"></div>
   </div>
