@@ -424,12 +424,12 @@
       color: var(--lf-card-color);
     }
 
-    /* Scheduler conditional groups – hide when not applicable */
+    /* Scheduler conditional groups - hide when not applicable */
     .wf-sched-hidden {
       display: none !important;
     }
 
-    /* Notification node when schedule is "always" – no End connection, red indicator */
+    /* Notification node when schedule is "always" - no End connection, red indicator */
     .drawflow-node.wf-no-end .output {
       visibility: hidden !important;
       opacity: 0 !important;
@@ -440,7 +440,7 @@
       box-shadow: 0 0 0 1px #ef4444, 0 4px 20px rgba(239, 68, 68, 0.2) !important;
     }
 
-    /* End node when schedule is Always – show red, "don't use" */
+    /* End node when schedule is Always - show red, "don't use" */
     .drawflow-node.wf-end-unused .drawflow_content_node .lf-card {
       border-color: #ef4444 !important;
       box-shadow: 0 0 0 1px #ef4444, 0 4px 20px rgba(239, 68, 68, 0.25) !important;
@@ -619,15 +619,12 @@
         resolve();
         return;
       }
-
-      // If a script is already loading, wait for it
       const existing = document.querySelector('script[data-drawflow="true"]');
       if (existing) {
         existing.addEventListener('load', () => resolve());
         existing.addEventListener('error', () => reject(new Error('Failed to load Drawflow')));
         return;
       }
-
       const s = document.createElement('script');
       s.src = DRAWFLOW_SRC;
       s.defer = true;
@@ -641,27 +638,22 @@
   function navigateTo(href) {
     if (!href) return;
     if (window.visionaiSpa && typeof window.visionaiSpa.navigate === 'function') {
-      window.visionaiSpa.navigate(href).catch?.(() => {
-        window.location.href = href;
-      });
+      window.visionaiSpa.navigate(href).catch?.(() => { window.location.href = href; });
     } else {
       window.location.href = href;
     }
   }
 
-  // Toggle sidebar section collapse/expand
   window.toggleSection = function(header) {
     const section = header.closest('.wf-section');
     section.classList.toggle('expanded');
   };
 
-  // Toggle password visibility
   window.togglePasswordVisibility = function(icon) {
     const wrapper = icon.closest('.lf-input-wrapper');
     const input = wrapper.querySelector('input');
     const eyeIcon = wrapper.querySelector('.fa-eye');
     const eyeSlashIcon = wrapper.querySelector('.fa-eye-slash');
-    
     if (input.type === 'password') {
       input.type = 'text';
       if (eyeIcon) eyeIcon.style.display = 'none';
@@ -673,7 +665,6 @@
     }
   };
 
-  // Helper to get auth token - uses same key as api-service.js (visionai_token)
   function getAuthToken() {
     return localStorage.getItem('visionai_token') || '';
   }
@@ -695,7 +686,6 @@
     const workflowDescription = urlParams.get('description') || '';
     let isEditMode = !!editWorkflowId;
 
-    // Populate workflow name input from URL params
     const nameInput = document.getElementById('workflow-name-input');
     if (nameInput && workflowName) {
       nameInput.value = workflowName;
@@ -722,7 +712,6 @@
       end: []
     };
 
-    // Rule metadata (aligned with agents-board Create Agent modal)
     const RULE_META = [
       { id: 'class_presence', name: 'Class Presence Detection', needsClass: true, classes: ['person', 'car', 'bicycle', 'truck', 'bus'], needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
       { id: 'weapon_detection', name: 'Weapon Detection', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
@@ -734,7 +723,7 @@
       { id: 'fall_detection', name: 'Fall Detection', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
       { id: 'fire_detection', name: 'Fire Detection', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
       { id: 'face_detection', name: 'Face / Person ID', needsClass: false, needsWatchNames: true, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
-      { id: 'loom_machine_state', name: 'Machine Idle Alert', needsClass: false, needsWatchNames: false, needsIdleThreshold: true, needsAbsenceThreshold: false, needsZone: true, zoneType: 'polygon', zoneDesc: 'Draw polygon around machine.' },
+      { id: 'loom_machine_state', name: 'Machine Idle Alert', needsClass: false, needsWatchNames: false, needsIdleThreshold: true, needsAbsenceThreshold: false, needsZone: true, zoneType: 'roi', zoneDesc: 'Click two corners to draw a bounding box (ROI) around the machine.' },
       { id: 'person_near_machine', name: 'Person Near Machine', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: true, needsZone: true, zoneType: 'polygon', zoneDesc: 'Draw polygon around machine zone.' }
     ];
 
@@ -748,12 +737,7 @@
         icon: 'fa-circle-play',
         fields: [
           { key: 'label', type: 'text', label: 'Node label', default: 'Start' },
-          {
-            key: 'description',
-            type: 'textarea',
-            label: 'Description',
-            placeholder: 'Describe the purpose of this workflow entry point.'
-          },
+          { key: 'description', type: 'textarea', label: 'Description', placeholder: 'Describe the purpose of this workflow entry point.' },
           { key: 'schedule_type', type: 'select', label: 'Schedule', options: ['always', 'daily', 'weekly', 'once'], default: 'always' },
           { key: 'start_time', type: 'text', label: 'Start', default: '' },
           { key: 'end_time', type: 'text', label: 'End', default: '' },
@@ -772,12 +756,7 @@
         icon: 'fa-video',
         fields: [
           { key: 'label', type: 'text', label: 'Node label', default: 'Camera' },
-          {
-            key: 'camera_ids',
-            type: 'camera_select',
-            label: 'Camera',
-            placeholder: 'Select camera'
-          }
+          { key: 'camera_ids', type: 'camera_select', label: 'Camera', placeholder: 'Select camera' }
         ]
       },
       class_detection_agent: {
@@ -854,46 +833,21 @@
         outputs: 1,
         icon: 'fa-envelope',
         fields: [
-          {
-            key: 'label',
-            type: 'text',
-            label: 'Node label',
-            default: 'Notification'
-          },
-          {
-            key: 'channel',
-            type: 'select',
-            label: 'Primary channel',
-            options: ['Email', 'SMS', 'Webhook'],
-            default: 'Email'
-          },
-          {
-            key: 'recipients',
-            type: 'text',
-            label: 'Recipient(s)',
-            placeholder: 'Email addresses or phone numbers, comma-separated'
-          },
-          {
-            key: 'subject',
-            type: 'text',
-            label: 'Subject / title',
-            placeholder: 'Short, descriptive subject line'
-          },
-          {
-            key: 'body',
-            type: 'textarea',
-            label: 'Message body',
-            placeholder: 'Rich free‑text body. You can use placeholders like {{camera_name}} or {{class_name}}.'
-          },
-          {
-            key: 'importance',
-            type: 'select',
-            label: 'Importance',
-            options: ['Low', 'Normal', 'High'],
-            default: 'Normal'
-          }
+          { key: 'label', type: 'text', label: 'Node label', default: 'Notification' },
+          { key: 'channel', type: 'select', label: 'Primary channel', options: ['Email', 'SMS', 'Webhook'], default: 'Email' },
+          { key: 'recipients', type: 'text', label: 'Recipient(s)', placeholder: 'Email addresses or phone numbers, comma-separated' },
+          { key: 'subject', type: 'text', label: 'Subject / title', placeholder: 'Short, descriptive subject line' },
+          { key: 'body', type: 'textarea', label: 'Message body', placeholder: 'Rich free-text body. You can use placeholders like {{camera_name}} or {{class_name}}.' },
+          { key: 'importance', type: 'select', label: 'Importance', options: ['Low', 'Normal', 'High'], default: 'Normal' }
         ]
       },
+      // ── UPDATED REPORT NODE ────────────────────────────────────────────────
+      // Changes from previous version:
+      //   1. report_schedule now includes "every_n_minutes" and "once"
+      //   2. end_of_day_time field added (shown only when schedule = end_of_day)
+      //   3. interval_minutes field added (shown only when schedule = every_n_minutes)
+      //   4. Removed the old "include_hours" field (replaced by interval_minutes)
+      //   5. Both new fields use showIf for conditional visibility
       report: {
         name: 'report',
         label: 'Report Node',
@@ -903,10 +857,48 @@
         icon: 'fa-file-lines',
         fields: [
           { key: 'label', type: 'text', label: 'Node label', default: 'Report' },
-          { key: 'report_name', type: 'text', label: 'Report Name', default: '' },
-          { key: 'report_type', type: 'select', label: 'Report Type', options: ['Summary', 'Detailed', 'Analytics'], default: 'Summary' },
-          { key: 'include_charts', type: 'select', label: 'Include Charts', options: ['Yes', 'No'], default: 'Yes' },
-          { key: 'notes', type: 'textarea', label: 'Notes', placeholder: 'Additional notes for report generation' }
+          {
+            key: 'report_type',
+            type: 'select',
+            label: 'Report Type',
+            options: ['events', 'counting', 'agents', 'cameras', 'system'],
+            default: 'events'
+          },
+          {
+            key: 'report_schedule',
+            type: 'select',
+            label: 'Schedule',
+            options: ['end_of_day', 'hourly', 'every_n_minutes', 'once', 'manual'],
+            default: 'end_of_day'
+          },
+          {
+            key: 'end_of_day_time',
+            type: 'text',
+            label: 'Report time (HH:MM UTC)',
+            default: '23:55',
+            placeholder: 'e.g. 18:00 for 6 PM UTC',
+            showIf: { field: 'report_schedule', value: 'end_of_day' }
+          },
+          {
+            key: 'interval_minutes',
+            type: 'number',
+            label: 'Interval (minutes)',
+            default: 60,
+            placeholder: 'e.g. 30 for every 30 min',
+            showIf: { field: 'report_schedule', value: 'every_n_minutes' }
+          },
+          {
+            key: 'recipients',
+            type: 'text',
+            label: 'Recipients',
+            placeholder: 'ops@company.com, admin@company.com'
+          },
+          {
+            key: 'notes',
+            type: 'textarea',
+            label: 'Notes',
+            placeholder: 'Optional notes about this report'
+          }
         ]
       },
       end: {
@@ -918,32 +910,13 @@
         icon: 'fa-flag-checkered',
         fields: [
           { key: 'label', type: 'text', label: 'Node label', default: 'End' },
-          {
-            key: 'result_summary',
-            type: 'textarea',
-            label: 'Expected outcome',
-            placeholder: 'Describe what it means for this workflow to complete successfully.'
-          }
+          { key: 'result_summary', type: 'textarea', label: 'Expected outcome', placeholder: 'Describe what it means for this workflow to complete successfully.' }
         ]
       }
     };
 
-    function categoryTagClass(category) {
-      switch (category) {
-        case 'start': return 'tag-start';
-        case 'trigger': return 'tag-trigger';
-        case 'activity': return 'tag-activity';
-        case 'decision': return 'tag-decision';
-        case 'utility': return 'tag-utility';
-        case 'end': return 'tag-end';
-        default: return '';
-      }
-    }
-
     function createNodeContentHtml(def, data, nodeId) {
       const title = (data && data.__label) || def.label;
-
-      // Generate inline form fields based on node definition
       const fieldsHtml = (def.fields || []).map((field, index) => {
         return renderInlineField(field, data[field.key], index, def.name);
       }).join('');
@@ -971,7 +944,7 @@
         </div>
       `;
     }
-    
+
     function renderAgentSections(data, nodeId, agentType) {
       const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
       const agentName = data.agent_name || '';
@@ -979,17 +952,15 @@
       const fps = data.fps || 5;
       const confidenceThreshold = data.confidence_threshold || 0.5;
       const alertCooldown = data.alert_cooldown_seconds || 10;
-      
-      // Rule options based on agent type
+
       let ruleOptions = [];
       let needsZone = false;
-      let zoneType = 'polygon'; // 'polygon' or 'line'
+      let zoneType = 'polygon';
       let zoneDesc = '';
       let needsClass = false;
       let classOptions = [];
-      
+
       if (agentType === 'class_detection_agent') {
-        // Class Detection Agent: class presence, fire, weapon, face detection
         ruleOptions = [
           { id: 'class_presence',   name: 'Class Presence Detection' },
           { id: 'fire_detection',   name: 'Fire Detection' },
@@ -999,7 +970,6 @@
         needsClass = ((data.rule_id || 'class_presence') === 'class_presence');
         classOptions = ['person', 'car', 'truck', 'bicycle', 'bus', 'motorcycle'];
       } else if (agentType === 'person_behaviour_agent') {
-        // Person Behaviour Agent: fall detection, sleep detection
         ruleOptions = [
           { id: 'fall_detection',  name: 'Fall Detection' },
           { id: 'sleep_detection', name: 'Sleep Detection' }
@@ -1007,7 +977,6 @@
         needsClass = false;
         classOptions = [];
       } else if (agentType === 'class_detection_zone_agent') {
-        // Class Detection Agent with Zone: restricted zone, wall climb, person near machine, loom machine state
         ruleOptions = [
           { id: 'restricted_zone',      name: 'Restricted Zone Detection' },
           { id: 'wall_climb_detection', name: 'Wall Climb Detection' },
@@ -1015,12 +984,12 @@
           { id: 'loom_machine_state',   name: 'Machine Idle State Detection' }
         ];
         needsZone = true;
-        zoneType = 'polygon';
-        zoneDesc = 'Draw polygon for zone configuration.';
+        var _zdMeta = RULE_META.find(function(r){ return r.id === (data.rule_id || 'restricted_zone'); });
+        zoneType = (_zdMeta && _zdMeta.zoneType) || 'polygon';
+        zoneDesc = (_zdMeta && _zdMeta.zoneDesc) || 'Draw zone for configuration.';
         needsClass = (data.rule_id === 'restricted_zone');
         classOptions = ['person', 'car', 'truck', 'bicycle', 'motorcycle'];
       } else if (agentType === 'object_count_agent') {
-        // Object Count Agent: class_count, box_count
         ruleOptions = [
           { id: 'class_count', name: 'Object Counter' },
           { id: 'box_count',   name: 'Box Counter' }
@@ -1031,20 +1000,21 @@
         needsClass = (data.rule_id === 'class_count');
         classOptions = ['person', 'car', 'truck', 'bicycle', 'bus', 'motorcycle'];
       }
-      
+
       const ruleId = data.rule_id || (ruleOptions[0] && ruleOptions[0].id) || '';
-      const hasZone = !!(data.zone && data.zone.coordinates && data.zone.coordinates.length);
-      
-      // Build rule type select options (value = backend id, display = human label)
+      const hasZone = !!(
+        (data.zones && data.zones.length > 0) ||
+        (data.zone && data.zone.coordinates && data.zone.coordinates.length)
+      );
+      const zoneCount = (data.zones && data.zones.length) || (hasZone ? 1 : 0);
+
       const ruleSelectOptions = ruleOptions.map(function (r) {
         return '<option value="' + r.id + '"' + (ruleId === r.id ? ' selected' : '') + '>' + r.name + '</option>';
       }).join('');
-      
-      // Build rule-specific HTML (class selection if needed)
+
       let ruleSpecificHtml = '';
       if (needsClass) {
         const currentClass = data.detect_class || classOptions[0];
-        // Initialize detect_class in node data if not set, so it's always sent to backend
         if (!data.detect_class && classOptions.length && nodeId && editor.drawflow.drawflow.Home.data[nodeId]) {
           editor.drawflow.drawflow.Home.data[nodeId].data.detect_class = classOptions[0];
           data.detect_class = classOptions[0];
@@ -1055,27 +1025,41 @@
         }).join('');
         ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Detect Class</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="detect_class" data-node-id="' + (nodeId || '') + '">' + classOpts + '</select></div></div></div></div>';
       }
-      
-      // Zone configuration HTML
+
+      // Add idle threshold input for loom_machine_state
+      if (ruleId === 'loom_machine_state') {
+        const idleThreshold = data.idle_threshold_minutes || 15;
+        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator blue"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Idle Threshold (minutes)</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="idle_threshold_minutes" data-node-id="' + (nodeId || '') + '" value="' + idleThreshold + '" step="1" min="1" max="1440" /></div></div></div></div>';
+      }
+
+      // Add absence threshold input for person_near_machine
+      if (ruleId === 'person_near_machine') {
+        const absenceThreshold = data.absence_threshold_minutes || 5;
+        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator blue"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Absence Threshold (minutes)</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="absence_threshold_minutes" data-node-id="' + (nodeId || '') + '" value="' + absenceThreshold + '" step="1" min="1" max="1440" /></div></div></div></div>';
+      }
+
       let zoneHtml = '';
       if (needsZone) {
-        zoneHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><button type="button" class="btn btn-sm w-100 wf-draw-zone-btn" style="border:1px dashed var(--lf-input-border);background:var(--lf-input-bg);color:var(--lf-card-color);font-size:11px;" data-node-id="' + (nodeId || '') + '" data-zone-type="' + zoneType + '"><i class="fa-solid fa-draw-polygon me-1"></i>' + (hasZone ? 'Edit zone' : 'Draw zone') + '</button>' + (hasZone ? ' <span class="small text-success ms-1"><i class="fa-solid fa-check"></i></span>' : '') + '</div></div></div>';
+        zoneHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1">' +
+          '<button type="button" class="btn btn-sm w-100 wf-draw-zone-btn" style="border:1px dashed var(--lf-input-border);background:var(--lf-input-bg);color:var(--lf-card-color);font-size:11px;" data-node-id="' + (nodeId || '') + '" data-zone-type="' + zoneType + '" data-zone-index="">' +
+          '<i class="fa-solid fa-draw-polygon me-1"></i>' + (hasZone ? 'Edit zone 1' : 'Draw zone') + '</button>' +
+          (hasZone ? ' <span class="small text-success ms-1"><i class="fa-solid fa-check"></i> ' + zoneCount + ' zone(s)</span>' : '') +
+          '</div>' +
+          (hasZone ? '<div class="mt-1"><button type="button" class="btn btn-sm wf-add-zone-btn" style="border:1px dashed var(--lf-input-border);background:var(--lf-input-bg);color:var(--lf-card-color);font-size:10px;width:100%;" data-node-id="' + (nodeId || '') + '" data-zone-type="' + zoneType + '"><i class="fa-solid fa-plus me-1"></i>Add another zone</button></div>' : '') +
+          '</div></div>';
       }
-      
-      // Zone description if zone is required
+
       let zoneDescHtml = '';
       if (needsZone && zoneDesc) {
         zoneDescHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="small text-muted" style="font-size: 10px; color: var(--lf-placeholder-color);">' + zoneDesc + '</div></div></div></div>';
       }
 
-      // Get model options from NODE_DEFINITIONS for this agent type
       const nodeDef = NODE_DEFINITIONS[agentType];
       const modelField = nodeDef && nodeDef.fields ? nodeDef.fields.find(f => f.key === 'model_name') : null;
       const modelOptions = modelField && modelField.options ? modelField.options : ['yolov8n.pt', 'yolov8m.pt'];
       const defaultModel = modelField && modelField.default ? modelField.default : 'yolov8m.pt';
       const currentModel = modelName || defaultModel;
-      
-      // Build model select options dynamically
+
       const modelSelectOptions = modelOptions.map(function(opt) {
         return '<option value="' + opt + '"' + (currentModel === opt ? ' selected' : '') + '>' + opt + '</option>';
       }).join('');
@@ -1090,43 +1074,21 @@
         '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Confidence</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="confidence_threshold" data-node-id="' + (nodeId || '') + '" value="' + safe(confidenceThreshold) + '" step="0.1" min="0" max="1" /></div></div></div></div>' +
         '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Alert cooldown (s)</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="alert_cooldown_seconds" data-node-id="' + (nodeId || '') + '" value="' + safe(alertCooldown) + '" step="1" min="0" /></div></div></div></div>';
     }
-    
-    // Camera list cache
+
     let cameraListCache = null;
     let cameraListFetchPromise = null;
-    
+
     async function fetchCameraList() {
-      // Return cached list if available
-      if (cameraListCache) {
-        return cameraListCache;
-      }
-      
-      // Return existing promise if fetch is in progress
-      if (cameraListFetchPromise) {
-        return cameraListFetchPromise;
-      }
-      
-      // Start new fetch
+      if (cameraListCache) return cameraListCache;
+      if (cameraListFetchPromise) return cameraListFetchPromise;
       cameraListFetchPromise = (async () => {
         try {
           const token = getAuthToken();
           const headers = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
-          
-          const response = await fetch('http://localhost:8000/api/v1/cameras/list', {
-            method: 'GET',
-            headers: headers
-          });
-          
-          if (response.status === 401) {
-            console.error('Authentication required for camera list');
-            return [];
-          }
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch cameras: ${response.status}`);
-          }
-          
+          const response = await fetch('http://localhost:8000/api/v1/cameras/list', { method: 'GET', headers });
+          if (response.status === 401) { console.error('Authentication required for camera list'); return []; }
+          if (!response.ok) throw new Error(`Failed to fetch cameras: ${response.status}`);
           const cameras = await response.json();
           cameraListCache = cameras;
           return cameras;
@@ -1137,44 +1099,34 @@
           cameraListFetchPromise = null;
         }
       })();
-      
       return cameraListFetchPromise;
     }
-    
+
     function renderCameraSections(data, nodeId) {
       const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
       const cameraIds = data.camera_ids || '';
       const frameRate = data.frame_rate || 25;
       const label = data.label || 'Camera';
-      
       return `
-        <!-- Node Label Section -->
         <div class="d-flex align-items-start gap-2">
           <span class="lf-section-indicator purple"></span>
           <div class="flex-grow-1 min-w-0">
             <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Node label</span>
-              </div>
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1"><span>Node label</span></div>
               <div class="lf-input-wrapper position-relative">
-                <input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="label" data-node-id="${nodeId || ''}"
-                  value="${safe(label)}" />
+                <input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="label" data-node-id="${nodeId || ''}" value="${safe(label)}" />
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Camera Selection -->
         <div class="d-flex align-items-start gap-2">
           <span class="lf-section-indicator cyan"></span>
           <div class="flex-grow-1 min-w-0">
             <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Camera</span>
-              </div>
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1"><span>Camera</span></div>
               <div class="lf-input-wrapper position-relative camera-dropdown-wrapper" data-node-id="${nodeId || ''}">
-                <select class="lf-node-input w-100 form-select form-select-sm camera-select" 
-                        data-field="camera_ids" 
+                <select class="lf-node-input w-100 form-select form-select-sm camera-select"
+                        data-field="camera_ids"
                         data-node-id="${nodeId || ''}"
                         data-current-value="${safe(cameraIds)}">
                   <option value="">Loading cameras...</option>
@@ -1183,18 +1135,13 @@
             </div>
           </div>
         </div>
-
-        <!-- Frame Rate Section -->
         <div class="d-flex align-items-start gap-2">
           <span class="lf-section-indicator cyan"></span>
           <div class="flex-grow-1 min-w-0">
             <div class="mb-1">
-              <div class="lf-field-label d-flex align-items-center gap-1 mb-1">
-                <span>Frame rate (fps)</span>
-              </div>
+              <div class="lf-field-label d-flex align-items-center gap-1 mb-1"><span>Frame rate (fps)</span></div>
               <div class="lf-input-wrapper position-relative">
-                <input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="frame_rate" data-node-id="${nodeId || ''}"
-                  value="${safe(frameRate)}" step="1" min="1" max="60" />
+                <input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="frame_rate" data-node-id="${nodeId || ''}" value="${safe(frameRate)}" step="1" min="1" max="60" />
               </div>
             </div>
           </div>
@@ -1215,135 +1162,30 @@
       const checkDuration = data.check_duration_seconds ?? 30;
       const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
       const activeSet = new Set((typeof activeDaysStr === 'string' ? activeDaysStr.split(',') : []).map(s => s.trim()).filter(Boolean));
-
       const dayChecks = DAYS.map(d => '<div class="form-check form-check-inline m-0"><input class="form-check-input lf-node-input" type="checkbox" data-field="active_days" data-node-id="' + (nodeId || '') + '" data-day="' + d + '" id="wf-day-' + (nodeId || '') + '-' + d + '"' + (activeSet.has(d) ? ' checked' : '') + '><label class="form-check-label small" for="wf-day-' + (nodeId || '') + '-' + d + '">' + d.charAt(0).toUpperCase() + d.slice(1, 3) + '</label></div>').join('');
 
       return `
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">Label</div>
-              <div class="lf-input-wrapper"><input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="label" data-node-id="${nodeId || ''}" value="${safe(label)}" /></div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator cyan"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">Description</div>
-              <div class="lf-input-wrapper"><textarea class="lf-node-input w-100 form-control form-control-sm" data-field="description" data-node-id="${nodeId || ''}" placeholder="Describe the purpose of this workflow entry point.">${safe(description)}</textarea></div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">Schedule</div>
-              <div class="lf-input-wrapper">
-                <select class="lf-node-input w-100 form-select form-select-sm lf-start-schedule-select" data-field="schedule_type" data-node-id="${nodeId || ''}">
-                  <option value="always" ${scheduleType === 'always' ? 'selected' : ''}>Always</option>
-                  <option value="daily" ${scheduleType === 'daily' ? 'selected' : ''}>Daily</option>
-                  <option value="weekly" ${scheduleType === 'weekly' ? 'selected' : ''}>Weekly</option>
-                  <option value="once" ${scheduleType === 'once' ? 'selected' : ''}>Once</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2 wf-sched-once-group ${scheduleType !== 'once' ? 'wf-sched-hidden' : ''}">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">From (datetime)</div>
-              <div class="lf-input-wrapper"><input type="datetime-local" class="lf-node-input w-100 form-control form-control-sm" data-field="start_time" data-node-id="${nodeId || ''}" value="${safe(startTime)}" /></div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2 wf-sched-once-group ${scheduleType !== 'once' ? 'wf-sched-hidden' : ''}">
-          <span class="lf-section-indicator cyan"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">Until (datetime)</div>
-              <div class="lf-input-wrapper"><input type="datetime-local" class="lf-node-input w-100 form-control form-control-sm" data-field="end_time" data-node-id="${nodeId || ''}" value="${safe(endTime)}" /></div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2 wf-sched-tod-group ${scheduleType !== 'daily' && scheduleType !== 'weekly' ? 'wf-sched-hidden' : ''}">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">From (time)</div>
-              <div class="lf-input-wrapper"><input type="time" class="lf-node-input w-100 form-control form-control-sm" data-field="start_time" data-node-id="${nodeId || ''}" value="${safe(startTime)}" /></div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2 wf-sched-tod-group ${scheduleType !== 'daily' && scheduleType !== 'weekly' ? 'wf-sched-hidden' : ''}">
-          <span class="lf-section-indicator cyan"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">Until (time)</div>
-              <div class="lf-input-wrapper"><input type="time" class="lf-node-input w-100 form-control form-control-sm" data-field="end_time" data-node-id="${nodeId || ''}" value="${safe(endTime)}" /></div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2 wf-sched-days-group ${scheduleType !== 'weekly' ? 'wf-sched-hidden' : ''}">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">Active days</div>
-              <div class="d-flex flex-wrap gap-1">${dayChecks}</div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2">
-          <span class="lf-section-indicator cyan"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">Run mode</div>
-              <div class="lf-input-wrapper">
-                <select class="lf-node-input w-100 form-select form-select-sm" data-field="run_mode" data-node-id="${nodeId || ''}">
-                  <option value="continuous" ${runMode === 'continuous' ? 'selected' : ''}>Continuous</option>
-                  <option value="patrol" ${runMode === 'patrol' ? 'selected' : ''}>Patrol</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2 wf-sched-patrol-group ${runMode !== 'patrol' ? 'wf-sched-hidden' : ''}">
-          <span class="lf-section-indicator purple"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">Interval (min)</div>
-              <div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="interval_minutes" data-node-id="${nodeId || ''}" min="1" max="1440" value="${safe(intervalMinutes)}" /></div>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex align-items-start gap-2 wf-sched-patrol-group ${runMode !== 'patrol' ? 'wf-sched-hidden' : ''}">
-          <span class="lf-section-indicator cyan"></span>
-          <div class="flex-grow-1 min-w-0">
-            <div class="mb-1">
-              <div class="lf-field-label mb-1">Check duration (sec)</div>
-              <div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="check_duration_seconds" data-node-id="${nodeId || ''}" min="1" max="86400" value="${safe(checkDuration)}" /></div>
-            </div>
-          </div>
-        </div>
+        <div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Label</div><div class="lf-input-wrapper"><input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="label" data-node-id="${nodeId || ''}" value="${safe(label)}" /></div></div></div></div>
+        <div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Description</div><div class="lf-input-wrapper"><textarea class="lf-node-input w-100 form-control form-control-sm" data-field="description" data-node-id="${nodeId || ''}" placeholder="Describe the purpose of this workflow entry point.">${safe(description)}</textarea></div></div></div></div>
+        <div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Schedule</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm lf-start-schedule-select" data-field="schedule_type" data-node-id="${nodeId || ''}"><option value="always" ${scheduleType === 'always' ? 'selected' : ''}>Always</option><option value="daily" ${scheduleType === 'daily' ? 'selected' : ''}>Daily</option><option value="weekly" ${scheduleType === 'weekly' ? 'selected' : ''}>Weekly</option><option value="once" ${scheduleType === 'once' ? 'selected' : ''}>Once</option></select></div></div></div></div>
+        <div class="d-flex align-items-start gap-2 wf-sched-once-group ${scheduleType !== 'once' ? 'wf-sched-hidden' : ''}"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">From (datetime)</div><div class="lf-input-wrapper"><input type="datetime-local" class="lf-node-input w-100 form-control form-control-sm" data-field="start_time" data-node-id="${nodeId || ''}" value="${safe(startTime)}" /></div></div></div></div>
+        <div class="d-flex align-items-start gap-2 wf-sched-once-group ${scheduleType !== 'once' ? 'wf-sched-hidden' : ''}"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Until (datetime)</div><div class="lf-input-wrapper"><input type="datetime-local" class="lf-node-input w-100 form-control form-control-sm" data-field="end_time" data-node-id="${nodeId || ''}" value="${safe(endTime)}" /></div></div></div></div>
+        <div class="d-flex align-items-start gap-2 wf-sched-tod-group ${scheduleType !== 'daily' && scheduleType !== 'weekly' ? 'wf-sched-hidden' : ''}"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">From (time)</div><div class="lf-input-wrapper"><input type="time" class="lf-node-input w-100 form-control form-control-sm" data-field="start_time" data-node-id="${nodeId || ''}" value="${safe(startTime)}" /></div></div></div></div>
+        <div class="d-flex align-items-start gap-2 wf-sched-tod-group ${scheduleType !== 'daily' && scheduleType !== 'weekly' ? 'wf-sched-hidden' : ''}"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Until (time)</div><div class="lf-input-wrapper"><input type="time" class="lf-node-input w-100 form-control form-control-sm" data-field="end_time" data-node-id="${nodeId || ''}" value="${safe(endTime)}" /></div></div></div></div>
+        <div class="d-flex align-items-start gap-2 wf-sched-days-group ${scheduleType !== 'weekly' ? 'wf-sched-hidden' : ''}"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Active days</div><div class="d-flex flex-wrap gap-1">${dayChecks}</div></div></div></div>
+        <div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Run mode</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="run_mode" data-node-id="${nodeId || ''}"><option value="continuous" ${runMode === 'continuous' ? 'selected' : ''}>Continuous</option><option value="patrol" ${runMode === 'patrol' ? 'selected' : ''}>Patrol</option></select></div></div></div></div>
+        <div class="d-flex align-items-start gap-2 wf-sched-patrol-group ${runMode !== 'patrol' ? 'wf-sched-hidden' : ''}"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Interval (min)</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="interval_minutes" data-node-id="${nodeId || ''}" min="1" max="1440" value="${safe(intervalMinutes)}" /></div></div></div></div>
+        <div class="d-flex align-items-start gap-2 wf-sched-patrol-group ${runMode !== 'patrol' ? 'wf-sched-hidden' : ''}"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Check duration (sec)</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="check_duration_seconds" data-node-id="${nodeId || ''}" min="1" max="86400" value="${safe(checkDuration)}" /></div></div></div></div>
       `;
     }
 
-    // Function to populate camera dropdowns (single camera per node)
     async function populateCameraDropdowns() {
       const cameras = await fetchCameraList();
-      
       document.querySelectorAll('.camera-select').forEach(select => {
         const nodeId = select.getAttribute('data-node-id');
         const node = editor && editor.getNodeFromId && editor.getNodeFromId(nodeId);
         const currentValue = (node && node.data && node.data.camera_ids != null) ? String(node.data.camera_ids).split(',')[0].trim() : (select.getAttribute('data-current-value') || '').split(',')[0].trim();
-        
         select.innerHTML = '';
-        
         if (cameras.length === 0) {
           const option = document.createElement('option');
           option.value = '';
@@ -1364,7 +1206,13 @@
         }
       });
     }
-    
+
+    // ── renderInlineField ────────────────────────────────────────────────────
+    // UPDATED: supports field.showIf = { field: 'key', value: 'matchValue' }
+    // When showIf is defined, the wrapper div gets data-show-if-field and
+    // data-show-if-value attributes, and starts hidden.
+    // The document 'change' listener (below) shows/hides it live.
+    // applyShowIfRules() restores correct visibility when loading saved data.
     function renderInlineField(field, value, index, nodeName) {
       const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
       const indicatorColor = index % 2 === 0 ? 'purple' : 'cyan';
@@ -1388,7 +1236,6 @@
           inputHtml = `<select class="lf-node-input w-100 form-select form-select-sm" data-field="${field.key}">${options}</select>`;
           break;
         case 'camera_select':
-          // Camera selection is handled by renderCameraSections, skip here
           return '';
         case 'textarea':
           inputHtml = `<textarea class="lf-node-input w-100 form-control form-control-sm" data-field="${field.key}" placeholder="${placeholder}">${safe(value)}</textarea>`;
@@ -1397,8 +1244,16 @@
           inputHtml = `<input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="${field.key}" placeholder="${placeholder}" value="${safe(value)}" />`;
       }
 
+      // showIf: conditional visibility support
+      const hasShowIf = field.showIf && field.showIf.field && field.showIf.value;
+      const showIfAttrs = hasShowIf
+        ? `data-show-if-field="${field.showIf.field}" data-show-if-value="${field.showIf.value}"`
+        : '';
+      // Start hidden if showIf is defined; applyShowIfRules() will reveal if matched
+      const hiddenStyle = hasShowIf ? 'display:none;' : '';
+
       return `
-        <div class="d-flex align-items-start gap-2">
+        <div class="d-flex align-items-start gap-2" ${showIfAttrs} style="${hiddenStyle}">
           <span class="lf-section-indicator ${indicatorColor}"></span>
           <div class="flex-grow-1 min-w-0">
             <div class="mb-1">
@@ -1414,23 +1269,45 @@
         </div>
       `;
     }
-    
-    window.togglePasswordVisibility = function(icon) {
-      const wrapper = icon.closest('.lf-input-wrapper');
-      const input = wrapper.querySelector('input');
-      const eyeIcon = wrapper.querySelector('.fa-eye');
-      const eyeSlashIcon = wrapper.querySelector('.fa-eye-slash');
-      
-      if (input.type === 'password') {
-        input.type = 'text';
-        eyeIcon.style.display = 'none';
-        eyeSlashIcon.style.display = 'inline';
-      } else {
-        input.type = 'password';
-        eyeIcon.style.display = 'inline';
-        eyeSlashIcon.style.display = 'none';
-      }
-    };
+
+    // ── showIf live change listener ──────────────────────────────────────────
+    // Listens for changes on any .lf-node-input select/input.
+    // When the changed field matches a sibling's data-show-if-field, that
+    // sibling is shown or hidden depending on whether values match.
+    document.addEventListener('change', function(e) {
+      const input = e.target;
+      if (!input.matches('.lf-node-input')) return;
+
+      const changedFieldKey = input.dataset.field;
+      const changedValue    = input.value;
+
+      // Walk up to the drawflow node container
+      const nodeEl = input.closest('.drawflow-node');
+      if (!nodeEl) return;
+
+      // Show/hide any conditional field wrappers that depend on this field
+      nodeEl.querySelectorAll('[data-show-if-field]').forEach(wrapper => {
+        if (wrapper.dataset.showIfField === changedFieldKey) {
+          wrapper.style.display = (changedValue === wrapper.dataset.showIfValue) ? '' : 'none';
+        }
+      });
+    });
+
+    // ── applyShowIfRules ─────────────────────────────────────────────────────
+    // Call this after node HTML is inserted into the DOM (new node drop or
+    // workflow load) so that saved values are applied and fields are shown
+    // or hidden correctly without requiring user interaction.
+    function applyShowIfRules(nodeEl) {
+      if (!nodeEl) return;
+      nodeEl.querySelectorAll('.lf-node-input').forEach(input => {
+        const fieldKey = input.dataset.field;
+        const value    = input.value;
+        if (!fieldKey) return;
+        nodeEl.querySelectorAll('[data-show-if-field="' + fieldKey + '"]').forEach(wrapper => {
+          wrapper.style.display = (value === wrapper.dataset.showIfValue) ? '' : 'none';
+        });
+      });
+    }
 
     function initialDataFor(def) {
       const data = {};
@@ -1448,28 +1325,17 @@
 
     function updateNodeCompatibility(selectedNodeKey) {
       const allNodes = document.querySelectorAll('.wf-section-item[data-node-key]');
-
       if (!selectedNodeKey) {
-        allNodes.forEach(node => {
-          node.classList.remove('compatible', 'incompatible');
-          node.classList.add('neutral');
-        });
+        allNodes.forEach(node => { node.classList.remove('compatible', 'incompatible'); node.classList.add('neutral'); });
         return;
       }
-
       const compatibleNodes = NODE_COMPATIBILITY[selectedNodeKey] || [];
-
       allNodes.forEach(node => {
         const nodeKey = node.getAttribute('data-node-key');
         node.classList.remove('compatible', 'incompatible', 'neutral');
-
-        if (nodeKey === selectedNodeKey) {
-          node.classList.add('neutral');
-        } else if (compatibleNodes.includes(nodeKey)) {
-          node.classList.add('compatible');
-        } else {
-          node.classList.add('incompatible');
-        }
+        if (nodeKey === selectedNodeKey) node.classList.add('neutral');
+        else if (compatibleNodes.includes(nodeKey)) node.classList.add('compatible');
+        else node.classList.add('incompatible');
       });
     }
 
@@ -1481,24 +1347,20 @@
 
     function showOnlyApplicablePorts(sourceNodeKey) {
       if (!sourceNodeKey) { resetPortsVisibility(); return; }
-
       const compatibleTargets = new Set(NODE_COMPATIBILITY[sourceNodeKey] || []);
       const data = editor?.drawflow?.drawflow?.Home?.data || {};
       Object.keys(data).forEach(id => {
         const dfNode = data[id];
         const nodeEl = document.querySelector(`#node-${id}`);
         if (!nodeEl) return;
-
         const inputs = nodeEl.querySelectorAll('.input');
         const outputs = nodeEl.querySelectorAll('.output');
         const nodeKey = dfNode?.name;
-
         if (nodeKey === sourceNodeKey) {
           inputs.forEach(i => i.classList.add('hidden-port'));
           outputs.forEach(o => o.classList.remove('hidden-port'));
           return;
         }
-
         if (compatibleTargets.has(nodeKey)) {
           inputs.forEach(i => i.classList.remove('hidden-port'));
           outputs.forEach(o => o.classList.add('hidden-port'));
@@ -1509,9 +1371,7 @@
       });
     }
 
-    function resetNodeCompatibility() {
-      updateNodeCompatibility(null);
-    }
+    function resetNodeCompatibility() { updateNodeCompatibility(null); }
 
     function getNodeKeyFromCanvasNode(nodeId) {
       const node = editor.getNodeFromId(nodeId);
@@ -1529,10 +1389,7 @@
           const source = data[sourceId];
           if (source && source.name === 'camera' && source.data) {
             const ids = source.data.camera_ids;
-            if (typeof ids === 'string') {
-              const first = ids.split(',')[0].trim();
-              return first || null;
-            }
+            if (typeof ids === 'string') { const first = ids.split(',')[0].trim(); return first || null; }
             return ids || null;
           }
         }
@@ -1541,12 +1398,8 @@
     }
 
     function getUpstreamSchedulerId(nodeId) {
-      // Scheduler is now integrated into start node - find the start node for this workflow
       const data = editor.drawflow.drawflow.Home.data;
-      // Find start node in the workflow
-      for (const id of Object.keys(data)) {
-        if (data[id].name === 'start') return id;
-      }
+      for (const id of Object.keys(data)) { if (data[id].name === 'start') return id; }
       return null;
     }
 
@@ -1571,11 +1424,8 @@
         const schedulerId = getUpstreamSchedulerId(id);
         const scheduler = schedulerId && data[schedulerId] ? data[schedulerId] : null;
         const scheduleType = scheduler && scheduler.data ? (scheduler.data.schedule_type || 'always') : 'always';
-        if (scheduleType === 'always') {
-          nodeEl.classList.add('wf-no-end');
-        } else {
-          nodeEl.classList.remove('wf-no-end');
-        }
+        if (scheduleType === 'always') nodeEl.classList.add('wf-no-end');
+        else nodeEl.classList.remove('wf-no-end');
       });
       Object.keys(data).forEach(function (id) {
         const node = data[id];
@@ -1588,11 +1438,8 @@
           const schedulerId = getUpstreamSchedulerId(sourceId);
           const scheduler = schedulerId && data[schedulerId] ? data[schedulerId] : null;
           const scheduleType = scheduler && scheduler.data ? (scheduler.data.schedule_type || 'always') : 'always';
-          if (scheduleType === 'always') {
-            nodeEl.classList.add('wf-end-unused');
-          } else {
-            nodeEl.classList.remove('wf-end-unused');
-          }
+          if (scheduleType === 'always') nodeEl.classList.add('wf-end-unused');
+          else nodeEl.classList.remove('wf-end-unused');
         } else {
           nodeEl.classList.remove('wf-end-unused');
         }
@@ -1619,9 +1466,7 @@
     function validateConnection(sourceNodeId, targetNodeId) {
       const sourceNodeKey = getNodeKeyFromCanvasNode(sourceNodeId);
       const targetNodeKey = getNodeKeyFromCanvasNode(targetNodeId);
-
       if (!sourceNodeKey || !targetNodeKey) return false;
-
       if (sourceNodeKey === 'notification' && targetNodeKey === 'end') {
         const schedulerId = getUpstreamSchedulerId(sourceNodeId);
         const data = editor?.drawflow?.drawflow?.Home?.data || {};
@@ -1629,21 +1474,17 @@
         const scheduleType = scheduler && scheduler.data ? (scheduler.data.schedule_type || 'always') : 'always';
         if (scheduleType === 'always') return false;
       }
-
       return areNodesCompatible(sourceNodeKey, targetNodeKey);
     }
 
     function getBindEvent(exportedFlow) {
       if (!exportedFlow || !exportedFlow.drawflow || !exportedFlow.drawflow.Home || !exportedFlow.drawflow.Home.data) return null;
-
       const startNodeId = exportedFlow?.meta?.start_node;
       if (startNodeId) {
         const startNode = exportedFlow.drawflow.Home.data[startNodeId];
         if (startNode) {
           const cat = NODE_DEFINITIONS[startNode.name]?.category;
-          if (cat === 'trigger') {
-            return startNode.name;
-          }
+          if (cat === 'trigger') return startNode.name;
           if (cat === 'start') {
             const outs = startNode.outputs || {};
             for (const key of Object.keys(outs)) {
@@ -1657,16 +1498,13 @@
           }
         }
       }
-
       const nodes = exportedFlow.drawflow.Home.data;
       let fallbackFirstRoot = null;
       for (const id of Object.keys(nodes)) {
         const n = nodes[id];
         const inputs = n.inputs || {};
         let incoming = 0;
-        for (const key of Object.keys(inputs)) {
-          incoming += (inputs[key]?.connections || []).length;
-        }
+        for (const key of Object.keys(inputs)) { incoming += (inputs[key]?.connections || []).length; }
         if (incoming === 0) {
           if (!fallbackFirstRoot) fallbackFirstRoot = n;
           const cat = NODE_DEFINITIONS[n.name]?.category;
@@ -1684,7 +1522,6 @@
           if (cat === 'trigger') return n.name;
         }
       }
-
       if (fallbackFirstRoot) return fallbackFirstRoot.name;
       return null;
     }
@@ -1704,13 +1541,8 @@
       flowData.meta = flowData.meta || {};
       const maybeStartId = findStartNodeId(flowData);
       if (maybeStartId) flowData.meta.start_node = maybeStartId;
-
-      const actualEdges = extractActualEdges(flowData);
-      const nodeMetadata = extractNodeMetadata(flowData);
-
-      flowData.meta.edges = actualEdges;
-      flowData.meta.nodes = nodeMetadata;
-
+      flowData.meta.edges = extractActualEdges(flowData);
+      flowData.meta.nodes = extractNodeMetadata(flowData);
       return flowData;
     }
 
@@ -1724,16 +1556,12 @@
             for (const outputKey of Object.keys(node.outputs)) {
               const output = node.outputs[outputKey];
               if (output.connections && Array.isArray(output.connections)) {
-                for (const conn of output.connections) {
-                  edges.push([nodeId, conn.node]);
-                }
+                for (const conn of output.connections) { edges.push([nodeId, conn.node]); }
               }
             }
           }
         }
-      } catch (e) {
-        console.error('Error extracting edges:', e);
-      }
+      } catch (e) { console.error('Error extracting edges:', e); }
       return edges;
     }
 
@@ -1743,16 +1571,9 @@
         const nodes = exportedFlow?.drawflow?.Home?.data || {};
         for (const nodeId of Object.keys(nodes)) {
           const node = nodes[nodeId];
-          const def = NODE_DEFINITIONS[node.name];
-          nodeMetadata[nodeId] = {
-            name: node.name,
-            original_name: node.name,
-            props: node.data || {}
-          };
+          nodeMetadata[nodeId] = { name: node.name, original_name: node.name, props: node.data || {} };
         }
-      } catch (e) {
-        console.error('Error extracting node metadata:', e);
-      }
+      } catch (e) { console.error('Error extracting node metadata:', e); }
       return nodeMetadata;
     }
 
@@ -1768,7 +1589,6 @@
         dragNodeKey = el.getAttribute('data-node-key');
         ev.dataTransfer.setData('node', dragNodeKey);
       });
-
       el.addEventListener('click', () => {
         const nodeKey = el.getAttribute('data-node-key');
         if (selectedNodeForConnection === nodeKey) {
@@ -1793,7 +1613,6 @@
       const data = initialDataFor(def);
       const html = createNodeContentHtml(def, data);
       editor.addNode(key, def.inputs, def.outputs, posX, posY, key, data, html);
-
       resetNodeCompatibility();
       selectedNodeForConnection = null;
     });
@@ -1819,7 +1638,6 @@
         contentNode.innerHTML = html;
         if (editor.drawflow.drawflow.Home.data[nodeId]) editor.drawflow.drawflow.Home.data[nodeId].html = html;
       }
-      // Re-attach input handlers after HTML refresh (clear flag first since inner content was replaced)
       const nodeElement = document.getElementById('node-' + nodeId);
       if (nodeElement) nodeElement.removeAttribute('data-input-handlers');
       setupNodeInputHandlers(nodeId);
@@ -1829,36 +1647,24 @@
       if (!card) return;
       var st = (data && data.schedule_type) || 'always';
       var rm = (data && data.run_mode) || 'continuous';
-      card.querySelectorAll('.wf-sched-once-group').forEach(function (el) {
-        el.classList.toggle('wf-sched-hidden', st !== 'once');
-      });
-      card.querySelectorAll('.wf-sched-tod-group').forEach(function (el) {
-        el.classList.toggle('wf-sched-hidden', st !== 'daily' && st !== 'weekly');
-      });
-      card.querySelectorAll('.wf-sched-days-group').forEach(function (el) {
-        el.classList.toggle('wf-sched-hidden', st !== 'weekly');
-      });
-      card.querySelectorAll('.wf-sched-patrol-group').forEach(function (el) {
-        el.classList.toggle('wf-sched-hidden', rm !== 'patrol');
-      });
+      card.querySelectorAll('.wf-sched-once-group').forEach(el => el.classList.toggle('wf-sched-hidden', st !== 'once'));
+      card.querySelectorAll('.wf-sched-tod-group').forEach(el => el.classList.toggle('wf-sched-hidden', st !== 'daily' && st !== 'weekly'));
+      card.querySelectorAll('.wf-sched-days-group').forEach(el => el.classList.toggle('wf-sched-hidden', st !== 'weekly'));
+      card.querySelectorAll('.wf-sched-patrol-group').forEach(el => el.classList.toggle('wf-sched-hidden', rm !== 'patrol'));
     }
 
     function setupNodeInputHandlers(nodeId) {
       const nodeElement = document.getElementById(`node-${nodeId}`);
       if (!nodeElement) return;
       if (nodeElement.getAttribute('data-input-handlers') === 'true') return;
-      
       const contentNode = nodeElement.querySelector('.drawflow_content_node');
       if (!contentNode) return;
-      
-      // Handle input changes in real-time
+
       contentNode.addEventListener('input', function(e) {
         const target = e.target;
         if (target.classList.contains('lf-node-input')) {
           const fieldKey = target.getAttribute('data-field');
           const value = target.value;
-          
-          // Update node data
           const node = editor.getNodeFromId(nodeId);
           if (node && node.data) {
             node.data[fieldKey] = value;
@@ -1866,8 +1672,7 @@
           }
         }
       });
-      
-      // Handle select changes
+
       contentNode.addEventListener('change', function(e) {
         const target = e.target;
         if (target.classList.contains('lf-node-input')) {
@@ -1877,7 +1682,7 @@
             const node = editor.getNodeFromId(nodeId);
             const day = target.getAttribute('data-day');
             if (fieldKey === 'active_days' && day && node && node.data) {
-              const current = (node.data.active_days || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+              const current = (node.data.active_days || '').split(',').map(s => s.trim()).filter(Boolean);
               const set = new Set(current);
               if (target.checked) set.add(day); else set.delete(day);
               value = Array.from(set).join(',');
@@ -1907,8 +1712,7 @@
           }
         }
       });
-      
-      // Prevent node dragging when interacting with inputs
+
       contentNode.addEventListener('mousedown', function(e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
           e.stopPropagation();
@@ -1920,17 +1724,18 @@
         var card = contentNode.querySelector && contentNode.querySelector('.lf-card') || contentNode;
         updateSchedulerVisibility(card, node.data || {});
       }
-      
+
+      // Apply showIf rules based on current saved data (e.g. loaded workflows)
+      applyShowIfRules(nodeElement);
+
       nodeElement.setAttribute('data-input-handlers', 'true');
     }
-    
+
     function setupAllNodeInputHandlers() {
       const allNodes = document.querySelectorAll('.drawflow-node[id^="node-"]');
       allNodes.forEach(nodeElement => {
         const nodeId = nodeElement.id.replace('node-', '');
-        if (nodeId) {
-          setupNodeInputHandlers(nodeId);
-        }
+        if (nodeId) setupNodeInputHandlers(nodeId);
       });
     }
 
@@ -1941,63 +1746,41 @@
       const nodeElement = document.getElementById(`node-${nodeId}`);
       if (nodeDef && nodeElement) {
         nodeElement.classList.add(`node-cat-${nodeDef.category}`);
-        // Regenerate HTML with nodeId for inline editing
         const updatedHtml = createNodeContentHtml(nodeDef, data, nodeId);
         const contentNode = nodeElement.querySelector('.drawflow_content_node');
-        if (contentNode) {
-          contentNode.innerHTML = updatedHtml;
-        }
-        // Update node data reference
-        if (editor.drawflow.drawflow.Home.data[nodeId]) {
-          editor.drawflow.drawflow.Home.data[nodeId].html = updatedHtml;
-        }
+        if (contentNode) contentNode.innerHTML = updatedHtml;
+        if (editor.drawflow.drawflow.Home.data[nodeId]) editor.drawflow.drawflow.Home.data[nodeId].html = updatedHtml;
       }
       setupNodeInputHandlers(nodeId);
       if (name === 'notification') updateNotificationNodesForSchedule();
-
-      // Populate camera dropdowns if this is a camera node
       if (name === 'camera') {
-        // Multiple attempts to populate as DOM may not be ready immediately
         const attemptPopulate = (attempt = 1) => {
           const selects = document.querySelectorAll('.camera-select');
-          if (selects.length > 0) {
-            populateCameraDropdowns();
-          } else if (attempt < 10) {
-            setTimeout(() => attemptPopulate(attempt + 1), 100);
-          }
+          if (selects.length > 0) populateCameraDropdowns();
+          else if (attempt < 10) setTimeout(() => attemptPopulate(attempt + 1), 100);
         };
         attemptPopulate();
       }
-      
       return nodeId;
     };
 
     editor.on('connectionStart', function (connection) {
       const sourceNodeKey = getNodeKeyFromCanvasNode(connection.output_id);
-      if (sourceNodeKey) {
-        updateNodeCompatibility(sourceNodeKey);
-        showOnlyApplicablePorts(sourceNodeKey);
-      }
+      if (sourceNodeKey) { updateNodeCompatibility(sourceNodeKey); showOnlyApplicablePorts(sourceNodeKey); }
     });
 
-    editor.on('connectionCancel', function () {
-      resetNodeCompatibility();
-      resetPortsVisibility();
-    });
+    editor.on('connectionCancel', function () { resetNodeCompatibility(); resetPortsVisibility(); });
 
     editor.on('connectionCreated', function (connection) {
       resetNodeCompatibility();
       resetPortsVisibility();
-
       const isValid = validateConnection(connection.output_id, connection.input_id);
       if (!isValid) {
         editor.removeSingleConnection(connection.output_id, connection.input_id, connection.output_class, connection.input_class);
-
         const sourceNode = editor.getNodeFromId(connection.output_id);
         const targetNode = editor.getNodeFromId(connection.input_id);
         const sourceDef = NODE_DEFINITIONS[sourceNode.name];
         const targetDef = NODE_DEFINITIONS[targetNode.name];
-
         var msg = sourceNode.name === 'notification' && targetNode.name === 'end'
           ? 'When the Start node schedule is set to "Always", the Notification node does not connect to End. Change the schedule to Daily, Weekly, or Once to add an End node.'
           : `Invalid connection: "${sourceDef.label}" cannot connect to "${targetDef.label}". Please check the node compatibility rules.`;
@@ -2007,35 +1790,22 @@
       }
     });
 
-    editor.on('connectionRemoved', function () {
-      updateNotificationNodesForSchedule();
-    });
+    editor.on('connectionRemoved', function () { updateNotificationNodesForSchedule(); });
 
     editor.on('nodeSelected', function (id) {
       const nodeKey = getNodeKeyFromCanvasNode(id);
-      if (nodeKey) {
-        updateNodeCompatibility(nodeKey);
-        showOnlyApplicablePorts(nodeKey);
-      }
+      if (nodeKey) { updateNodeCompatibility(nodeKey); showOnlyApplicablePorts(nodeKey); }
     });
 
-    editor.on('nodeUnselected', function () {
-      resetNodeCompatibility();
-      resetPortsVisibility();
-    });
+    editor.on('nodeUnselected', function () { resetNodeCompatibility(); resetPortsVisibility(); });
 
     var zoneForNodeId = null;
+    var zoneEditIndex = null; // null = new zone, number = editing existing index
     var wfZoneState = { points: [], mode: 'polygon', imgEl: null, imgW: 640, imgH: 360, savedCoords: null, savedType: null, mousePt: null };
 
     function wfZoneReset(mode) {
-      wfZoneState.points = [];
-      wfZoneState.mode = mode || 'polygon';
-      wfZoneState.imgEl = null;
-      wfZoneState.imgW = 640;
-      wfZoneState.imgH = 360;
-      wfZoneState.savedCoords = null;
-      wfZoneState.savedType = null;
-      wfZoneState.mousePt = null;
+      wfZoneState.points = []; wfZoneState.mode = mode || 'polygon'; wfZoneState.imgEl = null;
+      wfZoneState.imgW = 640; wfZoneState.imgH = 360; wfZoneState.savedCoords = null; wfZoneState.savedType = null; wfZoneState.mousePt = null;
     }
 
     function wfZoneDraw() {
@@ -2046,47 +1816,75 @@
       if (wfZoneState.imgEl) ctx.drawImage(wfZoneState.imgEl, 0, 0, canvas.width, canvas.height);
       else { ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
       var pts = wfZoneState.points;
-      if (pts.length >= 2) {
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, pts[0].y);
-        for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-        if (wfZoneState.mode === 'polygon' && pts.length >= 3) ctx.lineTo(pts[0].x, pts[0].y);
-        ctx.strokeStyle = '#22d3ee';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        if (wfZoneState.mode === 'polygon' && pts.length >= 3) { ctx.fillStyle = 'rgba(34,211,238,.15)'; ctx.fill(); }
+
+      if (wfZoneState.mode === 'roi') {
+        // ROI mode: draw bounding box from 2 corner points
+        if (pts.length === 1 && wfZoneState.mousePt) {
+          var p0 = pts[0], pm = wfZoneState.mousePt;
+          ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2;
+          ctx.setLineDash([5,5]);
+          ctx.strokeRect(p0.x, p0.y, pm.x - p0.x, pm.y - p0.y);
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(34,211,238,.1)';
+          ctx.fillRect(p0.x, p0.y, pm.x - p0.x, pm.y - p0.y);
+        } else if (pts.length === 2) {
+          var x1 = Math.min(pts[0].x, pts[1].x), y1 = Math.min(pts[0].y, pts[1].y);
+          var x2 = Math.max(pts[0].x, pts[1].x), y2 = Math.max(pts[0].y, pts[1].y);
+          ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2;
+          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+          ctx.fillStyle = 'rgba(34,211,238,.15)';
+          ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+        }
+        pts.forEach(function(pt, idx) {
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+          ctx.fillStyle = idx === 0 ? '#22c55e' : '#f59e0b'; ctx.fill();
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        });
+      } else {
+        // Polygon / line mode
+        if (pts.length >= 2) {
+          ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+          for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+          if (wfZoneState.mode === 'polygon' && pts.length >= 3) ctx.lineTo(pts[0].x, pts[0].y);
+          ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2; ctx.stroke();
+          if (wfZoneState.mode === 'polygon' && pts.length >= 3) { ctx.fillStyle = 'rgba(34,211,238,.15)'; ctx.fill(); }
+        }
+        if (wfZoneState.mousePt && pts.length > 0) {
+          var last = pts[pts.length - 1];
+          ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(wfZoneState.mousePt.x, wfZoneState.mousePt.y);
+          ctx.setLineDash([5, 5]); ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.stroke(); ctx.setLineDash([]);
+        }
+        pts.forEach(function (pt, idx) {
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, idx === 0 ? 7 : 5, 0, Math.PI * 2);
+          ctx.fillStyle = idx === 0 ? '#22c55e' : '#22d3ee'; ctx.fill();
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        });
       }
-      if (wfZoneState.mousePt && pts.length > 0) {
-        var last = pts[pts.length - 1];
-        ctx.beginPath();
-        ctx.moveTo(last.x, last.y);
-        ctx.lineTo(wfZoneState.mousePt.x, wfZoneState.mousePt.y);
-        ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = 'rgba(255,255,255,.4)';
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      pts.forEach(function (pt, idx) {
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, idx === 0 ? 7 : 5, 0, Math.PI * 2);
-        ctx.fillStyle = idx === 0 ? '#22c55e' : '#22d3ee';
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      });
     }
 
     function wfZoneNormalize() {
       var W = wfZoneState.imgW, H = wfZoneState.imgH;
-      return wfZoneState.points.map(function (pt) {
-        return [Math.round(pt.x / W * 1000) / 1000, Math.round(pt.y / H * 1000) / 1000];
-      });
+      if (wfZoneState.mode === 'roi' && wfZoneState.points.length === 2) {
+        // Normalise ROI as 4-corner polygon so backend can compute bounding box generically
+        var pts = wfZoneState.points;
+        var x1 = Math.min(pts[0].x, pts[1].x) / W, y1 = Math.min(pts[0].y, pts[1].y) / H;
+        var x2 = Math.max(pts[0].x, pts[1].x) / W, y2 = Math.max(pts[0].y, pts[1].y) / H;
+        return [
+          [Math.round(x1*1000)/1000, Math.round(y1*1000)/1000],
+          [Math.round(x2*1000)/1000, Math.round(y1*1000)/1000],
+          [Math.round(x2*1000)/1000, Math.round(y2*1000)/1000],
+          [Math.round(x1*1000)/1000, Math.round(y2*1000)/1000],
+        ];
+      }
+      return wfZoneState.points.map(pt => [Math.round(pt.x / W * 1000) / 1000, Math.round(pt.y / H * 1000) / 1000]);
     }
 
     function wfZoneCanFinish() {
       var n = wfZoneState.points.length;
-      return (wfZoneState.mode === 'polygon' && n >= 3) || (wfZoneState.mode === 'line' && n === 2);
+      if (wfZoneState.mode === 'roi')     return n === 2;
+      if (wfZoneState.mode === 'line')    return n === 2;
+      if (wfZoneState.mode === 'polygon') return n >= 3;
+      return false;
     }
 
     function wfZoneIsNearFirst(px, py) {
@@ -2100,7 +1898,14 @@
       var undoBtn = document.getElementById('wf-zone-undo');
       var clearBtn = document.getElementById('wf-zone-clear');
       var n = wfZoneState.points.length;
-      var hint = wfZoneState.mode === 'line' ? (n === 0 ? 'Click first point.' : n === 1 ? 'Click second point.' : 'Line ready.') : (n < 3 ? 'Add ' + (3 - n) + ' more point(s).' : 'Click first point (green) to close or Save.');
+      var hint;
+      if (wfZoneState.mode === 'roi') {
+        hint = n === 0 ? 'Click first corner.' : n === 1 ? 'Click opposite corner.' : 'ROI ready. Click Save.';
+      } else if (wfZoneState.mode === 'line') {
+        hint = n === 0 ? 'Click first point.' : n === 1 ? 'Click second point.' : 'Line ready.';
+      } else {
+        hint = n < 3 ? 'Add ' + (3 - n) + ' more point(s).' : 'Click first point (green) to close or Save.';
+      }
       if (hintEl) hintEl.textContent = hint;
       if (undoBtn) undoBtn.disabled = n === 0;
       if (clearBtn) clearBtn.disabled = n === 0;
@@ -2118,22 +1923,22 @@
         var sx = canvas.width / rect.width, sy = canvas.height / rect.height;
         return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
       }
-      canvas.addEventListener('mousemove', function (e) {
-        wfZoneState.mousePt = getPt(e);
-        wfZoneDraw();
-      });
+      canvas.addEventListener('mousemove', function (e) { wfZoneState.mousePt = getPt(e); wfZoneDraw(); });
       canvas.addEventListener('mouseleave', function () { wfZoneState.mousePt = null; wfZoneDraw(); });
       canvas.addEventListener('click', function (e) {
         var pt = getPt(e);
+        if (wfZoneState.mode === 'roi') {
+          if (wfZoneState.points.length >= 2) return; // done
+          wfZoneState.points.push(pt);
+          wfZoneUpdateHint(); wfZoneDraw(); return;
+        }
         if (wfZoneState.mode === 'polygon' && wfZoneIsNearFirst(pt.x, pt.y)) { wfZoneUpdateHint(); wfZoneDraw(); return; }
         if (wfZoneState.mode === 'line' && wfZoneState.points.length >= 2) return;
         wfZoneState.points.push(pt);
         if (wfZoneState.mode === 'line' && wfZoneState.points.length === 2) { wfZoneUpdateHint(); wfZoneDraw(); return; }
-        wfZoneUpdateHint();
-        wfZoneDraw();
+        wfZoneUpdateHint(); wfZoneDraw();
       });
-      wfZoneDraw();
-      wfZoneUpdateHint();
+      wfZoneDraw(); wfZoneUpdateHint();
     }
 
     function wfZoneLoadSnapshot(cameraId, onDone) {
@@ -2145,8 +1950,8 @@
       var token = getAuthToken();
       var headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = 'Bearer ' + token;
-      fetch('http://localhost:8000/api/v1/cameras/' + encodeURIComponent(cameraId) + '/snapshot', { method: 'GET', headers: headers })
-        .then(function (r) { return r.json(); })
+      fetch('http://localhost:8000/api/v1/cameras/' + encodeURIComponent(cameraId) + '/snapshot', { method: 'GET', headers })
+        .then(r => r.json())
         .then(function (data) {
           if (loadingEl) loadingEl.classList.add('d-none');
           var b64 = data && data.frame_base64;
@@ -2155,13 +1960,9 @@
           img.onload = function () {
             var canvas = document.getElementById('wf-zone-canvas');
             if (!canvas) return;
-            canvas.width = img.naturalWidth || 640;
-            canvas.height = img.naturalHeight || 360;
-            wfZoneState.imgEl = img;
-            wfZoneState.imgW = canvas.width;
-            wfZoneState.imgH = canvas.height;
-            wfZoneBindCanvas();
-            if (onDone) onDone();
+            canvas.width = img.naturalWidth || 640; canvas.height = img.naturalHeight || 360;
+            wfZoneState.imgEl = img; wfZoneState.imgW = canvas.width; wfZoneState.imgH = canvas.height;
+            wfZoneBindCanvas(); if (onDone) onDone();
           };
           img.src = 'data:image/jpeg;base64,' + b64;
         })
@@ -2172,31 +1973,56 @@
         });
     }
 
-    function openZoneModal(nodeId, zoneType) {
+    function openZoneModal(nodeId, zoneType, editIndex) {
       var cameraId = getConnectedCameraId(nodeId);
-      if (!cameraId) {
-        alert('Connect this Agent node to a Camera node first, and set the camera in that node.');
-        return;
-      }
+      if (!cameraId) { alert('Connect this Agent node to a Camera node first, and set the camera in that node.'); return; }
       zoneForNodeId = nodeId;
+      zoneEditIndex = (typeof editIndex === 'number') ? editIndex : null;
       var ruleMeta = RULE_META.find(function (r) {
         var node = editor.getNodeFromId(nodeId);
         return node && node.data && node.data.rule_id === r.id;
       });
-      var desc = (ruleMeta && ruleMeta.zoneDesc) || (zoneType === 'line' ? 'Draw 2 points for the line.' : 'Draw polygon (min 3 points).');
-      document.getElementById('wf-zone-desc').textContent = desc;
+      var desc = (ruleMeta && ruleMeta.zoneDesc) || (zoneType === 'line' ? 'Draw 2 points for the line.' : zoneType === 'roi' ? 'Click two corners to define ROI.' : 'Draw polygon (min 3 points).');
+      document.getElementById('wf-zone-desc').textContent = desc + (zoneEditIndex !== null ? ' (Editing zone ' + (zoneEditIndex + 1) + ')' : '');
       wfZoneReset(zoneType || 'polygon');
+
+      // If editing existing zone, pre-populate points
+      if (zoneEditIndex !== null) {
+        var node = editor.getNodeFromId(nodeId);
+        var existingZones = (node && node.data && node.data.zones) || [];
+        var existingZone = existingZones[zoneEditIndex];
+        if (existingZone && existingZone.coordinates) {
+          // Points will be restored after image loads
+          wfZoneState.savedCoords = existingZone.coordinates;
+          wfZoneState.savedType   = existingZone.type || zoneType;
+        }
+      }
+
       var modalEl = document.getElementById('wf-zone-modal');
       if (typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modalEl).show();
-      wfZoneLoadSnapshot(cameraId, function () { });
+      wfZoneLoadSnapshot(cameraId, function () {
+        // Restore pre-existing zone points onto the loaded canvas
+        if (wfZoneState.savedCoords && wfZoneState.savedCoords.length) {
+          var W = wfZoneState.imgW, H = wfZoneState.imgH;
+          wfZoneState.points = wfZoneState.savedCoords.map(function(p) {
+            return { x: p[0] * W, y: p[1] * H };
+          });
+          wfZoneUpdateHint(); wfZoneDraw();
+        }
+      });
     }
 
     container.addEventListener('click', function (ev) {
       var btn = ev.target.closest('.wf-draw-zone-btn');
       if (btn) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        openZoneModal(btn.getAttribute('data-node-id'), btn.getAttribute('data-zone-type') || 'polygon');
+        ev.preventDefault(); ev.stopPropagation();
+        var idx = btn.getAttribute('data-zone-index');
+        openZoneModal(btn.getAttribute('data-node-id'), btn.getAttribute('data-zone-type') || 'polygon', idx !== null && idx !== '' ? parseInt(idx, 10) : null);
+      }
+      var addBtn = ev.target.closest('.wf-add-zone-btn');
+      if (addBtn) {
+        ev.preventDefault(); ev.stopPropagation();
+        openZoneModal(addBtn.getAttribute('data-node-id'), addBtn.getAttribute('data-zone-type') || 'polygon', null);
       }
     });
 
@@ -2206,12 +2032,34 @@
         if (!wfZoneCanFinish() || !zoneForNodeId) return;
         var node = editor.getNodeFromId(zoneForNodeId);
         if (node && node.data) {
-          node.data.zone = { type: wfZoneState.mode === 'line' ? 'line' : 'polygon', coordinates: wfZoneNormalize() };
-          if (editor.drawflow.drawflow.Home.data[zoneForNodeId]) editor.drawflow.drawflow.Home.data[zoneForNodeId].data.zone = node.data.zone;
+          // Determine the saved type label
+          var savedType = wfZoneState.mode === 'line' ? 'line' : wfZoneState.mode === 'roi' ? 'roi' : 'polygon';
+          var newZone = { type: savedType, coordinates: wfZoneNormalize() };
+
+          // Ensure zones[] array exists
+          if (!node.data.zones) node.data.zones = [];
+
+          if (zoneEditIndex !== null && zoneEditIndex < node.data.zones.length) {
+            // Editing an existing zone — replace in place
+            node.data.zones[zoneEditIndex] = newZone;
+          } else {
+            // Adding a new zone
+            node.data.zones.push(newZone);
+          }
+
+          // Keep node.data.zone (legacy single-zone field) in sync with first zone
+          node.data.zone = node.data.zones[0];
+
+          // Persist into Drawflow's internal data store
+          if (editor.drawflow.drawflow.Home.data[zoneForNodeId]) {
+            editor.drawflow.drawflow.Home.data[zoneForNodeId].data.zones = node.data.zones;
+            editor.drawflow.drawflow.Home.data[zoneForNodeId].data.zone  = node.data.zone;
+          }
         }
         if (typeof bootstrap !== 'undefined') { var m = bootstrap.Modal.getInstance(wfZoneModalEl); if (m) m.hide(); }
         refreshAgentNodeHtml(zoneForNodeId);
         zoneForNodeId = null;
+        zoneEditIndex = null;
       });
       wfZoneModalEl.querySelector('#wf-zone-undo').addEventListener('click', function () {
         if (wfZoneState.points.length > 0) { wfZoneState.points.pop(); wfZoneUpdateHint(); wfZoneDraw(); }
@@ -2230,9 +2078,9 @@
       if (e.deltaY < 0) editor.zoom_in();
       else if (e.deltaY > 0) editor.zoom_out();
     }, { passive: false });
-    clearBtn.addEventListener('click', () => {
-      editor.clear();
-    });
+
+    clearBtn.addEventListener('click', () => { editor.clear(); });
+
     exportBtn.addEventListener('click', () => {
       const data = editor.export();
       prepareWorkflowData(data);
@@ -2243,97 +2091,50 @@
       URL.revokeObjectURL(url);
     });
 
-    newBtn.addEventListener('click', () => {
-      editor.clear();
-      // Start fresh - user can drag nodes from sidebar
-    });
+    newBtn.addEventListener('click', () => { editor.clear(); });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SHARED HELPER: Save the workflow canvas to the backend and return the
-    // saved workflow object (including its ID). Used by both the [Save] button
-    // and the [Run Workflow] button.
-    //
-    // Returns the saved workflow result object on success, or null on failure.
-    // ─────────────────────────────────────────────────────────────────────────
     async function saveWorkflowToBackend() {
       if (hasUnusedEndNode()) {
         alert('Cannot save: the Start node schedule is set to "Always" but an End node is still connected. Remove the End node (or change the schedule to Daily, Weekly, or Once) and try again.');
         return null;
       }
-
       const exportedFlow = editor.export();
       prepareWorkflowData(exportedFlow);
-
       const bindEvent = getBindEvent(exportedFlow) || "Unbound";
       const nameInput = document.getElementById('workflow-name-input');
       const currentName = nameInput ? nameInput.value.trim() : '';
-
       const payload = {
         name: currentName || workflowName || 'Unnamed Workflow',
         description: window.currentWorkflowDescription || workflowDescription || '',
         drawflow_data: exportedFlow,
         bind_to_event: bindEvent,
       };
-
-      // POST for new workflows, PUT to update existing ones
       let url = 'http://localhost:8000/api/v1/workflows/';
       let method = 'POST';
       if (isEditMode && editWorkflowId) {
         url = `http://localhost:8000/api/v1/workflows/${editWorkflowId}`;
         method = 'PUT';
       }
-
       const token = getAuthToken();
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch(url, {
-        method: method,
-        headers: headers,
-        body: JSON.stringify(payload)
-      });
-
-      if (res.status === 401) {
-        alert('Session expired. Please login again.');
-        return null;
-      }
-
+      const res = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+      if (res.status === 401) { alert('Session expired. Please login again.'); return null; }
       const result = await res.json();
-
-      if (!res.ok) {
-        alert('Failed to save workflow: ' + (result.detail || 'Unknown error'));
-        console.error('[Save] Backend error:', result);
-        return null;
-      }
-
+      if (!res.ok) { alert('Failed to save workflow: ' + (result.detail || 'Unknown error')); console.error('[Save] Backend error:', result); return null; }
       console.log('[Save] Workflow saved:', result);
       return result;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // [Save] button — saves the canvas design and navigates back to the list.
-    // Does NOT start any agents.
-    // ─────────────────────────────────────────────────────────────────────────
     saveBtn.addEventListener('click', async () => {
       try {
         const result = await saveWorkflowToBackend();
-        if (!result) return; // saveWorkflowToBackend already showed error
-
-        const message = isEditMode
-          ? `Workflow updated successfully!`
-          : `Workflow created successfully! Workflow ID: ${result.id}`;
+        if (!result) return;
+        const message = isEditMode ? `Workflow updated successfully!` : `Workflow created successfully! Workflow ID: ${result.id}`;
         alert(message);
-
-        // After saving, update the editWorkflowId so subsequent saves use PUT
         if (!isEditMode && result.id) {
-          // Mark as edit mode now that we have an ID
-          window.history.replaceState(
-            {},
-            '',
-            `?workflow_id=${result.id}&name=${encodeURIComponent(result.name || '')}`
-          );
+          window.history.replaceState({}, '', `?workflow_id=${result.id}&name=${encodeURIComponent(result.name || '')}`);
         }
-
         setTimeout(() => { navigateTo('workflow-list.html'); }, 1500);
       } catch (err) {
         console.error('[Save] Unexpected error:', err);
@@ -2341,37 +2142,18 @@
       }
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // [Run Workflow] button — saves the canvas first, then calls /execute to
-    // start the detection agents.
-    //
-    // Flow:
-    //   1. Save the canvas (POST or PUT /api/v1/workflows/)
-    //   2. Call POST /api/v1/workflows/{id}/execute
-    //      → SpiffWorkflow parses the node graph
-    //      → Creates WorkflowAgent documents in MongoDB
-    //      → run_vision_app.py starts detection workers within ~5 seconds
-    // ─────────────────────────────────────────────────────────────────────────
     const runWorkflowBtn = document.getElementById('btn-run-workflow');
     if (runWorkflowBtn) {
       runWorkflowBtn.addEventListener('click', async () => {
         try {
-          // Disable button to prevent double-clicks
           runWorkflowBtn.disabled = true;
           runWorkflowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Saving…</span>';
-
-          // Step 1: Save the canvas design
           const saveResult = await saveWorkflowToBackend();
           if (!saveResult) {
-            // saveWorkflowToBackend already showed an error alert
             runWorkflowBtn.disabled = false;
             runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
             return;
           }
-
-          // Determine the workflow ID to execute
-          // For a new workflow, use the ID returned from save.
-          // For an existing workflow, use the editWorkflowId from the URL.
           const workflowIdToRun = saveResult.id || editWorkflowId;
           if (!workflowIdToRun) {
             alert('Cannot run workflow: no workflow ID found after save.');
@@ -2379,47 +2161,27 @@
             runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
             return;
           }
-
           runWorkflowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Starting agents…</span>';
-
-          // Step 2: Execute the workflow (parse graph → create WorkflowAgents)
           const token = getAuthToken();
           const headers = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
-
-          const execRes = await fetch(
-            `http://localhost:8000/api/v1/workflows/${workflowIdToRun}/execute`,
-            { method: 'POST', headers: headers }
-          );
-
+          const execRes = await fetch(`http://localhost:8000/api/v1/workflows/${workflowIdToRun}/execute`, { method: 'POST', headers });
           if (execRes.status === 401) {
             alert('Session expired. Please login again.');
             runWorkflowBtn.disabled = false;
             runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
             return;
           }
-
           const execResult = await execRes.json();
-
           if (execRes.ok) {
             const camList = (execResult.cameras || []).join(', ') || 'none';
-            alert(
-              `Workflow started successfully!\n\n` +
-              `• Agents created: ${execResult.agents_started || 0}\n` +
-              `• Cameras: ${camList}\n` +
-              `• Status: ${execResult.initial_status || 'Monitoring'}\n\n` +
-              `Detection workers will start within ~5 seconds.`
-            );
+            alert(`Workflow started successfully!\n\n• Agents created: ${execResult.agents_started || 0}\n• Cameras: ${camList}\n• Status: ${execResult.initial_status || 'Monitoring'}\n\nDetection workers will start within ~5 seconds.`);
             console.log('[RunWorkflow] Execute result:', execResult);
             setTimeout(() => { navigateTo('workflow-list.html'); }, 1500);
           } else {
-            alert(
-              'Workflow saved but failed to start agents:\n' +
-              (execResult.detail || execResult.message || 'Unknown error')
-            );
+            alert('Workflow saved but failed to start agents:\n' + (execResult.detail || execResult.message || 'Unknown error'));
             console.error('[RunWorkflow] Execute error:', execResult);
           }
-
         } catch (err) {
           console.error('[RunWorkflow] Unexpected error:', err);
           alert('Unexpected error while running workflow. Check the console.');
@@ -2430,7 +2192,6 @@
       });
     }
 
-    // Import file handler - updated to use new input handlers
     importBtn.addEventListener('click', () => importFile.click());
     importFile.addEventListener('change', async (ev) => {
       const file = ev.target.files && ev.target.files[0];
@@ -2459,42 +2220,24 @@
         lastNodeId = editor.addNode(key, def.inputs, def.outputs, x, y, key, data, html);
         return lastNodeId;
       };
-
-      // Example: Start -> Camera -> Class Detection Agent -> Notification -> Report -> End
-      // Scheduler is now integrated into Start node
-      const nStart = add('start', 40, 120, { 
-        __label: 'Start',
-        schedule_type: 'always',
-        run_mode: 'continuous'
-      });
-      const nCamera = add('camera', 260, 120, {
-        __label: 'Camera',
-        camera_ids: ''
-      });
-      const nAgent = add('class_detection_agent', 520, 120, {
-        __label: 'Class Detection Agent',
-        agent_name: 'Safety Detection Agent',
-        rule_id: 'class_presence',
-        model_name: 'yolov8m.pt'
-      });
-      const nNotification = add('notification', 780, 120, {
-        __label: 'Ops email',
-        channel: 'Email',
-        subject: 'Safety alert from camera workflow'
-      });
+      const nStart = add('start', 40, 120, { __label: 'Start', schedule_type: 'always', run_mode: 'continuous' });
+      const nCamera = add('camera', 260, 120, { __label: 'Camera', camera_ids: '' });
+      const nAgent = add('class_detection_agent', 520, 120, { __label: 'Class Detection Agent', agent_name: 'Safety Detection Agent', rule_id: 'class_presence', model_name: 'yolov8m.pt' });
+      const nNotification = add('notification', 780, 120, { __label: 'Ops email', channel: 'Email', subject: 'Safety alert from camera workflow' });
       const nReport = add('report', 1040, 120, {
         __label: 'Daily Report',
-        report_name: 'Safety Detection Report',
-        report_type: 'Summary'
+        report_type: 'events',
+        report_schedule: 'end_of_day',
+        end_of_day_time: '23:55',
+        interval_minutes: 60,
+        recipients: ''
       });
       const nEnd = add('end', 1300, 120, { __label: 'End' });
-
       editor.addConnection(nStart, nCamera, 'output_1', 'input_1');
       editor.addConnection(nCamera, nAgent, 'output_1', 'input_1');
       editor.addConnection(nAgent, nNotification, 'output_1', 'input_1');
       editor.addConnection(nNotification, nReport, 'output_1', 'input_1');
       editor.addConnection(nReport, nEnd, 'output_1', 'input_1');
-
       setupAllNodeInputHandlers();
     }
 
@@ -2503,41 +2246,23 @@
         const token = getAuthToken();
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        
-        const response = await fetch(`http://localhost:8000/api/v1/workflows/${workflowId}`, {
-          method: 'GET',
-          headers: headers
-        });
-        
-        if (response.status === 401) {
-          alert('Session expired. Please login again.');
-          return false;
-        }
-
+        const response = await fetch(`http://localhost:8000/api/v1/workflows/${workflowId}`, { method: 'GET', headers });
+        if (response.status === 401) { alert('Session expired. Please login again.'); return false; }
         if (response.ok) {
           const workflowData = await response.json();
           console.log('Loading workflow:', workflowData);
-
           window.currentWorkflowName = workflowData.name || '';
           window.currentWorkflowOwner = workflowOwner || '';
           window.currentWorkflowDescription = workflowData.description || '';
-
-          // Update the name input field
           const nameInput = document.getElementById('workflow-name-input');
-          if (nameInput && workflowData.name) {
-            nameInput.value = workflowData.name;
-          }
-
+          if (nameInput && workflowData.name) nameInput.value = workflowData.name;
           editor.clear();
-
           if (workflowData.drawflow_data) {
             editor.import(workflowData.drawflow_data);
             setupAllNodeInputHandlers();
             updateNotificationNodesForSchedule();
           }
-
           document.title = `Edit Workflow: ${window.currentWorkflowName}`;
-
           return true;
         } else {
           console.error('Failed to load workflow:', response.statusText);
@@ -2554,17 +2279,12 @@
     if (isEditMode && editWorkflowId) {
       loadWorkflowForEdit(editWorkflowId);
     }
-    // For new workflow, leave the canvas blank - user can drag nodes from sidebar
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () {
-      initWorkflowEditor().catch(console.error);
-    });
+    document.addEventListener('DOMContentLoaded', function () { initWorkflowEditor().catch(console.error); });
   } else {
-    setTimeout(function () {
-      initWorkflowEditor().catch(console.error);
-    }, 0);
+    setTimeout(function () { initWorkflowEditor().catch(console.error); }, 0);
   }
 })();
         </script>
