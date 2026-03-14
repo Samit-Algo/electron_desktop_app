@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Workflow Editor - ComplySure</title>
+  <title>Watch Dog Editor - ComplySure</title>
 
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -363,18 +363,31 @@
       margin: 0 !important;
     }
 
-    /* Connector animation */
+    /* Connector - Animated flow line */
     .drawflow .connection .main-path {
-      stroke: #4f46e5 !important;
-      stroke-width: 3px !important;
-      stroke-linecap: round;
-      stroke-dasharray: 10 8 !important;
-      animation: wf-flow 2.5s linear infinite;
-      opacity: .9;
+      stroke: #6366f1 !important;
+      stroke-width: 2px !important;
+      stroke-linecap: round !important;
+      stroke-dasharray: 8 4 !important;
+      animation: wf-flow 1.5s linear infinite !important;
+      opacity: 1 !important;
+      fill: none !important;
     }
 
     @keyframes wf-flow {
-      to { stroke-dashoffset: -180; }
+      to { stroke-dashoffset: -24; }
+    }
+
+    /* Override selected connection styles */
+    .drawflow .connection.selected .main-path {
+      stroke: #6366f1 !important;
+      stroke-width: 2px !important;
+      stroke-dasharray: 8 4 !important;
+    }
+
+    /* Force all connection paths */
+    .drawflow svg .connection path {
+      fill: none !important;
     }
 
     /* Node compatibility states */
@@ -465,13 +478,13 @@
             <span class="input-group-text bg-transparent border-secondary text-muted" style="border-color: var(--wf-canvas-border) !important;">
               <i class="fa-solid fa-pen small"></i>
             </span>
-            <input type="text" id="workflow-name-input" class="form-control bg-transparent" style="border-color: var(--wf-canvas-border) !important; font-size: 14px; color: var(--wf-designer-color);" placeholder="Workflow Name">
+            <input type="text" id="workflow-name-input" class="form-control bg-transparent" style="border-color: var(--wf-canvas-border) !important; font-size: 14px; color: var(--wf-designer-color);" placeholder="Watch Dog Name">
           </div>
         </div>
         <div class="d-flex align-items-center gap-2">
           <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" id="btn-run-workflow">
             <i class="fa-solid fa-play"></i>
-            <span>Run Workflow</span>
+            <span>Run Watch Dog</span>
           </button>
           <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" id="btn-export">
             <i class="fa-solid fa-download"></i>
@@ -490,9 +503,9 @@
     <div class="workflow-designer">
       <!-- Sidebar with collapsible sections -->
       <div class="d-flex flex-column overflow-hidden border-end" style="width: 200px; background: var(--wf-sidebar-bg); border-color: var(--wf-canvas-border) !important;">
-        <div class="d-flex align-items-center gap-2 p-3 border-bottom" style="border-color: var(--wf-canvas-border) !important;">
-          <i class="fa-solid fa-layer-group text-muted fs-5"></i>
-          <h3 class="m-0 fs-6 fw-semibold" style="color: var(--wf-designer-color);">Components</h3>
+        <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom" style="border-color: var(--wf-canvas-border) !important; min-height: 44px;">
+          <i class="fa-solid fa-layer-group text-muted" style="font-size: 14px; width: 16px; text-align: center;"></i>
+          <span class="fw-semibold" style="color: var(--wf-designer-color); font-size: 13px; line-height: 1.2;">Components</span>
         </div>
 
         <div class="flex-grow-1 overflow-auto py-2">
@@ -600,7 +613,7 @@
           <button type="button" id="btn-zoom-out" class="btn btn-sm" title="Zoom Out" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
           <button type="button" id="btn-zoom-reset" class="btn btn-sm" title="Reset Zoom" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-expand"></i></button>
           <button type="button" id="btn-clear" class="btn btn-sm" title="Clear Canvas" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-trash"></i></button>
-          <button type="button" id="btn-new" class="btn btn-sm" title="New Workflow" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-file-circle-plus"></i></button>
+          <button type="button" id="btn-new" class="btn btn-sm" title="New Watch Dog" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-file-circle-plus"></i></button>
           <button type="button" id="btn-import" class="btn btn-sm" title="Import JSON" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-file-import"></i></button>
         </div>
         <div id="drawflow"></div>
@@ -674,7 +687,7 @@
       await ensureDrawflow();
     } catch (e) {
       console.error('Drawflow failed to load', e);
-      alert('Workflow editor engine failed to load. Please check your network connection.');
+      alert('Watch Dog editor engine failed to load. Please check your network connection.');
       return;
     }
 
@@ -737,7 +750,7 @@
         icon: 'fa-circle-play',
         fields: [
           { key: 'label', type: 'text', label: 'Node label', default: 'Start' },
-          { key: 'description', type: 'textarea', label: 'Description', placeholder: 'Describe the purpose of this workflow entry point.' },
+          { key: 'description', type: 'textarea', label: 'Description', placeholder: 'Describe the purpose of this Watch Dog entry point.' },
           { key: 'schedule_type', type: 'select', label: 'Schedule', options: ['always', 'daily', 'weekly', 'once'], default: 'always' },
           { key: 'start_time', type: 'text', label: 'Start', default: '' },
           { key: 'end_time', type: 'text', label: 'End', default: '' },
@@ -910,7 +923,7 @@
         icon: 'fa-flag-checkered',
         fields: [
           { key: 'label', type: 'text', label: 'Node label', default: 'End' },
-          { key: 'result_summary', type: 'textarea', label: 'Expected outcome', placeholder: 'Describe what it means for this workflow to complete successfully.' }
+          { key: 'result_summary', type: 'textarea', label: 'Expected outcome', placeholder: 'Describe what it means for this Watch Dog to complete successfully.' }
         ]
       }
     };
@@ -1060,16 +1073,29 @@
       const defaultModel = modelField && modelField.default ? modelField.default : 'yolov8m.pt';
       const currentModel = modelName || defaultModel;
 
-      const modelSelectOptions = modelOptions.map(function(opt) {
-        return '<option value="' + opt + '"' + (currentModel === opt ? ' selected' : '') + '>' + opt + '</option>';
-      }).join('');
+      // Check if KB data is loaded (model from KB is read-only)
+      const isKbLoaded = data.kb_loaded === true;
+      const kbModelName = data.kb_model_name || currentModel;
+
+      // Build model HTML - read-only display if from KB, otherwise dropdown
+      let modelHtml = '';
+      if (isKbLoaded && kbModelName) {
+        // Read-only display for KB-loaded model
+        modelHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Model <small class="text-muted">(from KB)</small></div><div class="lf-input-wrapper"><input type="text" class="w-100 form-control form-control-sm" value="' + safe(kbModelName) + '" disabled readonly style="background: var(--lf-input-bg); opacity: 0.8; cursor: not-allowed;" /><input type="hidden" class="lf-node-input" data-field="model_name" data-node-id="' + (nodeId || '') + '" value="' + safe(kbModelName) + '" /></div></div></div></div>';
+      } else {
+        // Editable dropdown for non-KB or legacy nodes
+        const modelSelectOptions = modelOptions.map(function(opt) {
+          return '<option value="' + opt + '"' + (currentModel === opt ? ' selected' : '') + '>' + opt + '</option>';
+        }).join('');
+        modelHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Model</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="model_name" data-node-id="' + (nodeId || '') + '">' + modelSelectOptions + '</select></div></div></div></div>';
+      }
 
       return '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Agent Name</div><div class="lf-input-wrapper"><input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="agent_name" data-node-id="' + (nodeId || '') + '" placeholder="Optional" value="' + safe(agentName) + '" /></div></div></div></div>' +
         '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Rule Type</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm lf-agent-rule-select" data-field="rule_id" data-node-id="' + (nodeId || '') + '">' + ruleSelectOptions + '</select></div></div></div></div>' +
         ruleSpecificHtml +
         zoneDescHtml +
         zoneHtml +
-        '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Model</div><div class="lf-input-wrapper"><select class="lf-node-input w-100 form-select form-select-sm" data-field="model_name" data-node-id="' + (nodeId || '') + '">' + modelSelectOptions + '</select></div></div></div></div>' +
+        modelHtml +
         '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">FPS</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="fps" data-node-id="' + (nodeId || '') + '" value="' + safe(fps) + '" step="1" min="1" max="60" /></div></div></div></div>' +
         '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator purple"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Confidence</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="confidence_threshold" data-node-id="' + (nodeId || '') + '" value="' + safe(confidenceThreshold) + '" step="0.1" min="0" max="1" /></div></div></div></div>' +
         '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Alert cooldown (s)</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="alert_cooldown_seconds" data-node-id="' + (nodeId || '') + '" value="' + safe(alertCooldown) + '" step="1" min="0" /></div></div></div></div>';
@@ -1077,6 +1103,7 @@
 
     let cameraListCache = null;
     let cameraListFetchPromise = null;
+    let kbRuleCache = {};
 
     async function fetchCameraList() {
       if (cameraListCache) return cameraListCache;
@@ -1100,6 +1127,26 @@
         }
       })();
       return cameraListFetchPromise;
+    }
+
+    // Fetch rule configuration from Knowledge Base
+    async function fetchRuleConfig(ruleId) {
+      if (kbRuleCache[ruleId]) return kbRuleCache[ruleId];
+      try {
+        const token = getAuthToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`http://localhost:8000/api/v1/workflows/rules/${ruleId}`, { method: 'GET', headers });
+        if (response.status === 401) { console.error('Authentication required for KB rule'); return null; }
+        if (response.status === 404) { console.warn(`Rule '${ruleId}' not found in KB`); return null; }
+        if (!response.ok) throw new Error(`Failed to fetch rule config: ${response.status}`);
+        const ruleConfig = await response.json();
+        kbRuleCache[ruleId] = ruleConfig;
+        return ruleConfig;
+      } catch (error) {
+        console.error('Error fetching rule config from KB:', error);
+        return null;
+      }
     }
 
     function renderCameraSections(data, nodeId) {
@@ -1708,7 +1755,44 @@
           }
           const agentTypes = ['class_detection_agent', 'class_detection_zone_agent', 'object_count_agent', 'person_behaviour_agent'];
           if (card && node && agentTypes.includes(node.name) && fieldKey === 'rule_id') {
-            refreshAgentNodeHtml(nodeId);
+            // Fetch rule config from KB and auto-populate fields
+            const selectedRuleId = value;
+            if (selectedRuleId) {
+              fetchRuleConfig(selectedRuleId).then(ruleConfig => {
+                if (ruleConfig) {
+                  // Auto-populate fields from KB defaults
+                  node.data.agent_name = ruleConfig.rule_name || '';
+                  node.data.model_name = ruleConfig.model_name;
+                  node.data.kb_model_name = ruleConfig.model_name;
+                  node.data.fps = ruleConfig.fps;
+                  node.data.confidence_threshold = ruleConfig.confidence_threshold;
+                  node.data.alert_cooldown_seconds = ruleConfig.alert_cooldown_seconds;
+                  node.data.kb_loaded = true;
+                  
+                  // Update drawflow internal data
+                  if (editor.drawflow.drawflow.Home.data[nodeId]) {
+                    editor.drawflow.drawflow.Home.data[nodeId].data.agent_name = ruleConfig.rule_name || '';
+                    editor.drawflow.drawflow.Home.data[nodeId].data.model_name = ruleConfig.model_name;
+                    editor.drawflow.drawflow.Home.data[nodeId].data.kb_model_name = ruleConfig.model_name;
+                    editor.drawflow.drawflow.Home.data[nodeId].data.fps = ruleConfig.fps;
+                    editor.drawflow.drawflow.Home.data[nodeId].data.confidence_threshold = ruleConfig.confidence_threshold;
+                    editor.drawflow.drawflow.Home.data[nodeId].data.alert_cooldown_seconds = ruleConfig.alert_cooldown_seconds;
+                    editor.drawflow.drawflow.Home.data[nodeId].data.kb_loaded = true;
+                  }
+                  
+                  console.log(`[KB] Loaded rule ${selectedRuleId}: model=${ruleConfig.model_name}, fps=${ruleConfig.fps}, confidence=${ruleConfig.confidence_threshold}`);
+                  
+                  // Refresh node HTML to show new values and read-only model
+                  refreshAgentNodeHtml(nodeId);
+                } else {
+                  // If rule not in KB, mark as not KB-loaded (legacy behavior)
+                  node.data.kb_loaded = false;
+                  refreshAgentNodeHtml(nodeId);
+                }
+              });
+            } else {
+              refreshAgentNodeHtml(nodeId);
+            }
           }
         }
       });
@@ -1736,6 +1820,29 @@
       allNodes.forEach(nodeElement => {
         const nodeId = nodeElement.id.replace('node-', '');
         if (nodeId) setupNodeInputHandlers(nodeId);
+      });
+    }
+
+    // Regenerate node HTML after import to reflect saved data values
+    function refreshAllNodeHtml() {
+      const data = editor?.drawflow?.drawflow?.Home?.data || {};
+      Object.keys(data).forEach(nodeId => {
+        const node = data[nodeId];
+        if (!node) return;
+        const nodeDef = NODE_DEFINITIONS[node.name];
+        if (!nodeDef) return;
+        const nodeElement = document.getElementById(`node-${nodeId}`);
+        if (!nodeElement) return;
+        // Regenerate HTML with saved data
+        const updatedHtml = createNodeContentHtml(nodeDef, node.data || {}, nodeId);
+        const contentNode = nodeElement.querySelector('.drawflow_content_node');
+        if (contentNode) {
+          contentNode.innerHTML = updatedHtml;
+          // Update stored HTML in drawflow data
+          node.html = updatedHtml;
+        }
+        // Reset the input handlers flag so it gets re-initialized
+        nodeElement.removeAttribute('data-input-handlers');
       });
     }
 
@@ -1790,7 +1897,28 @@
       }
     });
 
-    editor.on('connectionRemoved', function () { updateNotificationNodesForSchedule(); });
+    // Force connection styles on all SVG paths - animated
+    function forceConnectionStyles() {
+      const svg = document.querySelector('.drawflow svg');
+      if (!svg) return;
+      const paths = svg.querySelectorAll('.connection .main-path');
+      paths.forEach(path => {
+        path.style.stroke = '#6366f1';
+        path.style.strokeWidth = '2px';
+        path.style.strokeDasharray = '8 4';
+        path.style.strokeLinecap = 'round';
+        path.style.fill = 'none';
+        path.style.animation = 'wf-flow 1.5s linear infinite';
+      });
+    }
+
+    // Apply styles whenever connections change
+    editor.on('connectionCreated', forceConnectionStyles);
+    editor.on('connectionRemoved', forceConnectionStyles);
+    editor.on('import', forceConnectionStyles);
+    
+    // Initial application
+    setTimeout(forceConnectionStyles, 100);
 
     editor.on('nodeSelected', function (id) {
       const nodeKey = getNodeKeyFromCanvasNode(id);
@@ -2109,20 +2237,43 @@
         drawflow_data: exportedFlow,
         bind_to_event: bindEvent,
       };
-      let url = 'http://localhost:8000/api/v1/workflows/';
-      let method = 'POST';
-      if (isEditMode && editWorkflowId) {
-        url = `http://localhost:8000/api/v1/workflows/${editWorkflowId}`;
-        method = 'PUT';
-      }
+      
       const token = getAuthToken();
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+      
+      // When editing: deactivate old workflow first, then create new one
+      if (isEditMode && editWorkflowId) {
+        // Step 1: Deactivate the existing workflow
+        const deactivateRes = await fetch(`http://localhost:8000/api/v1/workflows/${editWorkflowId}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ is_active: false })
+        });
+        if (deactivateRes.status === 401) { alert('Session expired. Please login again.'); return null; }
+        if (!deactivateRes.ok) {
+          const err = await deactivateRes.json();
+          alert('Failed to deactivate old Watch Dog: ' + (err.detail || 'Unknown error'));
+          return null;
+        }
+        console.log('[Save] Deactivated old Watch Dog:', editWorkflowId);
+      }
+      
+      // Step 2: Create new Watch Dog (for both new and edit modes)
+      // Add creator name for new Watch Dog
+      if (workflowOwner) {
+        payload.created_by_name = workflowOwner;
+      }
+      
+      const res = await fetch('http://localhost:8000/api/v1/workflows/', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
       if (res.status === 401) { alert('Session expired. Please login again.'); return null; }
       const result = await res.json();
-      if (!res.ok) { alert('Failed to save workflow: ' + (result.detail || 'Unknown error')); console.error('[Save] Backend error:', result); return null; }
-      console.log('[Save] Workflow saved:', result);
+      if (!res.ok) { alert('Failed to save Watch Dog: ' + (result.detail || 'Unknown error')); console.error('[Save] Backend error:', result); return null; }
+      console.log('[Save] Watch Dog saved:', result);
       return result;
     }
 
@@ -2130,15 +2281,18 @@
       try {
         const result = await saveWorkflowToBackend();
         if (!result) return;
-        const message = isEditMode ? `Workflow updated successfully!` : `Workflow created successfully! Workflow ID: ${result.id}`;
+        const message = isEditMode 
+          ? `Watch Dog updated successfully! New version created with ID: ${result.id}` 
+          : `Watch Dog created successfully! Watch Dog ID: ${result.id}`;
         alert(message);
-        if (!isEditMode && result.id) {
+        // Update URL to the new workflow ID (for edit mode, we now have a new ID)
+        if (result.id) {
           window.history.replaceState({}, '', `?workflow_id=${result.id}&name=${encodeURIComponent(result.name || '')}`);
         }
         setTimeout(() => { navigateTo('workflow-list.html'); }, 1500);
       } catch (err) {
         console.error('[Save] Unexpected error:', err);
-        alert('Error while saving workflow.');
+        alert('Error while saving Watch Dog.');
       }
     });
 
@@ -2169,25 +2323,25 @@
           if (execRes.status === 401) {
             alert('Session expired. Please login again.');
             runWorkflowBtn.disabled = false;
-            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
+            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Watch Dog</span>';
             return;
           }
           const execResult = await execRes.json();
           if (execRes.ok) {
             const camList = (execResult.cameras || []).join(', ') || 'none';
-            alert(`Workflow started successfully!\n\n• Agents created: ${execResult.agents_started || 0}\n• Cameras: ${camList}\n• Status: ${execResult.initial_status || 'Monitoring'}\n\nDetection workers will start within ~5 seconds.`);
+            alert(`Watch Dog started successfully!\n\n• Agents created: ${execResult.agents_started || 0}\n• Cameras: ${camList}\n• Status: ${execResult.initial_status || 'Monitoring'}\n\nDetection workers will start within ~5 seconds.`);
             console.log('[RunWorkflow] Execute result:', execResult);
             setTimeout(() => { navigateTo('workflow-list.html'); }, 1500);
           } else {
-            alert('Workflow saved but failed to start agents:\n' + (execResult.detail || execResult.message || 'Unknown error'));
+            alert('Watch Dog saved but failed to start agents:\n' + (execResult.detail || execResult.message || 'Unknown error'));
             console.error('[RunWorkflow] Execute error:', execResult);
           }
         } catch (err) {
           console.error('[RunWorkflow] Unexpected error:', err);
-          alert('Unexpected error while running workflow. Check the console.');
+          alert('Unexpected error while running Watch Dog. Check the console.');
         } finally {
           runWorkflowBtn.disabled = false;
-          runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
+          runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Watch Dog</span>';
         }
       });
     }
@@ -2202,7 +2356,11 @@
         const data = parsed && parsed.data ? parsed.data : parsed;
         editor.clear();
         editor.import(data);
-        setupAllNodeInputHandlers();
+        setTimeout(() => {
+          refreshAllNodeHtml();
+          setupAllNodeInputHandlers();
+          populateCameraDropdowns();
+        }, 50);
       } catch (err) {
         console.error(err);
         alert('Invalid workflow JSON.');
@@ -2259,19 +2417,24 @@
           editor.clear();
           if (workflowData.drawflow_data) {
             editor.import(workflowData.drawflow_data);
-            setupAllNodeInputHandlers();
-            updateNotificationNodesForSchedule();
+            // Regenerate node HTML to reflect saved data values, then setup handlers
+            setTimeout(() => {
+              refreshAllNodeHtml();
+              setupAllNodeInputHandlers();
+              populateCameraDropdowns();
+              updateNotificationNodesForSchedule();
+            }, 50);
           }
-          document.title = `Edit Workflow: ${window.currentWorkflowName}`;
+          document.title = `Edit Watch Dog: ${window.currentWorkflowName}`;
           return true;
         } else {
-          console.error('Failed to load workflow:', response.statusText);
-          alert('Failed to load workflow for editing');
+          console.error('Failed to load Watch Dog:', response.statusText);
+          alert('Failed to load Watch Dog for editing');
           return false;
         }
       } catch (error) {
-        console.error('Error loading workflow:', error);
-        alert('Error loading workflow for editing');
+        console.error('Error loading Watch Dog:', error);
+        alert('Error loading Watch Dog for editing');
         return false;
       }
     }
