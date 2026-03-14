@@ -525,7 +525,9 @@ class VisionAPIService {
    * Verified with MediaSource.isTypeSupported(...) in Electron.
    */
   getLiveMimeCodec() {
-    return 'video/mp4; codecs="avc1.4D0032"';
+      // avc1.42E01E = Constrained Baseline, broadly compatible
+      // OR: let the backend report actual codec params from FFmpeg
+      return 'video/mp4; codecs="avc1.42E01E"';
   }
 
   /**
