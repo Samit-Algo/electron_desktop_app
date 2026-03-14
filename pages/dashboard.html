@@ -130,7 +130,7 @@
         </div>
       </div>
 
-      <!-- Latest Events (Cards) -->
+      <!-- Latest Events (VisionEventsBoardWidget - most recent 5, all time) -->
       <div class="row g-3 mb-4">
         <div class="col-12">
           <div class="d-flex justify-content-between align-items-center mb-3">
@@ -147,9 +147,7 @@
         </div>
 
         <div class="col-12">
-          <div class="d-flex gap-3 overflow-x-auto pb-2" style="scrollbar-width: thin;" id="vision-latest-events">
-            <!-- Realtime events injected by notifications-realtime.js -->
-          </div>
+          <div id="vision-dashboard-latest-events" class="vision-events-widget-container"></div>
         </div>
       </div>
 
@@ -192,8 +190,15 @@
         </div>
       </div>
 
-      <!-- Minimal GridStack-related styling (no layout math) -->
+      <!-- Minimal styling for events widget and GridStack -->
       <style>
+        .vision-events-widget-container .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
         /* Make GridStack tiles behave like full-height cards */
         #live-camera-grid .grid-stack-item-content {
           height: 100%;
@@ -659,21 +664,52 @@
         return true;
       }
 
+      // Latest events widget (VisionEventsBoardWidget - most recent 5, all time)
+      let latestEventsWidget = null;
+      function onEventNotification() {
+        if (latestEventsWidget && latestEventsWidget.refresh) latestEventsWidget.refresh();
+      }
+      function mountLatestEventsWidget() {
+        const container = document.getElementById('vision-dashboard-latest-events');
+        if (!container) return;
+        if (latestEventsWidget) {
+          try { latestEventsWidget.destroy(); } catch (e) {}
+          latestEventsWidget = null;
+        }
+        if (typeof window.VisionEventsBoardWidget !== 'undefined' && window.VisionEventsBoardWidget.mount) {
+          latestEventsWidget = window.VisionEventsBoardWidget.mount(container, {
+            dateRange: 'all',
+            maxItems: 5,
+            compact: true,
+            showFilters: false,
+            showHeader: false,
+            layout: 'horizontal'
+          });
+          window.addEventListener('vision:event-notification', onEventNotification);
+        }
+      }
+
       // Cleanup live players on page unload
       function cleanupPlayers() {
         livePlayers.forEach((player) => {
           if (player && typeof player.destroy === 'function') player.destroy();
         });
         livePlayers.clear();
+        window.removeEventListener('vision:event-notification', onEventNotification);
+        if (latestEventsWidget && latestEventsWidget.destroy) {
+          try { latestEventsWidget.destroy(); } catch (e) {}
+          latestEventsWidget = null;
+        }
       }
 
       // Listen for page unload
       window.addEventListener('beforeunload', cleanupPlayers);
 
-      // Register SPA cleanup hook so navigating dashboard -> camera-detail closes WS players
+      // Register SPA cleanup hook so navigating dashboard -> camera-detail closes WS players + widget
       window.__visionaiPageCleanup = cleanupPlayers;
   
       async function boot() {
+        mountLatestEventsWidget();
         await ensureGridStack();
         await ensureWsFmp4Player();
   

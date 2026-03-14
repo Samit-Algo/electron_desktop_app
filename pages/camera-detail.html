@@ -42,16 +42,16 @@
                         <span class="fas fa-user text-body fs-9 form-icon"></span>
                     </div>
 
-                    <!-- Tabs: All->Active, Read->Scheduled, Unread->Completed -->
+                    <!-- Tabs: All->Active, Read->Waiting, Unread->Inactive -->
                     <ul class="nav nav-phoenix-pills mb-4 d-sm-none d-xl-flex" role="tablist">
                         <li class="nav-item" role="presentation">
                             <a class="nav-link cursor-pointer active" data-agent-filter="active" role="tab" aria-selected="true">Active Agents</a>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <a class="nav-link cursor-pointer" data-agent-filter="scheduled" role="tab" aria-selected="false">Scheduled Agents</a>
+                            <a class="nav-link cursor-pointer" data-agent-filter="scheduled" role="tab" aria-selected="false">Waiting Agents</a>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <a class="nav-link cursor-pointer" data-agent-filter="completed" role="tab" aria-selected="false">Completed Agents</a>
+                            <a class="nav-link cursor-pointer" data-agent-filter="completed" role="tab" aria-selected="false">Inactive Agents</a>
                         </li>
                     </ul>
 
@@ -151,6 +151,18 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Events & Agents for this camera (widgets, filtered by current camera) -->
+                            <div class="border-top border-translucent p-3" id="vision-camera-events-agents-section">
+                                <div class="row g-4">
+                                    <div class="col-12 col-lg-6">
+                                        <div id="vision-camera-events-widget" class="vision-widget-container"></div>
+                                    </div>
+                                    <div class="col-12 col-lg-6">
+                                        <div id="vision-camera-agents-widget" class="vision-widget-container"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="card-footer p-3">
@@ -178,6 +190,38 @@
                 #agent-list .agent-item.active .nav-link {
                     background-color: rgba(var(--phoenix-primary-rgb), 0.05);
                 }
+
+                /* Blinking green dot for active agents */
+                @keyframes agent-status-blink {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.35; }
+                }
+                #agent-list .agent-item[data-agent-status="active"] .avatar.status-online::before {
+                    animation: agent-status-blink 1.2s ease-in-out infinite;
+                }
+
+                /* Events & Agents widgets (shared with agents-board) */
+                .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+                .vision-widget-container .agent-status-badge { font-size: 0.7rem; font-weight: 600; }
+                .vision-widget-container .agent-card[data-agent-card] { cursor: pointer; }
+                .vision-widget-container .agents-group-header { padding-left: 0.25rem; }
+                .vision-widget-container .agents-group-title { font-size: 0.95rem; font-weight: 600; }
+                .vision-widget-container .agents-group-count { font-weight: 400; color: var(--phoenix-body-tertiary, #64748b); }
+                .vision-widget-container .agent-insight-card .card-body { padding: 0.875rem 1rem; }
+                .vision-widget-container .agent-card-row-1 { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+                .vision-widget-container .agent-card-name { font-size: 0.95rem; font-weight: 600; }
+                .vision-widget-container .agent-card-camera { font-size: 0.8rem; }
+                .vision-widget-container .agent-chip { display: inline-block; padding: 0.2rem 0.5rem; font-size: 0.7rem; font-weight: 500; border-radius: 6px; background: var(--phoenix-body-bg, #f1f5f9); color: var(--phoenix-body-color, #334155); }
+                .vision-widget-container .agent-status-monitoring { background-color: #22c55e; color: #fff; }
+                .vision-widget-container .agent-status-scheduled { background-color: #3b82f6; color: #fff; }
+                .vision-widget-container .agent-status-sleeping { background-color: #8b5cf6; color: #fff; }
+                .vision-widget-container .agent-status-paused { background-color: #f59e0b; color: #1e293b; }
+                .vision-widget-container .agent-status-completed { background-color: #94a3b8; color: #fff; }
+                .vision-widget-container .agent-status-inactive { background-color: #64748b; color: #fff; }
+                .vision-widget-container .agent-status-error { background-color: #ef4444; color: #fff; }
+                .vision-widget-container .agent-status-default { background-color: var(--phoenix-primary); color: #fff; }
+                .vision-widget-container .btn-reveal-trigger:hover .btn-reveal { opacity: 1; }
+                .vision-widget-container .btn-reveal { opacity: 0; transition: opacity 0.2s ease; }
 
                 /* Agent overlay canvas (draw detections over camera video) */
                 .visionai-video-stage { position: relative; }
@@ -777,6 +821,8 @@
                     let isUserSeeking = false;
                     let currentCameraId = null;
                     let selectedAgentId = null;
+                    let eventsWidgetInstance = null;
+                    let agentsWidgetInstance = null;
                     let overlayWs = null;
                     let overlayLastFrameIndex = null;
                     let overlayLastTimestamp = null;  // Track latest overlay timestamp for staleness check
@@ -965,6 +1011,9 @@
 
                             // Load agents list for this camera
                             await loadAgentsForCamera();
+
+                            // Mount Events & Agents widgets (filtered by this camera only)
+                            mountCameraWidgets(camId);
                         } catch (error) {
                             console.error('Error initializing camera:', error);
                             statusDot?.classList.remove('text-success');
@@ -1909,6 +1958,40 @@
 
                             listEl.appendChild(li);
                         });
+                    }
+
+                    function mountCameraWidgets(camId) {
+                        if (!camId) return;
+                        const eventsContainer = document.getElementById('vision-camera-events-widget');
+                        const agentsContainer = document.getElementById('vision-camera-agents-widget');
+                        if (!eventsContainer || !agentsContainer) return;
+
+                        // Destroy previous instances
+                        if (eventsWidgetInstance) {
+                            try { eventsWidgetInstance.destroy(); } catch (e) {}
+                            eventsWidgetInstance = null;
+                        }
+                        if (agentsWidgetInstance) {
+                            try { agentsWidgetInstance.destroy(); } catch (e) {}
+                            agentsWidgetInstance = null;
+                        }
+
+                        if (typeof window.VisionEventsBoardWidget !== 'undefined' && window.VisionEventsBoardWidget.mount) {
+                            eventsWidgetInstance = window.VisionEventsBoardWidget.mount(eventsContainer, {
+                                cameraId: camId,
+                                dateRange: 'all',
+                                severityFilter: 'all',
+                                compact: true,
+                                showFilters: true
+                            });
+                        }
+                        if (typeof window.VisionAgentsBoardWidget !== 'undefined' && window.VisionAgentsBoardWidget.mount) {
+                            agentsWidgetInstance = window.VisionAgentsBoardWidget.mount(agentsContainer, {
+                                cameraId: camId,
+                                showFilters: true,
+                                compact: false
+                            });
+                        }
                     }
 
                     async function loadAgentsForCamera() {

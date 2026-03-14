@@ -1,2 +1,86 @@
-/* prettier-ignore */
-/*# sourceMappingURL=user.css.map */
+/*------------------------------------------------------------------------------
+|   Auth: hide topbar, sidebar, chatbot when logged out
+------------------------------------------------------------------------------*/
+#app-root.visionai-auth-logged-out main.main {
+  grid-template-columns: 1fr;
+}
+#app-root.visionai-auth-logged-out .viewport-scrolls {
+  grid-column: 1;
+}
+
+/*------------------------------------------------------------------------------
+|   Unified Phoenix scrollbar for all scroll containers
+|   Applies dashboard/main viewport scrollbar styling everywhere
+------------------------------------------------------------------------------*/
+.overflow-auto,
+.overflow-x-auto,
+.overflow-y-auto,
+.table-responsive {
+  /* Chrome/Webkit */
+}
+.overflow-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+  visibility: hidden;
+  -webkit-appearance: none;
+  width: 6px;
+  height: 6px;
+  background-color: transparent;
+}
+.overflow-auto::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+  visibility: hidden;
+  border-radius: 3px;
+  background-color: var(--phoenix-scrollbar-bg);
+}
+.overflow-auto:hover::-webkit-scrollbar,
+.overflow-x-auto:hover::-webkit-scrollbar,
+.overflow-y-auto:hover::-webkit-scrollbar,
+.table-responsive:hover::-webkit-scrollbar,
+.overflow-auto:hover::-webkit-scrollbar-thumb,
+.overflow-x-auto:hover::-webkit-scrollbar-thumb,
+.overflow-y-auto:hover::-webkit-scrollbar-thumb,
+.table-responsive:hover::-webkit-scrollbar-thumb,
+.overflow-auto:focus::-webkit-scrollbar,
+.overflow-x-auto:focus::-webkit-scrollbar,
+.overflow-y-auto:focus::-webkit-scrollbar,
+.table-responsive:focus::-webkit-scrollbar,
+.overflow-auto:focus::-webkit-scrollbar-thumb,
+.overflow-x-auto:focus::-webkit-scrollbar-thumb,
+.overflow-y-auto:focus::-webkit-scrollbar-thumb,
+.table-responsive:focus::-webkit-scrollbar-thumb {
+  visibility: visible;
+}
+
+/* Firefox */
+.firefox .overflow-auto,
+.firefox .overflow-x-auto,
+.firefox .overflow-y-auto,
+.firefox .table-responsive,
+.firefox .modal-dialog-scrollable .modal-body {
+  scrollbar-color: var(--phoenix-scrollbar-bg) transparent;
+  scrollbar-width: thin;
+}
+
+/* Modal scrollable body (Bootstrap modal-dialog-scrollable) */
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar {
+  visibility: hidden;
+  -webkit-appearance: none;
+  width: 6px;
+  height: 6px;
+  background-color: transparent;
+}
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar-thumb {
+  visibility: hidden;
+  border-radius: 3px;
+  background-color: var(--phoenix-scrollbar-bg);
+}
+.modal-dialog-scrollable .modal-body:hover::-webkit-scrollbar,
+.modal-dialog-scrollable .modal-body:hover::-webkit-scrollbar-thumb,
+.modal-dialog-scrollable .modal-body:focus::-webkit-scrollbar,
+.modal-dialog-scrollable .modal-body:focus::-webkit-scrollbar-thumb {
+  visibility: visible;
+}

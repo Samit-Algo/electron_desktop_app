@@ -184,7 +184,8 @@ class VisionAPIService {
    * Authentication Methods
    */
   async register(fullName, email, password) {
-    const response = await this.request('/api/v1/auth/register', {
+    // Use unauthenticated request - register does not require a token
+    const response = await this.requestWithoutAuth('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         full_name: fullName,
@@ -195,8 +196,30 @@ class VisionAPIService {
     return response;
   }
 
+  /**
+   * Make API request without auth header (for login, register - avoids 401 from expired token)
+   */
+  async requestWithoutAuth(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    const config = {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    };
+    const response = await fetch(url, config);
+    const data = await response.json();
+    if (!response.ok) {
+      const msg = parseErrorDetail(data?.detail) || `API Error: ${response.statusText}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
   async login(email, password) {
-    const response = await this.request('/api/v1/auth/login', {
+    // Use unauthenticated request - do NOT send expired/invalid token to login endpoint
+    const response = await this.requestWithoutAuth('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({
         email,
@@ -302,11 +325,12 @@ class VisionAPIService {
   /**
    * Events API
    */
-  async listEvents(range = 'all', limit = 50, skip = 0) {
+  async listEvents(range = 'all', limit = 50, skip = 0, cameraId = null) {
     const params = new URLSearchParams();
     params.set('range', range);
     params.set('limit', String(limit));
     params.set('skip', String(skip));
+    if (cameraId) params.set('camera_id', String(cameraId));
     return await this.request(`/api/v1/events?${params.toString()}`);
   }
 

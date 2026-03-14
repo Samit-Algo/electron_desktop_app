@@ -17,9 +17,38 @@
   }
 
   /**
+   * Hide topbar, sidebar, chatbot when user is not logged in
+   */
+  function hideAppChrome() {
+    const appRoot = document.getElementById('app-root');
+    const topbar = document.getElementById('navbarDefault');
+    const sidebar = document.querySelector('.navbar-vertical');
+    const chatbot = document.getElementById('chatbot-container');
+    if (appRoot) appRoot.classList.add('visionai-auth-logged-out');
+    if (topbar) topbar.style.display = 'none';
+    if (sidebar) sidebar.style.display = 'none';
+    if (chatbot) chatbot.style.display = 'none';
+  }
+
+  /**
+   * Show topbar, sidebar, chatbot when user logs in
+   */
+  function showAppChrome() {
+    const appRoot = document.getElementById('app-root');
+    const topbar = document.getElementById('navbarDefault');
+    const sidebar = document.querySelector('.navbar-vertical');
+    const chatbot = document.getElementById('chatbot-container');
+    if (appRoot) appRoot.classList.remove('visionai-auth-logged-out');
+    if (topbar) topbar.style.display = '';
+    if (sidebar) sidebar.style.display = '';
+    if (chatbot) chatbot.style.display = '';
+  }
+
+  /**
    * Show login page in content area
    */
   function showLoginPage() {
+    hideAppChrome();
     const viewport = document.querySelector('.viewport-scrolls');
     if (!viewport) {
       setTimeout(showLoginPage, 100);
@@ -68,6 +97,7 @@
    * Hide login page and show normal content
    */
   function hideLoginPage() {
+    showAppChrome();
     const loginContainer = document.getElementById(LOGIN_CONTENT_ID);
     if (loginContainer) {
       loginContainer.style.display = 'none';
@@ -396,6 +426,7 @@
    * Show "Please login" message for protected pages
    */
   function showLoginRequiredMessage() {
+    hideAppChrome();
     const viewport = document.querySelector('.viewport-scrolls');
     if (!viewport) {
       setTimeout(showLoginRequiredMessage, 100);
