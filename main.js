@@ -223,6 +223,15 @@ function createWindow() {
   });
 }
 
+// IPC handler for taskbar badge count (notification count like WhatsApp/Teams)
+ipcMain.on('set-badge-count', (_event, count) => {
+  try {
+    app.setBadgeCount(count);
+  } catch (e) {
+    console.warn('[Badge] setBadgeCount failed:', e);
+  }
+});
+
 // IPC handler for video files
 ipcMain.handle('read-video-file', async (event, filePath) => {
   try {

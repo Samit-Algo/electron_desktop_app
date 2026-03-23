@@ -1678,3 +1678,96 @@
   [data-bs-theme="dark"] .chatbot-approval-btn-reject {
     border-inline-end-color: rgba(255,255,255,.08);
   }
+
+  /*------------------------------------------------------------------------------
+  |   Mobile: Phoenix-style round chat toggle + full-screen chat
+  |   Breakpoint 991px; Electron min 1200px → desktop unchanged
+  ------------------------------------------------------------------------------*/
+  @media (max-width: 991px) {
+    /* Round toggle button bottom-right (Phoenix chat style) */
+    .setting-toggle {
+      position: fixed !important;
+      bottom: calc(1.25rem + env(safe-area-inset-bottom, 0)) !important;
+      right: calc(1.25rem + env(safe-area-inset-right, 0)) !important;
+      top: auto !important;
+      left: auto !important;
+      margin: 0 !important;
+      transform: none !important;
+      width: 56px !important;
+      height: 56px !important;
+      border-radius: 50% !important;
+      padding: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 1050 !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+      text-decoration: none !important;
+      background: var(--phoenix-primary, #2A7BE4) !important;
+      color: #fff !important;
+      border: none !important;
+    }
+    .setting-toggle:hover {
+      background: var(--phoenix-primary, #2A7BE4) !important;
+      color: #fff !important;
+      transform: scale(1.05) !important;
+    }
+    .setting-toggle .card-body {
+      padding: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .setting-toggle small,
+    .setting-toggle .text-uppercase {
+      display: none !important;
+    }
+    .setting-toggle .chatbot-toggle-icon {
+      width: 100% !important;
+      height: 100% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .setting-toggle .chatbot-toggle-icon svg {
+      width: 24px !important;
+      height: 24px !important;
+      fill: #fff !important;
+    }
+
+    /* Full-screen chat when open on mobile (no side panel, no minimize) */
+    #app-root.chatbot-open #chatbot-container {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      z-index: 1060 !important;
+      grid-column: unset !important;
+      grid-row: unset !important;
+    }
+    #app-root.chatbot-open #chatbot-offcanvas {
+      width: 100% !important;
+      max-width: none !important;
+      min-width: unset !important;
+      height: 100% !important;
+      border-left: none !important;
+    }
+    /* Hide main app behind full-screen chat */
+    #app-root.chatbot-open .navbar-top,
+    #app-root.chatbot-open main.main {
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    /* Hide resize handle on mobile */
+    .chatbot-resize-handle {
+      display: none !important;
+    }
+    /* Ensure close button is reachable */
+    #chatbot-offcanvas .btn-close {
+      padding: 0.5rem !important;
+      margin: 0.25rem !important;
+    }
+  }

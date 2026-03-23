@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 
   <!-- Document Title -->
   <title>Phoenix</title>
@@ -21,6 +21,7 @@
   <!-- Core JavaScript Libraries (loaded early) -->
   <script src="../vendors/simplebar/simplebar.min.js"></script>
   <script src="../assets/js/config.js"></script>
+  <script src="../custom_js/api-config.js"></script>
 
   <!-- External Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -95,7 +96,7 @@
       height: 50px !important;
       min-height: 50px !important;
       -webkit-app-region: drag;                    /* Make entire bar draggable for Electron */
-      padding-right: 140px;                         /* Space for Window Controls */
+      padding-right: 140px;                         /* Space for Window Controls - overridden on mobile in user.css */
       padding-left: 10px;
       background-color: var(--phoenix-body-bg);
     }
@@ -176,8 +177,8 @@
   <!-- Main Application Root - CSS Grid Container -->
   <div id="app-root">
     <!-- Top Navbar / Title Bar - Spans all columns, positioned outside scroll container -->
-    <nav class="navbar navbar-top navbar-expand" id="navbarDefault">
-      <div class="collapse navbar-collapse justify-content-between">
+    <nav class="navbar navbar-top navbar-expand d-flex align-items-center" id="navbarDefault">
+      <div class="collapse navbar-collapse justify-content-between align-items-center w-100">
         <!-- Left: Logo and Sidebar Toggle -->
         <div class="navbar-logo">
           <button class="btn navbar-toggler navbar-toggler-humburger-icon hover-bg-transparent" type="button"
@@ -195,8 +196,8 @@
           </a>
         </div>
 
-        <!-- Center: Search Box (hidden on mobile) -->
-        <div class="search-box navbar-top-search-box d-none d-lg-block" data-list='{"valueNames":["title"]}'
+        <!-- Center: Search Box (hidden on mobile) - no data-list: search box has no .list structure, List.js would throw -->
+        <div class="search-box navbar-top-search-box d-none d-lg-block"
           style="width:25rem;">
           <form class="position-relative" data-bs-toggle="search" data-bs-display="static">
             <input class="form-control search-input fuzzy-search rounded-pill form-control-sm" type="search"
@@ -571,6 +572,9 @@
     <div id="chatbot-container"></div>
   </div>
 
+  <!-- jQuery (required for notification UI and DOM manipulation) -->
+  <script src="../vendors/jquery/jquery.min.js"></script>
+
   <!-- Vendor JavaScript Libraries -->
   <script src="../vendors/popper/popper.min.js"></script>
   <script src="../vendors/bootstrap/bootstrap.min.js"></script>
@@ -596,11 +600,12 @@
       // Calculate chatbot.html path based on page depth (same logic as layout-loader)
       function getChatbotPath() {
         const isElectron = window.location.protocol === 'http:' && window.location.hostname === '127.0.0.1';
+        const isCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
         if (isElectron) {
           return '/layout/chatbot.html';
         }
 
-        // Calculate page depth from current path
+        // Calculate page depth from current path (browser + Capacitor)
         const path = window.location.pathname;
         const parts = path.split('/').filter(p => p && p !== 'index.html');
         const directories = parts.filter(p => !p.endsWith('.html'));
@@ -662,7 +667,21 @@
   <script src="../custom_js/api-service.js"></script>
   <script src="../custom_js/toast-service.js"></script>
   <script src="../custom_js/auth-guard.js"></script>
-  <script src="../custom_js/notifications-realtime.js"></script>
+
+  <!--
+    Notification System — 5 files, load in this exact order:
+      1. notification-constants.js  → shared constants (types, severity, icons)
+      2. notification-normalizer.js → convert raw WS data to clean objects
+      3. notification-ui.js         → jQuery DOM updates (badge, dropdown, cards)
+      4. notification-popup.js      → native OS notification popups
+      5. notification-hub.js        → main coordinator that wires everything together
+  -->
+  <script src="../custom_js/notifications/notification-constants.js"></script>
+  <script src="../custom_js/notifications/notification-normalizer.js"></script>
+  <script src="../custom_js/notifications/notification-ui.js"></script>
+  <script src="../custom_js/notifications/notification-popup.js"></script>
+  <script src="../custom_js/notifications/notification-hub.js"></script>
+
   <script src="../custom_js/vision-widgets/events-board-widget.js"></script>
   <script src="../custom_js/vision-widgets/agents-board-widget.js"></script>
   <script src="../custom_js/agents-board.js"></script>

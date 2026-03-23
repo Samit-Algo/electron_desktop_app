@@ -470,10 +470,8 @@
    * Navigate to dashboard page
    */
   function navigateToDashboard() {
-    // Use absolute path to avoid double 'pages/pages' issue
-    // In Electron, we're on localhost, so use absolute path from root
-    const isElectron = window.location.protocol === 'http:' && window.location.hostname === '127.0.0.1';
-    const dashboardPath = isElectron ? '/pages/dashboard.html' : 'pages/dashboard.html';
+    // Use absolute path to avoid double 'pages/pages' when already on /pages/* (Electron)
+    const dashboardPath = '/pages/dashboard.html';
     
     // Use SPA navigation if available (from layout-loader.js)
     if (window.visionaiSpa && typeof window.visionaiSpa.navigate === 'function') {

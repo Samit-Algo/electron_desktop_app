@@ -9,8 +9,7 @@
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "clean-old-install": "powershell -ExecutionPolicy Bypass -File scripts/clean-old-install.ps1"
+    "build:linux": "electron-builder --linux"
   },
   "keywords": [
     "electron",
@@ -25,38 +24,43 @@
     "electron-reloader": "^1.2.3"
   },
   "dependencies": {
+    "dompurify": "^3.3.2",
     "express": "^4.18.2",
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.1.1",
+    "markdown-it-attrs": "^4.3.1",
+    "markdown-it-task-lists": "^2.1.1",
     "overlayscrollbars": "^2.13.0",
     "vis-timeline": "^8.5.0"
   },
- "build": {
-  "appId": "com.algovision.app",
-  "productName": "Algo-Vision",
-  "asar": true,
-  "asarUnpack": [
-    "node_modules/**/*"
-  ],
-  "directories": {
-    "output": "dist"
-  },
-  "files": [
-    "**/*",
-    "!src/**/*",
-    "!dist/**/*",
-    "!.git/**/*"
-  ],
-  "win": {
-    "target": "nsis",
-    "icon": "assets/img/algo-logo.png",
-    "signAndEditExecutable": false
-  },
-  "mac": {
-    "target": "dmg",
-    "icon": "assets/img/algo-logo.png"
-  },
-  "linux": {
-    "target": "AppImage",
-    "icon": "assets/img/algo-logo.png"
+  "build": {
+    "appId": "com.algovision.app",
+    "productName": "Algo-Vision",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!src/**/*",
+      "!dist/**/*",
+      "!.git/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/img/algo-logo.png",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/img/algo-logo.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/img/algo-logo.png"
+    }
   }
-}
 }

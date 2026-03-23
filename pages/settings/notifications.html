@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Settings - Notifications - Vision AI</title>
+    <script src="../../custom_js/layout-loader.js"></script>
+</head>
+<body>
+    <div id="page-content" style="display:none;">
+        <div class="content">
+            <div class="row g-0">
+                <!-- Left Sidebar - Settings Navigation -->
+                <div class="col-12 col-lg-3 border-end border-translucent">
+                    <div class="p-4">
+                        <div class="mb-4">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="avatar avatar-l me-2">
+                                    <div class="avatar-name rounded-circle bg-body-secondary">
+                                        <span id="userAvatar" class="text-body-emphasis">U</span>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <h6 id="userEmail" class="mb-0 text-body-emphasis">user@example.com</h6>
+                                    <p class="mb-0 fs-9 text-body-tertiary">Pro Plan</p>
+                                </div>
+                            </div>
+                        </div>
+                        <nav class="settings-nav">
+                            <ul class="nav flex-column">
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="general.html">
+                                        <span class="me-2" data-feather="settings" style="width: 16px; height: 16px;"></span>
+                                        <span>General</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link active d-flex align-items-center px-2 py-2 rounded-2" href="notifications.html">
+                                        <span class="me-2" data-feather="bell" style="width: 16px; height: 16px;"></span>
+                                        <span>Notifications</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2 fas fa-infinity" style="width: 16px; height: 16px; font-size: 16px;"></span>
+                                        <span>Agents</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2" data-feather="arrow-right" style="width: 16px; height: 16px;"></span>
+                                        <span>Tab</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2" data-feather="box" style="width: 16px; height: 16px;"></span>
+                                        <span>Models</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2" data-feather="cloud" style="width: 16px; height: 16px;"></span>
+                                        <span>Cloud Agents</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2" data-feather="tool" style="width: 16px; height: 16px;"></span>
+                                        <span>Tools & MCP</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2" data-feather="file-text" style="width: 16px; height: 16px;"></span>
+                                        <span>Rules and Commands</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2" data-feather="globe" style="width: 16px; height: 16px;"></span>
+                                        <span>Indexing & Docs</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2 fas fa-network-wired" style="width: 16px; height: 16px; font-size: 16px;"></span>
+                                        <span>Network</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2" data-feather="layers" style="width: 16px; height: 16px;"></span>
+                                        <span>Beta</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                                        <span class="me-2" data-feather="book" style="width: 16px; height: 16px;"></span>
+                                        <span>Docs</span>
+                                        <span class="ms-auto" data-feather="external-link" style="width: 12px; height: 12px;"></span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+                <!-- Right Content - Notification Settings -->
+                <div class="col-12 col-lg-9">
+                    <div class="p-4 p-lg-6">
+                        <div class="mb-6">
+                            <h2 class="mb-2 text-body-emphasis">Notification Settings</h2>
+                            <p class="text-body-tertiary mb-0 fs-9">Configure how you receive alerts. WebSocket (in-app) is enabled by default.</p>
+                        </div>
+                        <div id="saveStatus" class="mb-4" style="display:none;"></div>
+                        <div class="scrollbar">
+                            <!-- Desktop (OS) Notifications -->
+                            <div class="setting-panel-item mt-0">
+                                <h5 class="setting-panel-item-title">Desktop (OS) Notifications</h5>
+                                <p class="text-body-tertiary mb-3">System popups (Windows Action Center, macOS Notification Center). Enable to get alerts when the app is in the background.</p>
+                                <div class="border border-translucent rounded-3 p-4 bg-body-emphasis">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div>
+                                            <span id="osNotifStatus" class="badge badge-phoenix fs-10 mb-2">Checking...</span>
+                                            <p class="mb-0 fs-9 text-body-tertiary">Click Enable to allow desktop notifications. You can also enable by clicking the notification bell in the top bar.</p>
+                                        </div>
+                                        <button type="button" class="btn btn-phoenix-primary btn-sm" id="btnEnableOsNotifications">
+                                            <span class="fas fa-bell me-1"></span>Enable
+                                        </button>
+                                    </div>
+                                    <hr>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">Show OS popup notifications</h6>
+                                            <p class="mb-0 fs-9 text-body-tertiary">When enabled, notifications appear as system popups. Turn off to stop OS popups (in-app notifications still work).</p>
+                                        </div>
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="chOsPopup" checked>
+                                            <label class="form-check-label" for="chOsPopup">On</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Channel Setup -->
+                            <div class="setting-panel-item mt-4">
+                                <h5 class="setting-panel-item-title">Channels</h5>
+                                <p class="text-body-tertiary mb-3">Enable notification channels. You must provide an email address when enabling email.</p>
+                                <div class="border border-translucent rounded-3 p-4 bg-body-emphasis">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div>
+                                            <h6 class="mb-1">In-App (WebSocket)</h6>
+                                            <p class="mb-0 fs-9 text-body-tertiary">Real-time notifications in the app. Enabled by default for all users.</p>
+                                        </div>
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="chWebsocket" checked disabled>
+                                            <label class="form-check-label" for="chWebsocket">Always on</label>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1 me-3">
+                                            <h6 class="mb-1">Email</h6>
+                                            <p class="mb-2 fs-9 text-body-tertiary">Receive notifications by email. Enter your email address below when enabled.</p>
+                                            <input type="email" class="form-control" id="emailAddress" placeholder="your@email.com" style="max-width: 300px;">
+                                        </div>
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="chEmail">
+                                            <label class="form-check-label" for="chEmail">Enable</label>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">Mobile (FCM)</h6>
+                                            <p class="mb-0 fs-9 text-body-tertiary">Push notifications to your mobile app. Register your device via the app when prompted.</p>
+                                        </div>
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" id="chFcm">
+                                            <label class="form-check-label" for="chFcm">Enable</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- By Severity (Event types) -->
+                            <div class="setting-panel-item mt-4">
+                                <h5 class="setting-panel-item-title">Event Notifications (by Severity)</h5>
+                                <p class="text-body-tertiary mb-3">Choose channels for detection events: critical (fall, fire, weapon), warning, info.</p>
+                                <div class="border border-translucent rounded-3 p-4 bg-body-emphasis">
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">Critical (fall, fire, weapon, intrusion)</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="sev_critical_ws" checked>
+                                            <label class="form-check-label" for="sev_critical_ws">In-App</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="sev_critical_email">
+                                            <label class="form-check-label" for="sev_critical_email">Email</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="sev_critical_fcm">
+                                            <label class="form-check-label" for="sev_critical_fcm">Mobile</label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">Warning (violation, restricted zone)</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="sev_warning_ws" checked>
+                                            <label class="form-check-label" for="sev_warning_ws">In-App</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="sev_warning_email">
+                                            <label class="form-check-label" for="sev_warning_email">Email</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="sev_warning_fcm">
+                                            <label class="form-check-label" for="sev_warning_fcm">Mobile</label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="form-label fw-semibold">Info (general detections)</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="sev_info_ws" checked>
+                                            <label class="form-check-label" for="sev_info_ws">In-App</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="sev_info_email">
+                                            <label class="form-check-label" for="sev_info_email">Email</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="sev_info_fcm">
+                                            <label class="form-check-label" for="sev_info_fcm">Mobile</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- By Type (System events) -->
+                            <div class="setting-panel-item mt-4">
+                                <h5 class="setting-panel-item-title">System Notifications</h5>
+                                <p class="text-body-tertiary mb-3">Camera offline and report ready alerts.</p>
+                                <div class="border border-translucent rounded-3 p-4 bg-body-emphasis">
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">Camera Offline</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="type_camera_ws" checked>
+                                            <label class="form-check-label" for="type_camera_ws">In-App</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="type_camera_email">
+                                            <label class="form-check-label" for="type_camera_email">Email</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="type_camera_fcm">
+                                            <label class="form-check-label" for="type_camera_fcm">Mobile</label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="form-label fw-semibold">Report Ready</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="type_report_email" checked>
+                                            <label class="form-check-label" for="type_report_email">Email (report attachment)</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" class="btn btn-phoenix-primary mt-4" id="btnSave">
+                                <span class="fas fa-save me-2"></span>Save Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .settings-nav .nav-link { color: var(--phoenix-body-color); transition: all 0.2s ease; }
+            .settings-nav .nav-link:hover { background-color: var(--phoenix-body-bg-hover); color: var(--phoenix-body-emphasis); }
+            .settings-nav .nav-link.active { background-color: var(--phoenix-primary-bg-subtle); color: var(--phoenix-primary); }
+            .setting-panel-item { margin-bottom: 1.5rem; }
+            .setting-panel-item-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--phoenix-body-emphasis); }
+        </style>
+        <script>
+(function() {
+    var DBG = '[NotifSettings]';
+
+    function showStatus(msg, isError) {
+        console.log(DBG, 'showStatus called:', msg, '| isError:', isError);
+        var el = document.getElementById('saveStatus');
+        console.log(DBG, 'showStatus element found?', !!el);
+        if (!el) { console.error(DBG, 'PROBLEM: #saveStatus element NOT found in DOM!'); return; }
+        el.style.display = 'block';
+        el.className = 'alert ' + (isError ? 'alert-danger' : 'alert-success');
+        el.textContent = msg;
+        setTimeout(function() { el.style.display = 'none'; }, 4000);
+    }
+
+    function buildPayload() {
+        var chEmail = document.getElementById('chEmail');
+        var emailAddrEl = document.getElementById('emailAddress');
+        var chOsPopup = document.getElementById('chOsPopup');
+        var chFcm = document.getElementById('chFcm');
+        console.log(DBG, 'buildPayload elements:', {
+            chEmail: !!chEmail, emailAddress: !!emailAddrEl,
+            chOsPopup: !!chOsPopup, chFcm: !!chFcm
+        });
+        if (!chEmail || !emailAddrEl || !chOsPopup || !chFcm) {
+            console.error(DBG, 'PROBLEM: buildPayload returning null - one or more form elements missing!');
+            return null;
+        }
+        const emailEnabled = chEmail.checked;
+        const emailAddr = emailAddrEl.value.trim();
+        const osPopupEnabled = chOsPopup.checked;
+        const fcmEnabled = chFcm.checked;
+        const channels = {
+            websocket: { enabled: true },
+            email: { enabled: emailEnabled, address: emailAddr },
+            fcm: { enabled: fcmEnabled },
+            os_popup: { enabled: osPopupEnabled }
+        };
+        const bySeverity = { critical: [], warning: [], info: [] };
+        ['critical','warning','info'].forEach(function(sev) {
+            var ws = document.getElementById('sev_' + sev + '_ws');
+            var em = document.getElementById('sev_' + sev + '_email');
+            var fc = document.getElementById('sev_' + sev + '_fcm');
+            if (ws && ws.checked) bySeverity[sev].push('websocket');
+            if (em && em.checked) bySeverity[sev].push('email');
+            if (fc && fc.checked) bySeverity[sev].push('fcm');
+        });
+        const byType = { camera_offline: [], report_ready: [] };
+        var tWs = document.getElementById('type_camera_ws');
+        var tEm = document.getElementById('type_camera_email');
+        var tFc = document.getElementById('type_camera_fcm');
+        var tRp = document.getElementById('type_report_email');
+        if (tWs && tWs.checked) byType.camera_offline.push('websocket');
+        if (tEm && tEm.checked) byType.camera_offline.push('email');
+        if (tFc && tFc.checked) byType.camera_offline.push('fcm');
+        if (tRp && tRp.checked) byType.report_ready.push('email');
+        var result = { channels, by_severity: bySeverity, by_type: byType };
+        console.log(DBG, 'buildPayload result:', JSON.stringify(result));
+        return result;
+    }
+
+    function loadPrefs(prefs) {
+        console.log(DBG, 'loadPrefs called with:', JSON.stringify(prefs));
+        try {
+            var ch = prefs.channels || {};
+            var emailCfg = ch.email || {};
+            var chEmailEl = document.getElementById('chEmail');
+            if (chEmailEl) chEmailEl.checked = emailCfg.enabled || false;
+            var addr = emailCfg.address || '';
+            if (!addr && window.visionAPI && window.visionAPI.user && window.visionAPI.user.email) {
+                addr = window.visionAPI.user.email;
+            }
+            var addrEl = document.getElementById('emailAddress');
+            if (addrEl) addrEl.value = addr;
+            var osPopupCfg = ch.os_popup || {};
+            var osPopupEl = document.getElementById('chOsPopup');
+            if (osPopupEl) osPopupEl.checked = osPopupCfg.enabled !== false;
+            var fcmCfg = ch.fcm || {};
+            var fcmEl = document.getElementById('chFcm');
+            if (fcmEl) fcmEl.checked = fcmCfg.enabled || false;
+            var bySev = prefs.by_severity || {};
+            ['critical','warning','info'].forEach(function(sev) {
+                var list = bySev[sev] || ['websocket'];
+                var ws = document.getElementById('sev_' + sev + '_ws');
+                var em = document.getElementById('sev_' + sev + '_email');
+                var fc = document.getElementById('sev_' + sev + '_fcm');
+                if (ws) ws.checked = list.indexOf('websocket') >= 0;
+                if (em) em.checked = list.indexOf('email') >= 0;
+                if (fc) fc.checked = list.indexOf('fcm') >= 0;
+            });
+            var byType = prefs.by_type || {};
+            var camList = byType.camera_offline || ['websocket'];
+            var tWs = document.getElementById('type_camera_ws');
+            var tEm = document.getElementById('type_camera_email');
+            var tFc = document.getElementById('type_camera_fcm');
+            var tRp = document.getElementById('type_report_email');
+            if (tWs) tWs.checked = camList.indexOf('websocket') >= 0;
+            if (tEm) tEm.checked = camList.indexOf('email') >= 0;
+            if (tFc) tFc.checked = camList.indexOf('fcm') >= 0;
+            if (tRp) tRp.checked = (byType.report_ready || ['email']).indexOf('email') >= 0;
+            console.log(DBG, 'loadPrefs completed OK');
+        } catch (err) {
+            console.warn(DBG, 'loadPrefs error:', err);
+        }
+    }
+
+    function initUser() {
+        var u = window.visionAPI && window.visionAPI.user;
+        if (u) {
+            var el = document.getElementById('userEmail');
+            if (el) el.textContent = u.email || u.full_name || 'User';
+            var av = document.getElementById('userAvatar');
+            if (av && u.full_name) av.textContent = u.full_name.charAt(0).toUpperCase();
+        }
+    }
+
+    function handleSaveClick() {
+        console.log(DBG, '=== handleSaveClick FIRED ===');
+        console.log(DBG, 'STEP 1 - visionAPI exists?', !!window.visionAPI);
+        console.log(DBG, 'STEP 1 - isAuthenticated fn?', typeof (window.visionAPI && window.visionAPI.isAuthenticated));
+        console.log(DBG, 'STEP 1 - isAuthenticated()?', window.visionAPI && typeof window.visionAPI.isAuthenticated === 'function' && window.visionAPI.isAuthenticated());
+        console.log(DBG, 'STEP 1 - token value:', window.visionAPI && window.visionAPI.token ? 'EXISTS (length ' + window.visionAPI.token.length + ')' : 'NULL/EMPTY');
+
+        if (!window.visionAPI || typeof window.visionAPI.isAuthenticated !== 'function' || !window.visionAPI.isAuthenticated()) {
+            console.error(DBG, 'PROBLEM: Auth check failed - returning early');
+            showStatus('Please log in to save settings.', true);
+            return;
+        }
+        console.log(DBG, 'STEP 2 - Auth check PASSED');
+
+        var chEmail = document.getElementById('chEmail');
+        var emailAddrEl = document.getElementById('emailAddress');
+        console.log(DBG, 'STEP 2 - chEmail.checked:', chEmail && chEmail.checked, '| emailAddr:', emailAddrEl && emailAddrEl.value);
+
+        if (chEmail && chEmail.checked && (!emailAddrEl || !emailAddrEl.value.trim())) {
+            console.error(DBG, 'PROBLEM: Email enabled but address is empty - returning early');
+            showStatus('Please enter an email address when email is enabled.', true);
+            return;
+        }
+        console.log(DBG, 'STEP 3 - Email validation PASSED');
+
+        var payload = buildPayload();
+        console.log(DBG, 'STEP 4 - payload:', payload ? 'BUILT OK' : 'NULL (PROBLEM!)');
+        if (!payload) {
+            console.error(DBG, 'PROBLEM: buildPayload returned null - returning early');
+            showStatus('Failed to build settings payload.', true);
+            return;
+        }
+        console.log(DBG, 'STEP 5 - About to call updateNotificationPreferences');
+        console.log(DBG, 'STEP 5 - updateNotificationPreferences fn?', typeof (window.visionAPI && window.visionAPI.updateNotificationPreferences));
+
+        var btn = document.getElementById('btnSave');
+        if (btn) btn.disabled = true;
+
+        window.visionAPI.updateNotificationPreferences(payload).then(function(resp) {
+            console.log(DBG, 'STEP 6 - PUT SUCCESS:', resp);
+            showStatus('Settings saved successfully.');
+            window.dispatchEvent(new CustomEvent('vision:notification-prefs-updated', { detail: payload }));
+        }).catch(function(e) {
+            console.error(DBG, 'STEP 6 - PUT FAILED:', e);
+            showStatus('Failed to save: ' + (e && e.message ? e.message : 'Unknown error'), true);
+        }).finally(function() {
+            console.log(DBG, 'STEP 6 - PUT finally (re-enabling button)');
+            var b = document.getElementById('btnSave');
+            if (b) b.disabled = false;
+        });
+    }
+
+    function bindSaveButton() {
+        var btnSaveEl = document.getElementById('btnSave');
+        console.log(DBG, 'bindSaveButton: #btnSave found?', !!btnSaveEl);
+        if (!btnSaveEl) {
+            console.error(DBG, 'PROBLEM: #btnSave not in DOM when bindSaveButton called');
+            return;
+        }
+        if (btnSaveEl.getAttribute('data-notif-save-bound') === 'true') {
+            console.log(DBG, 'bindSaveButton: already bound, skipping');
+            return;
+        }
+        btnSaveEl.setAttribute('data-notif-save-bound', 'true');
+        btnSaveEl.addEventListener('click', handleSaveClick);
+        console.log(DBG, 'bindSaveButton: click listener ATTACHED to #btnSave');
+    }
+
+    function runInit() {
+        console.log(DBG, '--- runInit called ---');
+        console.log(DBG, 'runInit: visionAPI?', !!window.visionAPI, '| authenticated?', !!(window.visionAPI && window.visionAPI.isAuthenticated && window.visionAPI.isAuthenticated()));
+        initUser();
+        bindSaveButton();
+        if (window.visionAPI && window.visionAPI.isAuthenticated && window.visionAPI.isAuthenticated()) {
+            console.log(DBG, 'runInit: fetching preferences...');
+            window.visionAPI.getNotificationPreferences().then(function(p) {
+                console.log(DBG, 'runInit: preferences fetched OK');
+                loadPrefs(p);
+            }).catch(function(e) {
+                console.warn(DBG, 'runInit: Failed to load notification prefs:', e);
+                loadPrefs({});
+            });
+        } else {
+            console.warn(DBG, 'runInit: NOT authenticated - skipping preference fetch');
+        }
+        if (typeof feather !== 'undefined') feather.replace();
+        if (window.__visionNotifications && window.__visionNotifications.updateOsNotifStatus) {
+            setTimeout(function() { window.__visionNotifications.updateOsNotifStatus(); }, 100);
+        }
+    }
+
+    console.log(DBG, 'IIFE executing - script loaded');
+    runInit();
+
+    window.addEventListener('vision:spa:navigated', function(e) {
+        if (e.detail && e.detail.url && String(e.detail.url).indexOf('notifications') >= 0) {
+            console.log(DBG, 'vision:spa:navigated fired for notifications page');
+            runInit();
+        }
+    });
+    console.log(DBG, 'vision:spa:navigated listener registered on window');
+})();
+        </script>
+    </div>
+</body>
+</html>

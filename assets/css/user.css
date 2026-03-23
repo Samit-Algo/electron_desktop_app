@@ -84,3 +84,102 @@
 .modal-dialog-scrollable .modal-body:focus::-webkit-scrollbar-thumb {
   visibility: visible;
 }
+
+/*------------------------------------------------------------------------------
+|   Toast / Alert notification cards - fix overlay and alignment
+------------------------------------------------------------------------------*/
+.vision-toast-card.toast {
+  overflow: hidden;
+  border-radius: 0.5rem;
+  max-width: 360px;
+}
+.vision-toast-card .toast-header {
+  padding: 0.5rem 1rem;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  min-height: 44px;
+}
+.vision-toast-card .toast-header .btn-link {
+  line-height: 1;
+  border: none;
+  background: transparent;
+  opacity: 0.85;
+  padding: 0.25rem;
+  min-width: 28px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.vision-toast-card .toast-header .btn-link:hover {
+  opacity: 1;
+}
+.vision-toast-card .toast-body {
+  padding: 1rem;
+  color: var(--phoenix-body-color, #212529);
+}
+
+/*------------------------------------------------------------------------------
+|   Mobile responsive layout (Capacitor / phones only)
+|   Breakpoint 991px = Bootstrap lg; Electron min window = 1200px → never applied
+------------------------------------------------------------------------------*/
+@media (max-width: 991px) {
+  /* Single column: sidebar removed from grid flow, content full width */
+  #app-root:not(.visionai-auth-logged-out) {
+    grid-template-columns: 1fr !important;
+  }
+
+  #app-root:not(.visionai-auth-logged-out) main.main {
+    grid-template-columns: 1fr !important;
+  }
+
+  #app-root:not(.visionai-auth-logged-out) .viewport-scrolls {
+    grid-column: 1 !important;
+  }
+
+  /* Top bar: align with Bootstrap spacing (no window controls on mobile) */
+  .navbar-top {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  .navbar-top .collapse {
+    align-items: center;
+  }
+
+  /* Sidebar: off-canvas overlay (slide from left when hamburger toggles) */
+  main.main .navbar-vertical {
+    position: fixed !important;
+    left: 0;
+    top: 50px;
+    bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    z-index: 1040;
+    background: var(--phoenix-body-bg);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    overflow-y: auto;
+    box-shadow: none;
+  }
+
+  /* Sidebar visible when Bootstrap collapse has .show */
+  main.main .navbar-vertical:has(#navbarVerticalCollapse.show) {
+    transform: translateX(0);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Hide desktop "Collapsed View" footer on mobile */
+  .navbar-vertical-footer {
+    display: none !important;
+  }
+
+  /* Content padding reduced for mobile */
+  .viewport-scrolls > .content {
+    padding: 0.75rem 1rem 4rem 1rem !important;
+  }
+
+  /* Prevent horizontal overflow on small screens */
+  .viewport-scrolls {
+    overflow-x: hidden;
+  }
+}

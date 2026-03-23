@@ -15,8 +15,9 @@
   function getToastContainer() {
     if (!toastContainer) {
       toastContainer = document.createElement('div');
-      toastContainer.className = 'position-fixed top-0 end-0 p-3';
+      toastContainer.className = 'toast-container position-fixed end-0 p-3';
       toastContainer.style.zIndex = '1055';
+      toastContainer.style.top = '60px'; /* Below top bar (50px) to avoid overlapping window controls */
       toastContainer.setAttribute('aria-live', 'polite');
       toastContainer.setAttribute('aria-atomic', 'true');
       document.body.appendChild(toastContainer);
@@ -62,21 +63,21 @@
     const autohide = options.autohide !== false; // Default true
     const delay = options.delay || 5000;
 
-    // Create toast HTML
+    const timeStr = new Date().toLocaleTimeString();
     const toastHTML = `
-      <div class="toast" 
+      <div class="toast vision-toast-card" 
            id="${toastId}" 
            role="alert" 
            aria-live="assertive" 
            aria-atomic="true"
            data-bs-autohide="${autohide}"
            data-bs-delay="${delay}">
-        <div class="toast-header ${config.bgClass} text-white">
-          <span class="fas ${config.icon} me-2"></span>
-          <strong class="me-auto">${options.title || config.title}</strong>
-          <small class="text-white text-opacity-75">${new Date().toLocaleTimeString()}</small>
-          <button class="btn ms-2 p-0 text-white" type="button" data-bs-dismiss="toast" aria-label="Close">
-            <span class="uil uil-times fs-7"></span>
+        <div class="toast-header ${config.bgClass} text-white d-flex align-items-center">
+          <span class="fas ${config.icon} me-2 flex-shrink-0"></span>
+          <strong class="me-auto text-truncate">${options.title || config.title}</strong>
+          <small class="text-white text-opacity-75 flex-shrink-0 ms-1">${timeStr}</small>
+          <button class="btn btn-link btn-sm p-0 ms-2 flex-shrink-0 text-white text-decoration-none" type="button" data-bs-dismiss="toast" aria-label="Close">
+            <span class="fas fa-times"></span>
           </button>
         </div>
         <div class="toast-body">

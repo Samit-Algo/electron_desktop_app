@@ -7,11 +7,14 @@
     'use strict';
 
     // Configuration
-    // Detect if running in Electron (has localhost server) or regular browser
+    // Detect context: Electron (localhost server) or regular browser
     const isElectron = window.location.protocol === 'http:' && window.location.hostname === '127.0.0.1';
-    const LAYOUT_PATH = isElectron 
-        ? '/layout/side_navbar.html'  // Absolute path for Electron local server
-        : '../layout/side_navbar.html';  // Relative path for regular browser
+
+    function getLayoutPath() {
+        if (isElectron) return '/layout/side_navbar.html';
+        const pageDepth = getPageDepth();
+        return '../'.repeat(Math.max(0, pageDepth)) + 'layout/side_navbar.html';
+    }
     const CONTENT_SELECTOR = '#page-content'; // ID of the content container in each page
     const CONTENT_INSERT_SELECTOR = 'main.main'; // Where to insert content in the layout
 
@@ -209,9 +212,11 @@
     }
 
     /**
-     * Restore chatbot state after layout loads
+     * Restore chatbot state after layout loads.
+     * On mobile (<=991px), do NOT restore - keep chat closed by default.
      */
     function restoreChatbotState() {
+        if (window.innerWidth <= 991) return;
         const chatbotOffcanvas = document.getElementById('chatbot-offcanvas');
         if (chatbotOffcanvas) {
             const wasOpen = localStorage.getItem('chatbotOpen') === 'true';
@@ -729,7 +734,8 @@
             }
 
             // Fetch the layout file
-            const response = await fetch(LAYOUT_PATH);
+            const layoutPath = getLayoutPath();
+            const response = await fetch(layoutPath);
             if (!response.ok) {
                 throw new Error(`Failed to load layout: ${response.statusText}`);
             }
@@ -775,6 +781,16 @@
 
             // Restore chatbot state after everything is loaded
             restoreChatbotState();
+
+            // On mobile: ensure sidebar is closed by default (hamburger toggles it)
+            if (window.innerWidth <= 991) {
+                const collapse = document.getElementById('navbarVerticalCollapse');
+                if (collapse && collapse.classList.contains('show')) {
+                    const bsCollapse = typeof bootstrap !== 'undefined' && bootstrap.Collapse && bootstrap.Collapse.getInstance(collapse);
+                    if (bsCollapse) bsCollapse.hide();
+                    else collapse.classList.remove('show');
+                }
+            }
 
             console.log('Layout loaded successfully');
         } catch (error) {

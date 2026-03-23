@@ -1,6 +1,8 @@
 # Layout – Chatbot UI
 
-This folder contains the **chatbot panel** (offcanvas + toggle) and its scripts. The main layout (navbar, sidebar, viewport) lives in `side_navbar.html`, which loads this chatbot fragment.
+This folder contains the **chatbot panel** (offcanvas + toggle) and its scripts.
+
+> **📖 New to the code?** See [CODE_GUIDE.md](CODE_GUIDE.md) for a student-friendly flow guide. The main layout (navbar, sidebar, viewport) lives in `side_navbar.html`, which loads this chatbot fragment.
 
 ## Structure
 

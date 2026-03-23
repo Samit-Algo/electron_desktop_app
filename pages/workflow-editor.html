@@ -682,6 +682,8 @@
     return localStorage.getItem('visionai_token') || '';
   }
 
+  const API_BASE = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://localhost:8000';
+
   async function initWorkflowEditor() {
     try {
       await ensureDrawflow();
@@ -1113,7 +1115,7 @@
           const token = getAuthToken();
           const headers = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
-          const response = await fetch('http://localhost:8000/api/v1/cameras/list', { method: 'GET', headers });
+          const response = await fetch(API_BASE + '/api/v1/cameras/list', { method: 'GET', headers });
           if (response.status === 401) { console.error('Authentication required for camera list'); return []; }
           if (!response.ok) throw new Error(`Failed to fetch cameras: ${response.status}`);
           const cameras = await response.json();
@@ -1136,7 +1138,7 @@
         const token = getAuthToken();
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        const response = await fetch(`http://localhost:8000/api/v1/workflows/rules/${ruleId}`, { method: 'GET', headers });
+        const response = await fetch(`${API_BASE}/api/v1/workflows/rules/${ruleId}`, { method: 'GET', headers });
         if (response.status === 401) { console.error('Authentication required for KB rule'); return null; }
         if (response.status === 404) { console.warn(`Rule '${ruleId}' not found in KB`); return null; }
         if (!response.ok) throw new Error(`Failed to fetch rule config: ${response.status}`);
@@ -2078,7 +2080,7 @@
       var token = getAuthToken();
       var headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = 'Bearer ' + token;
-      fetch('http://localhost:8000/api/v1/cameras/' + encodeURIComponent(cameraId) + '/snapshot', { method: 'GET', headers })
+      fetch(API_BASE + '/api/v1/cameras/' + encodeURIComponent(cameraId) + '/snapshot', { method: 'GET', headers })
         .then(r => r.json())
         .then(function (data) {
           if (loadingEl) loadingEl.classList.add('d-none');
@@ -2245,7 +2247,7 @@
       // When editing: deactivate old workflow first, then create new one
       if (isEditMode && editWorkflowId) {
         // Step 1: Deactivate the existing workflow
-        const deactivateRes = await fetch(`http://localhost:8000/api/v1/workflows/${editWorkflowId}`, {
+        const deactivateRes = await fetch(`${API_BASE}/api/v1/workflows/${editWorkflowId}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify({ is_active: false })
@@ -2265,7 +2267,7 @@
         payload.created_by_name = workflowOwner;
       }
       
-      const res = await fetch('http://localhost:8000/api/v1/workflows/', {
+      const res = await fetch(API_BASE + '/api/v1/workflows/', {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
@@ -2319,7 +2321,7 @@
           const token = getAuthToken();
           const headers = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
-          const execRes = await fetch(`http://localhost:8000/api/v1/workflows/${workflowIdToRun}/execute`, { method: 'POST', headers });
+          const execRes = await fetch(`${API_BASE}/api/v1/workflows/${workflowIdToRun}/execute`, { method: 'POST', headers });
           if (execRes.status === 401) {
             alert('Session expired. Please login again.');
             runWorkflowBtn.disabled = false;
@@ -2404,7 +2406,7 @@
         const token = getAuthToken();
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        const response = await fetch(`http://localhost:8000/api/v1/workflows/${workflowId}`, { method: 'GET', headers });
+        const response = await fetch(`${API_BASE}/api/v1/workflows/${workflowId}`, { method: 'GET', headers });
         if (response.status === 401) { alert('Session expired. Please login again.'); return false; }
         if (response.ok) {
           const workflowData = await response.json();

@@ -9,17 +9,24 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Expose protected methods that allow the renderer process to use
 // specific Node.js functionality without exposing the entire Node.js API
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Add any Electron-specific APIs here if needed in the future
   platform: process.platform,
   versions: {
     node: process.versions.node,
     chrome: process.versions.chrome,
     electron: process.versions.electron
   },
-  
-  // File system API for reading local video files
+
   readVideoFile: async (filePath) => {
     return await ipcRenderer.invoke('read-video-file', filePath);
+  },
+
+  /**
+   * Set taskbar/dock badge count (like WhatsApp, Teams).
+   * On Windows: overlay on taskbar icon. On macOS: dock badge.
+   * Pass 0 to clear.
+   */
+  setBadgeCount: (count) => {
+    ipcRenderer.send('set-badge-count', Math.max(0, parseInt(count, 10) || 0));
   }
 });
 

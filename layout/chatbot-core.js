@@ -262,7 +262,14 @@
       localStorage.setItem('chatbotOpen', 'true');
     });
 
-    chatbotOffcanvas.addEventListener('hide.bs.offcanvas', function () {
+    chatbotOffcanvas.addEventListener('hide.bs.offcanvas', function (e) {
+      if (window.innerWidth <= 991) {
+        var active = document.activeElement;
+        if (active && chatbotOffcanvas.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+          e.preventDefault();
+          return;
+        }
+      }
       updateLayoutState(false);
       localStorage.setItem('chatbotOpen', 'false');
     });

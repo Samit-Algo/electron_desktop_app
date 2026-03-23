@@ -1,22 +1,28 @@
 /**
  * Realtime Notifications Integration (Vision AI)
  * - Connects to backend notifications websocket via window.visionAPI.connectWebSocket
- * - Updates existing Phoenix topbar notification dropdown
- * - Updates dashboard "Latest Events" and Events Board when those pages are active
+ * - Handles all backend notification types: event, camera_offline, report_ready
+ * - Uses VisionNotificationDisplay for unified normalization and rendering
+ * - Updates topbar dropdown, dashboard Latest Events, Events Board
  * - Shows native notifications (best-effort) in Electron via Web Notification API
  */
 (function () {
   'use strict';
 
   // Layout-loader reinjects and re-executes layout scripts on SPA navigation.
-  // Guard to prevent multiple websocket connections / duplicated event listeners.
   if (window.__visionNotificationsRealtimeLoaded) return;
   window.__visionNotificationsRealtimeLoaded = true;
 
-  const MAX_EVENTS = 100;
-  const IMAGE_FETCH_TIMEOUT_MS = 8000;
+  var Display = window.VisionNotificationDisplay;
+  if (!Display) {
+    console.warn('[VisionNotifications] VisionNotificationDisplay not loaded');
+    return;
+  }
 
-  const state = {
+  var MAX_EVENTS = 100;
+  var NOTIFICATION_TYPE = Display.NOTIFICATION_TYPE;
+
+  var state = {
     connected: false,
     connecting: false,
     ws: null,
@@ -24,114 +30,32 @@
     /** @type {Array<any>} */
     events: [],
     /** @type {Set<string>} */
-    seenEventIds: new Set(),
+    seenIds: new Set(),
     clearedDummyList: false,
     /** @type {Map<string, string>} */
     imageObjectUrlByEventId: new Map(),
     /** @type {Set<string>} */
     imageFetchInFlight: new Set(),
-    /** @type {boolean} */
-    eventsUiBound: false
+    eventsUiBound: false,
+    /** User preference: show OS popup notifications (default true) */
+    osPopupEnabled: true,
   };
-
-  function nowMs() { return Date.now(); }
 
   function safeJsonParse(v) {
     try { return JSON.parse(v); } catch { return null; }
-  }
-
-  function coerceIso(ts) {
-    if (!ts) return null;
-    const d = new Date(ts);
-    if (!Number.isFinite(d.getTime())) return null;
-    return d;
-  }
-
-  function timeAgo(ts) {
-    const d = coerceIso(ts);
-    if (!d) return '';
-    const diff = Math.max(0, nowMs() - d.getTime());
-    const sec = Math.floor(diff / 1000);
-    if (sec < 60) return `${sec}s`;
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}h`;
-    const day = Math.floor(hr / 24);
-    return `${day}d`;
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
-
-  // Very simple severity mapping until backend provides severity explicitly
-  function inferSeverity(label) {
-    const t = String(label || '').toLowerCase();
-    if (t.includes('weapon') || t.includes('fire') || t.includes('fall') || t.includes('intrusion')) return 'Critical';
-    if (t.includes('violation') || t.includes('restricted') || t.includes('collision') || t.includes('alert')) return 'Warning';
-    return 'Info';
-  }
-
-  function severityBadgeClass(sev) {
-    if (sev === 'Critical') return 'badge-phoenix-danger';
-    if (sev === 'Warning') return 'badge-phoenix-warning';
-    return 'badge-phoenix-info';
-  }
-
-  function normalizeEvent(payload) {
-    const eventId = payload?.event_id || null;
-    const sessionId = payload?.session_id || payload?.metadata?.session_id || null;
-    const label = payload?.event?.label || 'Event';
-    const timestamp = payload?.event?.timestamp || payload?.received_at || null;
-    const cameraId = payload?.agent?.camera_id || payload?.agent?.cameraId || '';
-    const agentName = payload?.agent?.agent_name || payload?.agent?.agentName || '';
-    const imageBase64 = payload?.frame?.image_base64 || null; // optional (we usually send null)
-    const format = payload?.frame?.format || 'jpeg';
-    const sev = inferSeverity(label);
-
-    const thumbDataUrl = imageBase64 ? `data:image/${format};base64,${imageBase64}` : null;
-
-    return {
-      eventId,
-      sessionId,
-      label,
-      timestamp,
-      cameraId,
-      agentName,
-      severity: sev,
-      thumbDataUrl,
-      /** @type {string|null} */
-      thumbObjectUrl: null
-    };
   }
 
   function getEventThumbUrl(ev) {
     return ev.thumbDataUrl || ev.thumbObjectUrl || null;
   }
 
-  async function fetchWithTimeout(url, options, timeoutMs) {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { ...(options || {}), signal: controller.signal });
-      return res;
-    } finally {
-      clearTimeout(t);
-    }
-  }
-
   async function ensureEventImageLoaded(ev) {
-    if (!ev || getEventThumbUrl(ev)) return;
+    if (!ev || ev.notificationType !== NOTIFICATION_TYPE.EVENT) return;
+    if (getEventThumbUrl(ev)) return;
     if (!ev.eventId) return;
     if (!window.visionAPI || typeof window.visionAPI.fetchEventImageObjectUrl !== 'function') return;
 
-    const key = String(ev.eventId);
+    var key = String(ev.eventId);
     if (state.imageObjectUrlByEventId.has(key)) {
       ev.thumbObjectUrl = state.imageObjectUrlByEventId.get(key);
       return;
@@ -140,284 +64,205 @@
     state.imageFetchInFlight.add(key);
 
     try {
-      const objUrl = await window.visionAPI.fetchEventImageObjectUrl(ev.eventId);
+      var objUrl = await window.visionAPI.fetchEventImageObjectUrl(ev.eventId);
       state.imageObjectUrlByEventId.set(key, objUrl);
       ev.thumbObjectUrl = objUrl;
     } catch {
-      // ignore image failures (event still shows)
+      // ignore
     } finally {
       state.imageFetchInFlight.delete(key);
     }
   }
 
+  var lastNativeNotificationTime = 0;
+  var NATIVE_NOTIF_RATE_LIMIT_MS = 1500;
+
   function ensureNotificationPermission() {
     if (!('Notification' in window)) return;
     if (Notification.permission === 'default') {
-      try { Notification.requestPermission().catch?.(() => {}); } catch {}
+      try { Notification.requestPermission().then(function() {}).catch(function() {}); } catch {}
     }
   }
 
-  function showNativeNotification(ev) {
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-    const title = `${ev.severity}: ${ev.label}`;
-    const body = `${ev.cameraId ? `Camera ${ev.cameraId}` : 'Camera'}${ev.agentName ? ` • ${ev.agentName}` : ''}`;
+  /** Request permission on user gesture (required by browsers). Call when user clicks bell. */
+  function requestNotificationPermissionOnUserGesture() {
+    console.log('[VisionNotifications] requestPermission: Notification in window=', 'Notification' in window);
+    if (!('Notification' in window)) {
+      console.warn('[VisionNotifications] Notification API not available');
+      return;
+    }
+    console.log('[VisionNotifications] requestPermission: current permission=', Notification.permission);
+    if (Notification.permission !== 'default') {
+      console.log('[VisionNotifications] Permission already', Notification.permission);
+      return;
+    }
     try {
-      const n = new Notification(title, { body, silent: false });
-      n.onclick = () => {
-        // Best effort: navigate to event details
-        const url = buildEventDetailUrl(ev);
-        try { window.location.href = url; } catch {}
-      };
-    } catch {}
+      console.log('[VisionNotifications] Calling Notification.requestPermission()');
+      Notification.requestPermission().then(function(perm) {
+        console.log('[VisionNotifications] requestPermission result:', perm);
+        if (perm === 'granted') {
+          var toast = window.toastService || window.VisionToast;
+          if (toast && typeof toast.success === 'function') {
+            try { toast.success('Desktop notifications enabled'); } catch {}
+          }
+          window.dispatchEvent(new CustomEvent('vision:notification-permission-changed', { detail: { permission: perm } }));
+        }
+      }).catch(function(err) {
+        console.warn('[VisionNotifications] requestPermission error:', err);
+      });
+    } catch (e) {
+      console.warn('[VisionNotifications] requestPermission exception:', e);
+    }
   }
 
-  function buildEventDetailUrl(ev) {
-    const params = new URLSearchParams();
-    if (ev.eventId) params.set('event_id', ev.eventId);
-    return `../pages/event-detail.html?${params.toString()}`;
+  function getNotificationIconUrl() {
+    try {
+      var link = document.querySelector('link[rel="icon"]');
+      if (link && link.href) return link.href;
+      return new URL('../assets/img/favicons/favicon-32x32.png', window.location.href).href;
+    } catch (e) { return ''; }
+  }
+
+  function showNativeNotification(n) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    if (!state.osPopupEnabled) return;  // User disabled OS popups in settings
+
+    var now = Date.now();
+    if (now - lastNativeNotificationTime < NATIVE_NOTIF_RATE_LIMIT_MS) return;
+    lastNativeNotificationTime = now;
+
+    var title = n.severity + ': ' + n.title;
+    var body = n.cameraId ? 'Camera ' + n.cameraId : (n.body || '');
+    if (!body && n.notificationType === Display.NOTIFICATION_TYPE.REPORT_READY) body = n.body || 'Report ready';
+    var silent = n.severity === 'Info';
+    var icon = getNotificationIconUrl();
+    var opts = { body: body, silent: silent };
+    if (icon) opts.icon = icon;
+
+    try {
+      var nat = new Notification(title, opts);
+      nat.onclick = function() {
+        try { window.focus(); } catch {}
+        var url = Display.getNotificationHref(n);
+        try { if (url && url !== '#') window.location.href = url; } catch {}
+      };
+    } catch (e) {
+      console.warn('[VisionNotifications] OS notification failed:', e);
+    }
   }
 
   function updateTopbar() {
-    const badge = document.getElementById('vision-notif-badge');
+    var badge = document.getElementById('vision-notif-badge');
     if (badge) {
       badge.textContent = String(state.unread);
       if (state.unread > 0) badge.classList.remove('d-none');
       else badge.classList.add('d-none');
     }
+    if (window.electronAPI && typeof window.electronAPI.setBadgeCount === 'function') {
+      try { window.electronAPI.setBadgeCount(state.unread); } catch (e) {}
+    }
   }
 
   function clearDummyNotificationsIfNeeded(listEl) {
     if (!listEl || state.clearedDummyList) return;
-    // The shipped layout includes placeholder Phoenix demo notifications.
-    // Once we receive first real event, we clear them and only show realtime.
     listEl.innerHTML = '';
     state.clearedDummyList = true;
   }
 
-  function renderTopbarItem(ev) {
-    const href = buildEventDetailUrl(ev);
-    const ago = timeAgo(ev.timestamp);
-    const title = escapeHtml(ev.label);
-    const cam = escapeHtml(ev.cameraId || '');
-    const sev = escapeHtml(ev.severity || 'Info');
-    const badgeCls = severityBadgeClass(ev.severity);
-    const timeLine = ev.timestamp ? escapeHtml(new Date(ev.timestamp).toLocaleString()) : '';
-    const avatarLetter = escapeHtml((ev.label || 'E').trim().charAt(0).toUpperCase());
-    const eventKey = escapeHtml(ev.eventId || '');
-    const thumb = getEventThumbUrl(ev);
-
-    // Keep structure close to existing Phoenix notification-card
-    const wrapper = document.createElement('div');
-    wrapper.className = 'px-2 px-sm-3 py-3 notification-card position-relative unread border-bottom';
-    if (eventKey) wrapper.setAttribute('data-vision-event-id', eventKey);
-    wrapper.innerHTML = `
-      <div class="d-flex align-items-center justify-content-between position-relative">
-        <div class="d-flex align-items-center">
-          <div class="avatar avatar-m status-online me-3">
-            <div class="avatar-name rounded-circle"><span>${avatarLetter}</span></div>
-          </div>
-          <div class="flex-1 me-sm-3">
-            <div class="d-flex align-items-center gap-2">
-              <h4 class="fs-9 text-body-emphasis mb-0">${title}</h4>
-              <span class="badge badge-phoenix fs-10 ${badgeCls}" data-bs-theme="light">${sev}</span>
-            </div>
-            <p class="fs-9 text-body-highlight mb-2 mb-sm-2 fw-normal">
-              Event detected${cam ? ` • Camera ${cam}` : ''}${ago ? `<span class="ms-2 text-body-quaternary text-opacity-75 fw-bold fs-10">${ago}</span>` : ''}
-            </p>
-            ${timeLine ? `<p class="text-body-secondary fs-9 mb-0"><span class="me-1 fas fa-clock"></span>${timeLine}</p>` : ''}
-          </div>
-        </div>
-        <div class="ms-3 flex-shrink-0">
-          <div class="rounded-2 overflow-hidden bg-body-secondary"
-               style="width:84px;height:56px;position:relative;border:1px solid rgba(0,0,0,0.06);">
-            <img
-              data-vision-event-thumb="${eventKey}"
-              src="${thumb ? escapeHtml(thumb) : ''}"
-              alt=""
-              style="width:100%;height:100%;object-fit:cover;display:${thumb ? 'block' : 'none'};"
-            >
-            <div
-              data-vision-event-thumb-fallback="${eventKey}"
-              class="d-flex align-items-center justify-content-center text-body-secondary"
-              style="width:100%;height:100%;display:${thumb ? 'none' : 'flex'};"
-            >
-              <span class="fa-solid fa-image"></span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <a class="stretched-link" href="${href}"></a>
-    `;
-    return wrapper;
-  }
-
-  function updateTopbarThumb(ev) {
-    if (!ev?.eventId) return;
-    const listEl = document.getElementById('vision-notif-list');
+  function updateTopbarThumb(n) {
+    if (!n || n.notificationType !== NOTIFICATION_TYPE.EVENT || !n.eventId) return;
+    var listEl = document.getElementById('vision-notif-list');
     if (!listEl) return;
-    const key = String(ev.eventId);
-    const card = listEl.querySelector?.(`.notification-card[data-vision-event-id="${CSS.escape(key)}"]`);
+    var key = String(n.eventId);
+    var card = listEl.querySelector('.notification-card[data-vision-notif-id="' + CSS.escape(key) + '"]');
     if (!card) return;
-
-    const thumb = getEventThumbUrl(ev);
+    var thumb = getEventThumbUrl(n);
     if (!thumb) return;
-
-    const img = card.querySelector?.(`img[data-vision-event-thumb="${CSS.escape(key)}"]`);
-    const fb = card.querySelector?.(`[data-vision-event-thumb-fallback="${CSS.escape(key)}"]`);
+    var img = card.querySelector('img[data-vision-notif-thumb="' + CSS.escape(key) + '"]');
+    var fb = card.querySelector('[data-vision-notif-thumb-fallback="' + CSS.escape(key) + '"]');
     try {
-      if (img) {
-        img.src = thumb;
-        img.style.display = 'block';
-      }
+      if (img) { img.src = thumb; img.style.display = 'block'; }
       if (fb) fb.style.display = 'none';
     } catch {}
   }
 
-  function pushTopbar(ev) {
-    const listEl = document.getElementById('vision-notif-list');
+  function pushTopbar(n) {
+    var listEl = document.getElementById('vision-notif-list');
     if (!listEl) return;
     clearDummyNotificationsIfNeeded(listEl);
-    const item = renderTopbarItem(ev);
+    var item = Display.renderTopbarCard(n);
     listEl.prepend(item);
   }
 
   function updateLatestEventsSection() {
-    const container = document.getElementById('vision-latest-events');
+    var container = document.getElementById('vision-latest-events');
     if (!container) return;
-
-    // Replace contents with latest 4 events
-    const latest = state.events.slice(0, 4);
-    container.innerHTML = latest.map(ev => {
-      const sev = ev.severity;
-      const badgeCls = severityBadgeClass(sev);
-      const ago = timeAgo(ev.timestamp);
-      const cam = escapeHtml(ev.cameraId || '');
-      const href = buildEventDetailUrl(ev);
-      const thumb = getEventThumbUrl(ev);
-      return `
-        <div class="btn-reveal-trigger position-relative rounded-2 overflow-hidden p-3 flex-shrink-0" style="width: 280px; height: 170px;">
-          ${thumb ? `<img src="${thumb}" alt="" class="w-100 h-100 position-absolute top-0 start-0" style="object-fit: cover;">` : `<div class="w-100 h-100 position-absolute top-0 start-0 bg-body-secondary"></div>`}
-          <div class="w-100 h-100 position-absolute top-0 start-0" style="background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%);"></div>
-          <div class="position-relative h-100 d-flex flex-column justify-content-between">
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="badge badge-phoenix fs-10 ${badgeCls}" data-bs-theme="light">${escapeHtml(sev)}</span>
-            </div>
-            <div>
-              <h4 class="text-white fw-bold line-clamp-2 mb-1">${escapeHtml(ev.label)}</h4>
-              <p class="text-white text-opacity-75 fs-9 mb-0">${cam ? `Camera ${cam}` : 'Camera'}</p>
-              <div class="d-flex align-items-center mt-2">
-                <span class="fa-solid fa-video text-white text-opacity-75 me-2 fs-10"></span>
-                <span class="text-white text-opacity-75 fs-9">${cam ? `Camera ${cam}` : 'Camera'}</span>
-                <span class="text-white text-opacity-50 mx-2">•</span>
-                <span class="text-white text-opacity-75 fs-9">${ago || ''}</span>
-              </div>
-            </div>
-          </div>
-          <a class="stretched-link" href="${href}"></a>
-        </div>
-      `;
+    var latest = state.events.slice(0, 4);
+    container.innerHTML = latest.map(function(n) {
+      var thumb = getEventThumbUrl(n);
+      return '<div class="flex-shrink-0" style="width: 280px;">' + Display.renderEventCard(n, thumb, { compact: true }) + '</div>';
     }).join('');
   }
 
   function renderEventsBoardFromState() {
-    const grid = document.getElementById('vision-events-board-grid');
+    var grid = document.getElementById('vision-events-board-grid');
     if (!grid) return;
-    const countEl = document.getElementById('vision-events-count');
+    var countEl = document.getElementById('vision-events-count');
     if (countEl) countEl.textContent = String(state.events.length);
-
-    grid.innerHTML = state.events.map(ev => {
-      const sev = ev.severity;
-      const badgeCls = severityBadgeClass(sev);
-      const ago = timeAgo(ev.timestamp);
-      const cam = escapeHtml(ev.cameraId || '');
-      const href = buildEventDetailUrl(ev);
-      const thumb = getEventThumbUrl(ev);
-      return `
-        <div class="col-12 col-sm-6 col-md-4 col-xxl-3">
-          <div class="btn-reveal-trigger position-relative rounded-2 overflow-hidden p-4" style="height: 236px;">
-            ${thumb ? `<img src="${thumb}" alt="" class="w-100 h-100 position-absolute top-0 start-0" style="object-fit: cover;">` : `<div class="w-100 h-100 position-absolute top-0 start-0 bg-body-secondary"></div>`}
-            <div class="w-100 h-100 position-absolute top-0 start-0" style="background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%);"></div>
-            <div class="position-relative h-100 d-flex flex-column justify-content-between">
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="badge badge-phoenix fs-10 ${badgeCls}" data-bs-theme="light">${escapeHtml(sev)}</span>
-              </div>
-              <div>
-                <h3 class="text-white fw-bold line-clamp-2 mb-1">${escapeHtml(ev.label)}</h3>
-                <p class="text-white text-opacity-75 fs-9 mb-0">${cam ? `Camera ${cam}` : 'Camera'}</p>
-                <div class="d-flex align-items-center mt-2">
-                  <span class="fa-solid fa-video text-white text-opacity-75 me-2 fs-10"></span>
-                  <span class="text-white text-opacity-75 fs-9">${cam ? `Camera ${cam}` : 'Camera'}</span>
-                  <span class="text-white text-opacity-50 mx-2">•</span>
-                  <span class="text-white text-opacity-75 fs-9">${ago || ''}</span>
-                </div>
-              </div>
-            </div>
-            <a class="stretched-link" href="${href}"></a>
-          </div>
-        </div>
-      `;
+    grid.innerHTML = state.events.map(function(n) {
+      var thumb = getEventThumbUrl(n);
+      return '<div class="col-12 col-sm-6 col-md-4 col-xxl-3">' + Display.renderEventCard(n, thumb) + '</div>';
     }).join('');
   }
 
+  function apiEventToNormalized(it) {
+    var payload = {
+      type: 'event_notification',
+      event_id: it.id,
+      event: { label: it.label || 'Event', timestamp: it.event_ts || it.received_at },
+      agent: { camera_id: it.camera_id || '', agent_name: it.agent_name || '' },
+      received_at: it.event_ts || it.received_at
+    };
+    return Display.normalizeNotification(payload);
+  }
+
   async function refreshDashboardLatestFromApi() {
-    const container = document.getElementById('vision-latest-events');
+    var container = document.getElementById('vision-latest-events');
     if (!container) return;
     if (!window.visionAPI || typeof window.visionAPI.listEvents !== 'function') return;
     if (typeof window.visionAPI.isAuthenticated === 'function' && !window.visionAPI.isAuthenticated()) return;
     try {
-      const res = await window.visionAPI.listEvents('today', 5, 0);
-      const items = Array.isArray(res?.items) ? res.items : [];
-      // Map to local event objects
-      state.events = items.map(it => ({
-        eventId: it.id,
-        sessionId: it.session_id || null,
-        label: it.label || 'Event',
-        timestamp: it.event_ts || it.received_at || null,
-        cameraId: it.camera_id || '',
-        agentName: it.agent_name || '',
-        severity: inferSeverity(it.label),
-        thumbDataUrl: null,
-        thumbObjectUrl: null
-      }));
-      // Load images async
-      await Promise.all(state.events.map(e => ensureEventImageLoaded(e)));
+      var res = await window.visionAPI.listEvents('today', 5, 0);
+      var items = Array.isArray(res && res.items) ? res.items : [];
+      state.events = items.map(function(it) { return apiEventToNormalized(it); }).filter(Boolean);
+      await Promise.all(state.events.map(function(e) { return ensureEventImageLoaded(e); }));
       updateLatestEventsSection();
     } catch {}
   }
 
   async function refreshEventsBoardFromApi(range) {
-    const grid = document.getElementById('vision-events-board-grid');
+    var grid = document.getElementById('vision-events-board-grid');
     if (!grid) return;
     if (!window.visionAPI || typeof window.visionAPI.listEvents !== 'function') return;
     if (typeof window.visionAPI.isAuthenticated === 'function' && !window.visionAPI.isAuthenticated()) return;
     try {
-      const res = await window.visionAPI.listEvents(range || 'all', 200, 0);
-      const items = Array.isArray(res?.items) ? res.items : [];
-      const countEl = document.getElementById('vision-events-count');
-      if (countEl) countEl.textContent = String(res?.total ?? items.length ?? 0);
-      state.events = items.map(it => ({
-        eventId: it.id,
-        sessionId: it.session_id || null,
-        label: it.label || 'Event',
-        timestamp: it.event_ts || it.received_at || null,
-        cameraId: it.camera_id || '',
-        agentName: it.agent_name || '',
-        severity: inferSeverity(it.label),
-        thumbDataUrl: null,
-        thumbObjectUrl: null
-      }));
-      await Promise.all(state.events.map(e => ensureEventImageLoaded(e)));
+      var res = await window.visionAPI.listEvents(range || 'all', 200, 0);
+      var items = Array.isArray(res && res.items) ? res.items : [];
+      var countEl = document.getElementById('vision-events-count');
+      if (countEl) countEl.textContent = String((res && res.total) != null ? res.total : items.length);
+      state.events = items.map(function(it) { return apiEventToNormalized(it); }).filter(Boolean);
+      await Promise.all(state.events.map(function(e) { return ensureEventImageLoaded(e); }));
       renderEventsBoardFromState();
     } catch {}
   }
 
   function bindEventsBoardFilterOnce() {
-    const sel = document.getElementById('vision-events-range');
+    var sel = document.getElementById('vision-events-range');
     if (!sel) return;
     if (sel.getAttribute('data-vision-bound') === 'true') return;
     sel.setAttribute('data-vision-bound', 'true');
-    sel.addEventListener('change', () => {
+    sel.addEventListener('change', function() {
       refreshEventsBoardFromApi(sel.value);
     });
   }
@@ -425,49 +270,84 @@
   function markAllRead() {
     state.unread = 0;
     updateTopbar();
-    // Remove unread class visually
-    const listEl = document.getElementById('vision-notif-list');
+    var listEl = document.getElementById('vision-notif-list');
     if (listEl) {
-      listEl.querySelectorAll?.('.notification-card.unread')?.forEach(el => {
-        el.classList.remove('unread');
-        el.classList.add('read');
-      });
+      var cards = listEl.querySelectorAll('.notification-card.unread');
+      for (var i = 0; i < cards.length; i++) {
+        cards[i].classList.remove('unread');
+        cards[i].classList.add('read');
+      }
     }
   }
 
-  function handleEventNotification(payload) {
-    const ev = normalizeEvent(payload);
-    if (!ev.eventId) return;
-    if (state.seenEventIds.has(ev.eventId)) return;
-    state.seenEventIds.add(ev.eventId);
+  function getDedupKey(n) {
+    return n.eventId || n.notificationId || (n.notificationType + '-' + n.timestamp + '-' + n.title);
+  }
 
-    state.events.unshift(ev);
+  function handleEventNotification(payload) {
+    var n = Display.normalizeNotification(payload);
+    if (!n) return;
+    var key = getDedupKey(n);
+    if (state.seenIds.has(key)) return;
+    state.seenIds.add(key);
+
+    state.events.unshift(n);
     if (state.events.length > MAX_EVENTS) state.events.length = MAX_EVENTS;
 
     state.unread += 1;
     updateTopbar();
-    pushTopbar(ev);
-    // If backend has an image stored, load it async and swap the thumb in the topbar item.
-    ensureEventImageLoaded(ev).then(() => updateTopbarThumb(ev)).catch(() => {});
-    // Refresh UI from DB-backed APIs so navigation/reload is always correct
+    pushTopbar(n);
+    ensureEventImageLoaded(n).then(function() { updateTopbarThumb(n); }).catch(function() {});
     refreshDashboardLatestFromApi();
-    const sel = document.getElementById('vision-events-range');
-    refreshEventsBoardFromApi(sel?.value || 'all');
-    showNativeNotification(ev);
+    var sel = document.getElementById('vision-events-range');
+    refreshEventsBoardFromApi(sel ? sel.value : 'all');
+    showNativeNotification(n);
 
-    window.dispatchEvent(new CustomEvent('vision:event-notification', { detail: ev }));
-    // Raw payload dispatch (for pages that need agent_id / full metadata)
-    // Example consumers: camera-detail timeline grouped by active agents.
+    window.dispatchEvent(new CustomEvent('vision:event-notification', { detail: n }));
     window.dispatchEvent(new CustomEvent('vision:event-notification-raw', { detail: payload }));
   }
 
+  function handleSystemNotification(payload) {
+    var n = Display.normalizeNotification(payload);
+    if (!n) return;
+    var key = getDedupKey(n);
+    if (state.seenIds.has(key)) return;
+    state.seenIds.add(key);
+
+    state.events.unshift(n);
+    if (state.events.length > MAX_EVENTS) state.events.length = MAX_EVENTS;
+
+    state.unread += 1;
+    updateTopbar();
+    pushTopbar(n);
+    updateLatestEventsSection();
+    renderEventsBoardFromState();
+    showNativeNotification(n);
+
+    window.dispatchEvent(new CustomEvent('vision:notification', { detail: n }));
+  }
+
   function onWsMessage(msg) {
-    const payload = msg && typeof msg === 'object' ? msg : safeJsonParse(msg);
+    var payload = msg && typeof msg === 'object' ? msg : safeJsonParse(msg);
     if (!payload) return;
     if (payload.type === 'connection_established') return;
     if (payload.type === 'event_notification') {
       handleEventNotification(payload);
+      return;
     }
+    if (payload.type === 'notification') {
+      handleSystemNotification(payload);
+      return;
+    }
+  }
+
+  function refreshOsPopupPreference() {
+    if (!window.visionAPI || typeof window.visionAPI.getNotificationPreferences !== 'function') return;
+    window.visionAPI.getNotificationPreferences().then(function(p) {
+      var ch = p && p.channels || {};
+      var osCfg = ch.os_popup || {};
+      state.osPopupEnabled = osCfg.enabled !== false;
+    }).catch(function() { state.osPopupEnabled = true; });
   }
 
   function connectIfReady() {
@@ -476,6 +356,7 @@
     if (!window.visionAPI.isAuthenticated()) return;
 
     ensureNotificationPermission();
+    refreshOsPopupPreference();
 
     state.connecting = true;
     try {
@@ -491,32 +372,97 @@
   function disconnect() {
     state.connected = false;
     state.connecting = false;
-    try { state.ws?.close?.(); } catch {}
+    try { if (state.ws && state.ws.close) state.ws.close(); } catch {}
     state.ws = null;
     state.unread = 0;
     state.events = [];
-    state.seenEventIds.clear();
+    state.seenIds.clear();
     state.clearedDummyList = false;
     updateTopbar();
   }
 
   function initUiHandlers() {
-    const markBtn = document.getElementById('vision-notif-mark-read');
-    if (markBtn) markBtn.addEventListener('click', markAllRead);
+    var markBtn = document.getElementById('vision-notif-mark-read');
+    if (markBtn && markBtn.getAttribute('data-vision-mark-bound') !== 'true') {
+      markBtn.setAttribute('data-vision-mark-bound', 'true');
+      markBtn.addEventListener('click', markAllRead);
+    }
+    var bellBtn = document.getElementById('vision-notif-bell');
+    if (bellBtn && bellBtn.getAttribute('data-vision-bell-bound') !== 'true') {
+      bellBtn.setAttribute('data-vision-bell-bound', 'true');
+      bellBtn.addEventListener('click', requestNotificationPermissionOnUserGesture);
+    }
+  }
+
+  function updateOsNotifStatus() {
+    var el = document.getElementById('osNotifStatus');
+    var btn = document.getElementById('btnEnableOsNotifications');
+    if (!el) return;
+    var perm = ('Notification' in window) ? Notification.permission : 'unsupported';
+    if (perm === 'unsupported') {
+      el.textContent = 'Not supported';
+      el.className = 'badge badge-phoenix fs-10 mb-2 badge-phoenix-secondary';
+      if (btn) { btn.style.display = 'none'; }
+    } else if (perm === 'granted') {
+      el.textContent = 'Enabled';
+      el.className = 'badge badge-phoenix fs-10 mb-2 badge-phoenix-success';
+      if (btn) {
+        btn.innerHTML = '<span class="fas fa-check me-1"></span>Enabled';
+        btn.disabled = true;
+        btn.classList.remove('btn-phoenix-primary');
+        btn.classList.add('btn-phoenix-success');
+        btn.style.display = '';
+      }
+    } else {
+      el.textContent = 'Disabled';
+      el.className = 'badge badge-phoenix fs-10 mb-2 badge-phoenix-warning';
+      if (btn) {
+        btn.innerHTML = '<span class="fas fa-bell me-1"></span>Enable';
+        btn.disabled = false;
+        btn.classList.remove('btn-phoenix-success');
+        btn.classList.add('btn-phoenix-primary');
+        btn.style.display = '';
+      }
+    }
+  }
+
+  function initOsNotifSettingsUi() {
+    var el = document.getElementById('osNotifStatus');
+    var btn = document.getElementById('btnEnableOsNotifications');
+    if (!el && !btn) return;
+    console.log('[VisionNotifications] initOsNotifSettingsUi: osNotifStatus=', !!el, 'btn=', !!btn);
+    updateOsNotifStatus();
+    if (btn && btn.getAttribute('data-vision-os-notif-bound') !== 'true') {
+      btn.setAttribute('data-vision-os-notif-bound', 'true');
+      btn.addEventListener('click', function() {
+        console.log('[VisionNotifications] Enable button clicked');
+        requestNotificationPermissionOnUserGesture();
+        window.addEventListener('vision:notification-permission-changed', function handler() {
+          window.removeEventListener('vision:notification-permission-changed', handler);
+          updateOsNotifStatus();
+        });
+        setTimeout(updateOsNotifStatus, 1000);
+      });
+    }
   }
 
   // Init (SPA-safe): layout-loader may inject this script after DOMContentLoaded.
   // So we run once immediately and keep a small retry loop.
   // Events API is only called when authenticated to avoid 401s before login.
   function boot() {
+    console.log('[VisionNotifications] boot');
     initUiHandlers();
+    initOsNotifSettingsUi();
+    if (window.visionAPI && window.visionAPI.isAuthenticated && window.visionAPI.isAuthenticated()) {
+      refreshOsPopupPreference();
+    }
     connectIfReady();
     updateTopbar();
     bindEventsBoardFilterOnce();
     if (window.visionAPI && typeof window.visionAPI.isAuthenticated === 'function' && window.visionAPI.isAuthenticated()) {
       refreshDashboardLatestFromApi();
-      const sel = document.getElementById('vision-events-range');
-      refreshEventsBoardFromApi(sel?.value || 'all');
+      var sel = document.getElementById('vision-events-range');
+      refreshEventsBoardFromApi(sel ? sel.value : 'all');
     }
   }
 
@@ -527,10 +473,11 @@
   });
 
   window.addEventListener('authStateChanged', function (event) {
-    if (event?.detail?.loggedIn) {
+    if (event && event.detail && event.detail.loggedIn) {
       connectIfReady();
       refreshDashboardLatestFromApi();
-      refreshEventsBoardFromApi(document.getElementById('vision-events-range')?.value || 'all');
+      var sel = document.getElementById('vision-events-range');
+      refreshEventsBoardFromApi(sel ? sel.value : 'all');
     } else {
       disconnect();
     }
@@ -541,9 +488,14 @@
     boot();
   });
 
-  // Retry loop: ensures we connect even if auth/layout timing is odd.
-  // Stops after connected.
-  const retryTimer = setInterval(() => {
+  window.addEventListener('vision:notification-prefs-updated', function (e) {
+    if (e && e.detail && e.detail.channels) {
+      var osCfg = e.detail.channels.os_popup || {};
+      state.osPopupEnabled = osCfg.enabled !== false;
+    }
+  });
+
+  var retryTimer = setInterval(function() {
     if (state.connected) {
       clearInterval(retryTimer);
       return;
@@ -551,10 +503,12 @@
     boot();
   }, 1500);
 
-  // Expose for debugging
   window.__visionNotifications = {
-    getState: () => ({ unread: state.unread, events: state.events.slice() }),
-    markAllRead,
+    getState: function() { return { unread: state.unread, events: state.events.slice() }; },
+    markAllRead: markAllRead,
+    requestPermission: requestNotificationPermissionOnUserGesture,
+    getPermission: function() { return ('Notification' in window) ? Notification.permission : 'unsupported'; },
+    updateOsNotifStatus: updateOsNotifStatus,
   };
 })();
 

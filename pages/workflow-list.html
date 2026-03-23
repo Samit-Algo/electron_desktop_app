@@ -96,6 +96,8 @@
 (function () {
   'use strict';
 
+  const API_BASE = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://localhost:8000';
+
   // Helper to get auth token - uses same key as api-service.js (visionai_token)
   function getAuthToken() {
     return localStorage.getItem('visionai_token') || '';
@@ -129,7 +131,7 @@
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       
-      const res = await fetch('http://localhost:8000/api/v1/workflows/', {
+      const res = await fetch(API_BASE + '/api/v1/workflows/', {
         method: 'GET',
         headers: headers,
       });
@@ -267,7 +269,7 @@
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       
-      const response = await fetch(`http://localhost:8000/api/v1/workflows/${workflowId}`, {
+      const response = await fetch(`${API_BASE}/api/v1/workflows/${workflowId}`, {
         method: 'DELETE',
         headers: headers,
       });

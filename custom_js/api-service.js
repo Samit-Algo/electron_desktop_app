@@ -24,9 +24,9 @@ function parseErrorDetail(detail) {
 
 class VisionAPIService {
   constructor() {
-    // Backend URL - adjust this to your backend URL
-    this.baseURL = 'http://localhost:8000';  // Vision backend
-    this.jetsonBaseURL = 'http://localhost:8001';  // Jetson backend (adjust port if different)
+    // Backend URL - from api-config.js (desktop: localhost, mobile: deployed API)
+    this.baseURL = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://localhost:8000';
+    this.jetsonBaseURL = (typeof window !== 'undefined' && window.VISION_JETSON_BASE) ? window.VISION_JETSON_BASE : 'http://localhost:8001';
     this.token = localStorage.getItem('visionai_token');
     this.user = JSON.parse(localStorage.getItem('visionai_user') || 'null');
   }
@@ -876,6 +876,17 @@ class VisionAPIService {
   }
 
   /**
+   * Register FCM token for push notifications (mobile).
+   * Backend should associate token with current user if authenticated.
+   */
+  async registerFcmToken(token) {
+    return await this.request('/api/v1/devices/register-fcm', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  /**
    * WebSocket Connection for Notifications
    */
   connectWebSocket(onMessage, onError) {
@@ -1001,6 +1012,38 @@ class VisionAPIService {
       throw new Error(msg);
     }
     return data;
+  }
+
+  /**
+   * Notification Preferences: get current user's notification settings.
+   * @returns {Promise<{user_id, channels, by_severity, by_type}>}
+   */
+  async getNotificationPreferences() {
+    return await this.request('/api/v1/notifications/preferences');
+  }
+
+  /**
+   * Notification Preferences: update current user's notification settings.
+   * @param {Object} payload - { channels?, by_severity?, by_type? }
+   */
+  async updateNotificationPreferences(payload) {
+    return await this.request('/api/v1/notifications/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /**
+   * Register FCM device token for push notifications.
+   * Uses auth headers when user is logged in; token is associated with that user.
+   * @param {string} token - FCM device token
+   * @returns {Promise<{message: string, user_id?: string}>}
+   */
+  async registerFcmToken(token) {
+    return await this.request('/api/v1/devices/register-fcm', {
+      method: 'POST',
+      body: JSON.stringify({ token: String(token).trim() }),
+    });
   }
 
   /**
