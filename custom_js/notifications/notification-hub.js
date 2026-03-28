@@ -65,6 +65,8 @@
     thumbnailCacheByEventId : new Map(),
     // Set of event IDs currently being fetched (avoid duplicate requests)
     thumbnailFetchInProgress: new Set(),
+    /** Normalized event rows for Events Board page (from listEvents); filtered client-side */
+    eventsBoardItems        : [],
   };
 
   // ─────────────────────────────────────────────
@@ -130,6 +132,7 @@
       event    : {
         label     : apiEventItem.label     || 'Event',
         timestamp : apiEventItem.event_ts  || apiEventItem.received_at,
+        severity  : apiEventItem.severity  || null,
       },
       agent    : {
         camera_id  : apiEventItem.camera_id  || '',
@@ -138,6 +141,128 @@
       received_at: apiEventItem.event_ts || apiEventItem.received_at,
     };
     return Normalizer.normalizeNotification(wsStylePayload);
+  }
+
+  // ─────────────────────────────────────────────
+  // Events Board: timeline → API params (backend supports start_ts / end_ts)
+  // ─────────────────────────────────────────────
+  function getTimelineListParams() {
+    var $t = $('#vision-events-timeline');
+    var timeline = ($t.length && $t.val()) ? String($t.val()) : 'all';
+    var now = new Date();
+    var endIso = now.toISOString();
+
+    if (timeline === 'today') {
+      return { range: 'today', extra: {} };
+    }
+    if (timeline === 'all') {
+      return { range: 'all', extra: {} };
+    }
+    if (timeline === 'week') {
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      var day = d.getDay();
+      var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      d.setDate(diff);
+      d.setHours(0, 0, 0, 0);
+      return { range: 'all', extra: { startTs: d.toISOString(), endTs: endIso } };
+    }
+    if (timeline === 'month') {
+      var m = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      return { range: 'all', extra: { startTs: m.toISOString(), endTs: endIso } };
+    }
+    return { range: 'all', extra: {} };
+  }
+
+  function getActiveSeverityTab() {
+    var $a = $('#vision-events-severity-tabs .nav-link.active');
+    if ($a.length) {
+      var s = $a.data('severity');
+      if (s !== undefined && s !== null) return String(s);
+    }
+    return 'all';
+  }
+
+  function countSeverityBuckets(list) {
+    var counts = { all: list.length, Critical: 0, Warning: 0, Info: 0, Resolved: 0 };
+    list.forEach(function (n) {
+      var sev = n.severity || Constants.SEVERITY.INFO;
+      if (counts[sev] !== undefined) counts[sev] += 1;
+    });
+    return counts;
+  }
+
+  /**
+   * Camera + search (matches title, camera id, agent name). Does not apply severity tab.
+   */
+  function filterEventsBoardByCameraAndSearch(list) {
+    var cam = ($('#vision-events-filter-camera').val() || '').trim();
+    var q = ($('#vision-events-search').val() || '').trim().toLowerCase();
+    return list.filter(function (n) {
+      if (cam && String(n.cameraId || '') !== cam) return false;
+      if (!q) return true;
+      var title = String(n.title || '').toLowerCase();
+      var cid = String(n.cameraId || '').toLowerCase();
+      var agent = String(n.agentName || '').toLowerCase();
+      return title.indexOf(q) !== -1 || cid.indexOf(q) !== -1 || agent.indexOf(q) !== -1;
+    });
+  }
+
+  function applySeverityTab(list, severityTab) {
+    if (!severityTab || severityTab === 'all') return list.slice();
+    return list.filter(function (n) { return (n.severity || Constants.SEVERITY.INFO) === severityTab; });
+  }
+
+  function applyEventsBoardClientFilters() {
+    if ($('#vision-events-board-grid').length === 0) return;
+    var base = state.eventsBoardItems || [];
+    var narrowed = filterEventsBoardByCameraAndSearch(base);
+    var counts = countSeverityBuckets(narrowed);
+    UI.updateEventsBoardSeverityTabCounts(counts);
+
+    var sev = getActiveSeverityTab();
+    var rows = applySeverityTab(narrowed, sev);
+    UI.renderEventsBoardGrid(rows);
+  }
+
+  function onEventsBoardFilterAction(detail) {
+    var src = detail && detail.source;
+    if (src === 'clear') {
+      $('#vision-events-timeline').val('all');
+      $('#vision-events-filter-camera').val('');
+      $('#vision-events-search').val('');
+      $('#vision-events-severity-tabs .nav-link').removeClass('active');
+      $('#vision-events-severity-tabs .nav-link[data-severity="all"]').addClass('active');
+      refreshEventsBoardFromApi();
+      return;
+    }
+    if (src === 'timeline') {
+      refreshEventsBoardFromApi();
+      return;
+    }
+    applyEventsBoardClientFilters();
+  }
+
+  async function populateEventsBoardCameras() {
+    var $sel = $('#vision-events-filter-camera');
+    if ($sel.length === 0) return;
+    var preserve = $sel.val() || '';
+    if (!window.visionAPI || typeof window.visionAPI.listCameras !== 'function') return;
+    try {
+      var cams = await window.visionAPI.listCameras();
+      var list = Array.isArray(cams) ? cams : (cams && cams.items) ? cams.items : [];
+      var opts = '<option value="">All cameras</option>';
+      list.forEach(function (c) {
+        var id = (c && (c.id || c.camera_id)) ? String(c.id || c.camera_id) : '';
+        if (!id) return;
+        var name = (c && (c.name || c.camera_name)) ? String(c.name || c.camera_name) : id;
+        opts += '<option value="' + Normalizer.escapeHtml(id) + '">' + Normalizer.escapeHtml(name) + '</option>';
+      });
+      $sel.html(opts);
+      if (preserve) {
+        $sel.val(preserve);
+        if (!$sel.val()) $sel.val('');
+      }
+    } catch (e) { /* ignore */ }
   }
 
   // ─────────────────────────────────────────────
@@ -168,21 +293,17 @@
   }
 
   // ─────────────────────────────────────────────
-  // Load and render the Events Board grid
-  // range: 'today' | 'week' | 'month' | 'all'
+  // Load Events Board data from API, then apply camera / search / severity (client)
   // ─────────────────────────────────────────────
-  async function refreshEventsBoardFromApi(dateRange) {
+  async function refreshEventsBoardFromApi() {
     if ($('#vision-events-board-grid').length === 0) return;
     if (!window.visionAPI || typeof window.visionAPI.listEvents !== 'function') return;
     if (window.visionAPI.isAuthenticated && !window.visionAPI.isAuthenticated()) return;
 
     try {
-      var apiResponse = await window.visionAPI.listEvents(dateRange || 'all', 200, 0);
-      var eventItems  = Array.isArray(apiResponse && apiResponse.items) ? apiResponse.items : [];
-
-      // Update the counter with the true total from the server
-      var totalCount = (apiResponse && apiResponse.total != null) ? apiResponse.total : eventItems.length;
-      $('#vision-events-count').text(String(totalCount));
+      var tp = getTimelineListParams();
+      var apiResponse = await window.visionAPI.listEvents(tp.range, 200, 0, null, tp.extra || {});
+      var eventItems = Array.isArray(apiResponse && apiResponse.items) ? apiResponse.items : [];
 
       var notificationsList = eventItems
         .map(convertApiEventToNotification)
@@ -190,8 +311,9 @@
 
       await Promise.all(notificationsList.map(loadThumbnailFromApi));
 
-      state.notificationsList = notificationsList;
-      UI.renderEventsBoardGrid(notificationsList);
+      state.eventsBoardItems = notificationsList;
+      await populateEventsBoardCameras();
+      applyEventsBoardClientFilters();
     } catch (error) {
       // Silently ignore — user might not be on the events board page
     }
@@ -233,8 +355,7 @@
 
     // Refresh dashboard and events board from the server API
     refreshDashboardFromApi();
-    var currentDateRange = $('#vision-events-range').val() || 'all';
-    refreshEventsBoardFromApi(currentDateRange);
+    refreshEventsBoardFromApi();
 
     // Tell other parts of the app about this event
     window.dispatchEvent(new CustomEvent('vision:event-notification', { detail: notification }));
@@ -263,7 +384,7 @@
     UI.updateElectronBadge(state.unreadCount);
     UI.prependCardToDropdown(notification);
     UI.renderLatestEventsSection(state.notificationsList);
-    UI.renderEventsBoardGrid(state.notificationsList);
+    refreshEventsBoardFromApi();
     Popup.showPopup(notification);
 
     window.dispatchEvent(new CustomEvent('vision:notification', { detail: notification }));
@@ -341,6 +462,7 @@
     state.webSocketHandle      = null;
     state.unreadCount          = 0;
     state.notificationsList    = [];
+    state.eventsBoardItems     = [];
     state.seenNotificationIds.clear();
     state.hasRemovedEmptyPlaceholder = false;
 
@@ -364,7 +486,7 @@
   // ─────────────────────────────────────────────
   function initializePageUI() {
     UI.bindMarkAllReadButton(markAllAsRead);
-    UI.bindEventsBoardFilter(refreshEventsBoardFromApi);
+    UI.bindEventsBoardFilters(onEventsBoardFilterAction);
     Popup.bindBellIconButton();
     Popup.bindSettingsPageButton();
     Popup.updateSettingsPageStatus();
@@ -387,8 +509,7 @@
     if (isLoggedIn) {
       if (window.visionAPI) loadOsPopupPreference();
       refreshDashboardFromApi();
-      var currentDateRange = $('#vision-events-range').val() || 'all';
-      refreshEventsBoardFromApi(currentDateRange);
+      refreshEventsBoardFromApi();
     }
   }
 
@@ -405,8 +526,7 @@
     if (userLoggedIn) {
       connectToWebSocket();
       refreshDashboardFromApi();
-      var currentDateRange = $('#vision-events-range').val() || 'all';
-      refreshEventsBoardFromApi(currentDateRange);
+      refreshEventsBoardFromApi();
     } else {
       disconnectFromWebSocket();
     }

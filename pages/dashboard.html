@@ -23,28 +23,28 @@
         </div>
       </div>
 
-      <!-- Top Statistics Cards - Phase 1 -->
-      <div class="row g-3 mb-4">
+      <!-- Top Statistics Cards - Phase 1 (grid uses content width, not viewport, so layout works beside agent panel) -->
+      <div class="vision-dashboard-stat-cards mb-4">
         <!-- Card 1: Total Cameras -->
-        <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-3">
-          <div class="card">
+        <div class="vision-dashboard-stat-card">
+          <div class="card h-100">
             <div class="card-body p-3">
-              <div class="d-flex justify-content-between align-items-start">
-                <div class="d-flex align-items-start">
-                  <div class="d-flex align-items-center icon-wrapper-sm shadow-primary-100 me-2"
+              <div class="d-flex justify-content-between align-items-start gap-2 vision-dashboard-stat-card-inner">
+                <div class="d-flex align-items-start min-w-0">
+                  <div class="d-flex align-items-center icon-wrapper-sm shadow-primary-100 me-2 flex-shrink-0"
                     style="transform: rotate(-7.45deg);">
                     <span class="fa-solid fa-video text-primary fs-7 z-1 ms-2"></span>
                   </div>
-                  <div>
-                    <p class="text-body-tertiary fs-9 mb-1">Total Cameras</p>
+                  <div class="min-w-0">
+                    <p class="text-body-tertiary fs-9 mb-1 text-truncate" title="Total Cameras">Total Cameras</p>
                     <p class="text-primary mb-0 fs-5 fw-bold">
-                      2 <span class="fs-8 text-body fw-normal">Active</span>
+                      <span id="vision-stat-cameras-total">—</span> <span class="fs-8 text-body fw-normal stat-value-suffix">Registered</span>
                     </p>
                   </div>
                 </div>
-                <div class="d-flex flex-column align-items-end">
-                  <span class="badge badge-phoenix badge-phoenix-success fs-10 mb-1">2 Online</span>
-                  <span class="text-body-tertiary fs-9">0 Offline</span>
+                <div class="d-flex flex-column align-items-end flex-shrink-0 text-end">
+                  <span id="vision-stat-cameras-online-badge" class="badge badge-phoenix badge-phoenix-success fs-10 mb-1">—</span>
+                  <span id="vision-stat-cameras-offline" class="text-body-tertiary fs-9 text-nowrap">—</span>
                 </div>
               </div>
             </div>
@@ -52,25 +52,25 @@
         </div>
 
         <!-- Card 2: Active AI Agents -->
-        <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-3">
-          <div class="card">
+        <div class="vision-dashboard-stat-card">
+          <div class="card h-100">
             <div class="card-body p-3">
-              <div class="d-flex justify-content-between align-items-start">
-                <div class="d-flex align-items-start">
-                  <div class="d-flex align-items-center icon-wrapper-sm shadow-info-100 me-2"
+              <div class="d-flex justify-content-between align-items-start gap-2 vision-dashboard-stat-card-inner">
+                <div class="d-flex align-items-start min-w-0">
+                  <div class="d-flex align-items-center icon-wrapper-sm shadow-info-100 me-2 flex-shrink-0"
                     style="transform: rotate(-7.45deg);">
                     <span class="fa-solid fa-robot text-info fs-7 z-1 ms-2"></span>
                   </div>
-                  <div>
-                    <p class="text-body-tertiary fs-9 mb-1">Active AI Agents</p>
+                  <div class="min-w-0">
+                    <p class="text-body-tertiary fs-9 mb-1 text-truncate" title="Active AI Agents">Active AI Agents</p>
                     <p class="text-info mb-0 fs-5 fw-bold">
-                      2 <span class="fs-8 text-body fw-normal">Monitoring</span>
+                      <span id="vision-stat-agents-monitoring">—</span> <span class="fs-8 text-body fw-normal stat-value-suffix">Monitoring</span>
                     </p>
                   </div>
                 </div>
-                <div class="d-flex flex-column align-items-end">
-                  <span class="badge badge-phoenix badge-phoenix-info fs-10 mb-1">+2 Today</span>
-                  <span class="text-body-tertiary fs-9">1 Active</span>
+                <div class="d-flex flex-column align-items-end flex-shrink-0 text-end">
+                  <span id="vision-stat-agents-total-badge" class="badge badge-phoenix badge-phoenix-info fs-10 mb-1">—</span>
+                  <span id="vision-stat-agents-sub" class="text-body-tertiary fs-9 text-nowrap">—</span>
                 </div>
               </div>
             </div>
@@ -78,51 +78,51 @@
         </div>
 
         <!-- Card 3: Incidents Today -->
-        <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-3">
-          <div class="card">
+        <div class="vision-dashboard-stat-card">
+          <div class="card h-100">
             <div class="card-body p-3">
-              <div class="d-flex justify-content-between align-items-start">
-                <div class="d-flex align-items-start">
-                  <div class="d-flex align-items-center icon-wrapper-sm shadow-danger-100 me-2"
+              <div class="d-flex justify-content-between align-items-start gap-2 vision-dashboard-stat-card-inner">
+                <div class="d-flex align-items-start min-w-0">
+                  <div class="d-flex align-items-center icon-wrapper-sm shadow-danger-100 me-2 flex-shrink-0"
                     style="transform: rotate(-7.45deg);">
                     <span class="fa-solid fa-triangle-exclamation text-danger fs-7 z-1 ms-2"></span>
                   </div>
-                  <div>
-                    <p class="text-body-tertiary fs-9 mb-1">Incidents Today</p>
+                  <div class="min-w-0">
+                    <p class="text-body-tertiary fs-9 mb-1 text-truncate" title="Incidents Today">Incidents Today</p>
                     <p class="text-danger mb-0 fs-5 fw-bold">
-                      10 <span class="fs-8 text-body fw-normal">Total</span>
+                      <span id="vision-stat-incidents-total">—</span> <span class="fs-8 text-body fw-normal stat-value-suffix">today</span>
                     </p>
                   </div>
                 </div>
-                <div class="d-flex flex-column align-items-end">
-                  <span class="badge badge-phoenix badge-phoenix-danger fs-10 mb-1">2 Critical</span>
-                  <span class="text-body-tertiary fs-9">2 Violations</span>
+                <div class="d-flex flex-column align-items-end flex-shrink-0 text-end">
+                  <span id="vision-stat-incidents-critical" class="badge badge-phoenix badge-phoenix-danger fs-10 mb-1">—</span>
+                  <span id="vision-stat-incidents-warning" class="text-body-tertiary fs-9 text-nowrap">—</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Card 4: Objects Detected -->
-        <div class="col-sm-6 col-md-4 col-xl-3 col-xxl-3">
-          <div class="card">
+        <!-- Card 4: Events this week (today vs rolling 7 days) -->
+        <div class="vision-dashboard-stat-card">
+          <div class="card h-100">
             <div class="card-body p-3">
-              <div class="d-flex justify-content-between align-items-start">
-                <div class="d-flex align-items-start">
-                  <div class="d-flex align-items-center icon-wrapper-sm shadow-success-100 me-2"
+              <div class="d-flex justify-content-between align-items-start gap-2 vision-dashboard-stat-card-inner">
+                <div class="d-flex align-items-start min-w-0">
+                  <div class="d-flex align-items-center icon-wrapper-sm shadow-success-100 me-2 flex-shrink-0"
                     style="transform: rotate(-7.45deg);">
-                    <span class="fa-solid fa-eye text-success fs-7 z-1 ms-2"></span>
+                    <span class="fa-solid fa-calendar-week text-success fs-7 z-1 ms-2"></span>
                   </div>
-                  <div>
-                    <p class="text-body-tertiary fs-9 mb-1">Objects Detected</p>
+                  <div class="min-w-0">
+                    <p class="text-body-tertiary fs-9 mb-1 text-truncate" title="Events this week">Events This Week</p>
                     <p class="text-success mb-0 fs-5 fw-bold">
-                      25 <span class="fs-8 text-body fw-normal">Today</span>
+                      <span id="vision-stat-events-week">—</span> <span class="fs-8 text-body fw-normal stat-value-suffix">Total</span>
                     </p>
                   </div>
                 </div>
-                <div class="d-flex flex-column align-items-end">
-                  <span class="badge badge-phoenix badge-phoenix-success fs-10 mb-1">+6.2%</span>
-                  <span class="text-body-tertiary fs-9">Than</span>
+                <div class="d-flex flex-column align-items-end flex-shrink-0 text-end">
+                  <span id="vision-stat-events-today-badge" class="badge badge-phoenix badge-phoenix-success fs-10 mb-1">—</span>
+                  <span id="vision-stat-events-week-sub" class="text-body-tertiary fs-9">Rolling 7 days</span>
                 </div>
               </div>
             </div>
@@ -133,14 +133,16 @@
       <!-- Latest Events (VisionEventsBoardWidget - most recent 5, all time) -->
       <div class="row g-3 mb-4">
         <div class="col-12">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
+          <div
+            class="d-flex flex-column flex-sm-row gap-2 gap-sm-3 justify-content-between align-items-stretch align-items-sm-center mb-3 min-w-0">
+            <div class="min-w-0">
               <h3 class="mb-1 text-body-emphasis">
                 <span class="fa-solid fa-bell text-danger me-2"></span>Latest Events
               </h3>
               <p class="text-body-tertiary mb-0 fs-9">Most recent alerts across all cameras</p>
             </div>
-            <a class="btn btn-phoenix-secondary btn-sm" href="events-board.html">
+            <a class="btn btn-phoenix-secondary btn-sm align-self-start align-self-sm-center flex-shrink-0"
+              href="events-board.html">
               <span class="fa-solid fa-up-right-from-square me-1"></span>View more
             </a>
           </div>
@@ -154,13 +156,14 @@
       <!-- Phase 2: Live Camera Grid (GridStack) -->
       <div class="row g-3 mb-4">
         <div class="col-12">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
+          <div
+            class="d-flex flex-column flex-lg-row gap-2 gap-lg-3 justify-content-between align-items-stretch align-items-lg-start mb-3 min-w-0">
+            <div class="min-w-0 flex-grow-1">
               <h3 class="mb-1 text-body-emphasis">Live Camera Feeds</h3>
               <p class="text-body-tertiary mb-0 fs-9">Drag / resize cameras like a CCTV wall. Layout auto-saves.</p>
             </div>
 
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap gap-2 flex-shrink-0 align-items-center">
               <button class="btn btn-phoenix-secondary btn-sm" type="button" id="reset-camera-layout">
                 <span class="fa-solid fa-rotate-left me-1"></span>Reset Layout
               </button>
@@ -174,9 +177,9 @@
           </div>
         </div>
 
-        <div class="col-12">
-          <!-- GridStack container -->
-          <div class="grid-stack" id="live-camera-grid">
+        <div class="col-12 min-w-0 vision-dashboard-live-grid-wrap">
+          <!-- GridStack: fixed 12-column engine; container width kept in-bounds below -->
+          <div class="grid-stack vision-dashboard-live-grid" id="live-camera-grid">
             <!-- Camera tiles will be dynamically loaded here -->
             <div class="d-flex justify-content-center align-items-center p-5" id="camera-loading">
               <div class="text-center">
@@ -192,6 +195,28 @@
 
       <!-- Minimal styling for events widget and GridStack -->
       <style>
+        /*
+          Stat cards: min track ~19rem so 4 columns only when the row is wide enough; otherwise
+          2×2 / 1×4 — avoids skinny columns when only the window shrinks (sidebar/chat closed).
+        */
+        .vision-dashboard-stat-cards {
+          display: grid;
+          gap: 1rem;
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+        }
+
+        .vision-dashboard-stat-card {
+          min-width: 0;
+        }
+
+        .vision-dashboard-stat-card-inner {
+          min-width: 0;
+        }
+
+        .vision-dashboard-stat-card .stat-value-suffix {
+          white-space: nowrap;
+        }
+
         .vision-events-widget-container .line-clamp-2 {
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -249,6 +274,30 @@
         #live-camera-grid .grid-stack-item>.ui-resizable-handle {
           z-index: 50;
         }
+
+        /* Keep GridStack sized to the content column (column count stays 12; no dynamic columnOpts). */
+        .vision-dashboard-live-grid-wrap {
+          min-width: 0;
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .vision-dashboard-live-grid {
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+        }
+
+        .camera-tile .card-header .d-flex.align-items-center.gap-2:first-child {
+          min-width: 0;
+        }
+
+        .camera-tile .camera-name {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
       </style>
 
       <!-- Note: this must NOT run during initial page parse (layout-loader replaces body).
@@ -258,10 +307,130 @@
       'use strict';
   
       const GRID_KEY = 'visionai.dashboard.liveCameraGrid.v1';
-  
+      const STATS_POLL_MS = 120000; // 2 minutes
+      let statsPollTimer = null;
+
       // Store live WS (fMP4) players and camera data
       const livePlayers = new Map();
       let cameraData = [];
+
+      /** Match events-board-widget when API severity is missing */
+      function inferSeverityFromLabel(label) {
+        const t = String(label || '').toLowerCase();
+        if (t.includes('weapon') || t.includes('fire') || t.includes('fall') || t.includes('intrusion')) return 'Critical';
+        if (t.includes('violation') || t.includes('restricted') || t.includes('collision') || t.includes('alert')) return 'Warning';
+        return 'Info';
+      }
+
+      /** Prefer backend severity; fallback to label inference */
+      function eventSeverity(it) {
+        const s = String(it.severity || '').toLowerCase();
+        if (s === 'critical') return 'Critical';
+        if (s === 'warning') return 'Warning';
+        if (s === 'info') return 'Info';
+        return inferSeverityFromLabel(it.label);
+      }
+
+      function stopDashboardStatsPolling() {
+        if (statsPollTimer) {
+          clearInterval(statsPollTimer);
+          statsPollTimer = null;
+        }
+      }
+
+      function startDashboardStatsPolling() {
+        stopDashboardStatsPolling();
+        refreshDashboardStats();
+        statsPollTimer = setInterval(refreshDashboardStats, STATS_POLL_MS);
+      }
+
+      async function refreshDashboardStats() {
+        const api = window.visionAPI;
+        if (!api || typeof api.isAuthenticated !== 'function' || !api.isAuthenticated()) return;
+
+        const setText = (id, s) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = s;
+        };
+
+        try {
+          const agentsPromise =
+            typeof api.request === 'function'
+              ? api.request('/api/v1/agents/list').catch(() => [])
+              : Promise.resolve([]);
+
+          /* Backend caps limit at 200 (le=200); larger values return 422 → empty items */
+          const EVENT_LIMIT = 200;
+          const weekEnd = new Date();
+          const weekStart = new Date(weekEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const weekRange = {
+            startTs: weekStart.toISOString(),
+            endTs: weekEnd.toISOString()
+          };
+
+          const [cameras, agentsRes, todayRes, weekRes] = await Promise.all([
+            api.listCameras().catch(() => []),
+            agentsPromise,
+            api.listEvents('today', EVENT_LIMIT, 0).catch(() => ({ total: 0, items: [] })),
+            api.listEvents('all', EVENT_LIMIT, 0, null, weekRange).catch(() => ({ total: 0, items: [] }))
+          ]);
+
+          const camList = Array.isArray(cameras) ? cameras : [];
+          const totalCams = camList.length;
+          const hasCamStatus = camList.some(
+            (c) => c.status != null || c.is_online != null || c.live != null
+          );
+          let online = camList.filter(
+            (c) => c.status === 'online' || c.is_online === true || c.live === true
+          ).length;
+          if (!hasCamStatus && totalCams > 0) online = totalCams;
+          const offline = hasCamStatus ? Math.max(0, totalCams - online) : 0;
+
+          setText('vision-stat-cameras-total', String(totalCams));
+          setText('vision-stat-cameras-online-badge', `${online} online`);
+          setText('vision-stat-cameras-offline', `${offline} offline`);
+
+          const agents = Array.isArray(agentsRes) ? agentsRes : [];
+          const mon = agents.filter((a) => String(a.status || '').toLowerCase() === 'monitoring').length;
+          const others = Math.max(0, agents.length - mon);
+          setText('vision-stat-agents-monitoring', String(mon));
+          setText('vision-stat-agents-total-badge', `${agents.length} total`);
+          setText(
+            'vision-stat-agents-sub',
+            others === 0 ? 'All monitoring' : others === 1 ? '1 other status' : `${others} other statuses`
+          );
+
+          const todayItems = Array.isArray(todayRes && todayRes.items) ? todayRes.items : [];
+          const todayTotal =
+            typeof todayRes.total === 'number' && !Number.isNaN(todayRes.total)
+              ? todayRes.total
+              : todayItems.length;
+          let crit = 0;
+          let warn = 0;
+          for (const it of todayItems) {
+            const sev = eventSeverity(it);
+            if (sev === 'Critical') crit++;
+            else if (sev === 'Warning') warn++;
+          }
+          setText('vision-stat-incidents-total', String(todayTotal));
+          setText('vision-stat-incidents-critical', crit > 0 ? `${crit} critical` : 'No critical');
+          const warnLine =
+            todayItems.length < todayTotal
+              ? `${warn} warnings · severity from latest ${todayItems.length} rows`
+              : `${warn} warnings`;
+          setText('vision-stat-incidents-warning', warnLine);
+
+          const weekItems = Array.isArray(weekRes && weekRes.items) ? weekRes.items : [];
+          const weekTotal =
+            typeof weekRes.total === 'number' && !Number.isNaN(weekRes.total)
+              ? weekRes.total
+              : weekItems.length;
+          setText('vision-stat-events-week', String(weekTotal));
+          setText('vision-stat-events-today-badge', `${todayTotal} today`);
+        } catch (e) {
+          console.warn('[dashboard stats]', e);
+        }
+      }
   
       function loadCssOnce(href) {
         if ([...document.styleSheets].some(s => s.href === href)) return;
@@ -336,11 +505,11 @@
         tile.innerHTML = `
           <div class="grid-stack-item-content">
             <div class="card h-100 camera-tile" data-camera-id="${camera.id}" data-tile-id="${tileId}">
-              <div class="card-header bg-body-emphasis p-2 d-flex justify-content-between align-items-center camera-drag-surface">
-                <div class="d-flex align-items-center gap-2">
-                  <span class="fa-solid fa-grip-vertical text-body-tertiary camera-drag-handle" title="Drag"></span>
-                  <span class="fa-solid fa-video text-primary fs-9"></span>
-                  <span class="fw-semibold fs-9 camera-name">${displayName}</span>
+              <div class="card-header bg-body-emphasis p-2 d-flex justify-content-between align-items-center gap-2 camera-drag-surface">
+                <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+                  <span class="fa-solid fa-grip-vertical text-body-tertiary camera-drag-handle flex-shrink-0" title="Drag"></span>
+                  <span class="fa-solid fa-video text-primary fs-9 flex-shrink-0"></span>
+                  <span class="fw-semibold fs-9 camera-name" title="${displayName}">${displayName}</span>
                 </div>
                 <div class="d-flex align-items-center gap-2">
                   <span class="badge badge-phoenix badge-phoenix-secondary fs-10 camera-status" id="status-${tileId}">Loading...</span>
@@ -691,6 +860,7 @@
 
       // Cleanup live players on page unload
       function cleanupPlayers() {
+        stopDashboardStatsPolling();
         livePlayers.forEach((player) => {
           if (player && typeof player.destroy === 'function') player.destroy();
         });
@@ -720,6 +890,7 @@
         (function checkAuth() {
           if (window.visionAPI && window.visionAPI.isAuthenticated()) {
             loadCameras();
+            startDashboardStatsPolling();
           } else if (++tries < maxTries) {
             setTimeout(checkAuth, 100);
           } else {
@@ -734,7 +905,9 @@
         window.addEventListener('authStateChanged', (event) => {
           if (event.detail.loggedIn) {
             loadCameras();
+            startDashboardStatsPolling();
           } else {
+            stopDashboardStatsPolling();
             cleanupPlayers();
             const gridEl = document.getElementById('live-camera-grid');
             gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">Please login to view cameras</p></div>';

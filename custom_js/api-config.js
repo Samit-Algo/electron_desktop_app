@@ -5,7 +5,7 @@
 (function() {
   'use strict';
 
-  var apiBase = 'http://127.0.0.1:8000';
+  var apiBase = 'https://api.samitweb.xyz';
   var jetsonBase = 'http://127.0.0.1:8001';
 
   if (typeof window !== 'undefined') {

@@ -8,7 +8,46 @@
     <script src="../custom_js/layout-loader.js"></script>
 </head>
 <body>
+    <!-- Styles MUST live inside #page-content so layout-loader / SPA inject them (see layout-loader.js). -->
     <div id="page-content" style="display:none;">
+        <style>
+            /*
+              Multi-column grid: do NOT use min(100%, Xrem) in minmax() — the 100% often
+              resolves to the full grid width and forces a single 100%-wide column.
+            */
+            #vision-cameras-list-grid.vision-cameras-list-grid {
+                display: grid;
+                gap: 1rem;
+                grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+                min-width: 0;
+                width: 100%;
+            }
+
+            .vision-cameras-list-grid > .vision-cameras-grid-message {
+                grid-column: 1 / -1;
+                min-width: 0;
+            }
+
+            .vision-camera-tile-card {
+                cursor: pointer;
+                transition: box-shadow 0.2s ease, transform 0.15s ease;
+                min-width: 0;
+                width: 100%;
+            }
+
+            .vision-camera-tile-card:hover {
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+                transform: translateY(-1px);
+            }
+
+            .vision-cameras-list-grid .line-clamp-2 {
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+        </style>
         <div class="content">
             <nav class="mb-3" aria-label="breadcrumb">
                 <ol class="breadcrumb mb-0">
@@ -17,33 +56,24 @@
                 </ol>
             </nav>
 
-            <div class="row gx-6 gy-3 mb-4 align-items-center">
-                <div class="col-auto">
-                    <h2 class="mb-0">Cameras<span class="fw-normal text-body-tertiary ms-3">(<span id="vision-cameras-count">0</span>)</span></h2>
+            <div
+                class="d-flex flex-column flex-sm-row gap-2 gap-sm-3 justify-content-between align-items-stretch align-items-sm-center mb-4 min-w-0">
+                <div class="min-w-0">
+                    <h2 class="mb-0">Cameras<span class="fw-normal text-body-tertiary ms-2 ms-sm-3">(<span
+                                id="vision-cameras-count">0</span>)</span></h2>
                 </div>
-                <div class="col-auto ms-auto">
-                    <button type="button" class="btn btn-phoenix-primary" id="vision-cameras-create-btn" aria-label="Create camera">
-                        <span class="fas fa-plus me-1"></span>Create Camera
-                    </button>
-                </div>
+                <button type="button"
+                    class="btn btn-phoenix-primary align-self-start align-self-sm-center flex-shrink-0"
+                    id="vision-cameras-create-btn" aria-label="Create camera">
+                    <span class="fas fa-plus me-1"></span>Create Camera
+                </button>
             </div>
 
-            <div class="row g-3 mb-9" id="vision-cameras-list-grid">
+            <div class="vision-cameras-list-grid mb-9" id="vision-cameras-list-grid">
                 <!-- Camera cards injected by cameras-list.js -->
             </div>
         </div>
     </div>
-
-    <style>
-        .vision-camera-card {
-            cursor: pointer;
-            transition: box-shadow 0.2s ease, transform 0.15s ease;
-        }
-        .vision-camera-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .vision-camera-card .card-body { min-height: 100px; }
-    </style>
 
 </body>
 </html>

@@ -296,7 +296,7 @@ window.VisionNotificationUI = (function ($) {
     var $grid = $('#vision-events-board-grid');
     if ($grid.length === 0) return;
 
-    // Update the count display
+    // Update the count display (filtered rows)
     $('#vision-events-count').text(String(notificationsList.length));
 
     var cardsHtml = notificationsList.map(function (notification) {
@@ -306,6 +306,29 @@ window.VisionNotificationUI = (function ($) {
     }).join('');
 
     $grid.html(cardsHtml);
+  }
+
+  /**
+   * Update severity tab counts on Events Board (after camera + search + timeline scope, before severity tab).
+   * counts: { all, Critical, Warning, Info, Resolved }
+   */
+  function updateEventsBoardSeverityTabCounts(counts) {
+    var c = counts || {};
+    var map = [
+      ['all', 'vision-events-cnt-all'],
+      ['Critical', 'vision-events-cnt-critical'],
+      ['Warning', 'vision-events-cnt-warning'],
+      ['Info', 'vision-events-cnt-info'],
+      ['Resolved', 'vision-events-cnt-resolved'],
+    ];
+    map.forEach(function (pair) {
+      var key = pair[0];
+      var id = pair[1];
+      var n = c[key];
+      if (n === undefined || n === null) n = 0;
+      var $el = $('#' + id);
+      if ($el.length) $el.text(String(n));
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -327,8 +350,7 @@ window.VisionNotificationUI = (function ($) {
   }
 
   // ─────────────────────────────────────────────
-  // Wire up the Events Board date range dropdown filter
-  // Runs once per page (guards against double-binding)
+  // Wire up the Events Board date range dropdown filter (legacy id: vision-events-range)
   // ─────────────────────────────────────────────
   function bindEventsBoardFilter(onChangeCallback) {
     var $filterSelect = $('#vision-events-range');
@@ -343,6 +365,47 @@ window.VisionNotificationUI = (function ($) {
     });
   }
 
+  /** Latest handler for delegated Events Board filter events (updated each hub boot; single document delegation). */
+  var eventsBoardFilterHandler = null;
+  var eventsBoardSearchTimer = null;
+
+  (function installEventsBoardFilterDelegationOnce() {
+    if (window.__visionEventsBoardDelegationInstalled) return;
+    window.__visionEventsBoardDelegationInstalled = true;
+
+    $(document).on('change.visionEventsBoard', '#vision-events-timeline', function () {
+      if (typeof eventsBoardFilterHandler === 'function') eventsBoardFilterHandler({ source: 'timeline' });
+    });
+    $(document).on('change.visionEventsBoard', '#vision-events-filter-camera', function () {
+      if (typeof eventsBoardFilterHandler === 'function') eventsBoardFilterHandler({ source: 'camera' });
+    });
+    $(document).on('input.visionEventsBoard', '#vision-events-search', function () {
+      clearTimeout(eventsBoardSearchTimer);
+      eventsBoardSearchTimer = setTimeout(function () {
+        if (typeof eventsBoardFilterHandler === 'function') eventsBoardFilterHandler({ source: 'search' });
+      }, 180);
+    });
+    $(document).on('click.visionEventsBoard', '#vision-events-severity-tabs .nav-link[data-severity]', function (e) {
+      e.preventDefault();
+      var $t = $(this);
+      $('#vision-events-severity-tabs .nav-link').removeClass('active');
+      $t.addClass('active');
+      if (typeof eventsBoardFilterHandler === 'function') eventsBoardFilterHandler({ source: 'severity' });
+    });
+    $(document).on('click.visionEventsBoard', '#vision-events-filters-clear', function () {
+      if (typeof eventsBoardFilterHandler === 'function') eventsBoardFilterHandler({ source: 'clear' });
+    });
+  })();
+
+  /**
+   * Wire Events Board filters: timeline, camera, search, severity tabs, clear.
+   * onAction({ source: 'timeline'|'camera'|'search'|'severity'|'clear' })
+   */
+  function bindEventsBoardFilters(onAction) {
+    if ($('#vision-events-board-grid').length === 0) return;
+    eventsBoardFilterHandler = onAction;
+  }
+
   // ─────────────────────────────────────────────
   // Public API — functions other files can call
   // ─────────────────────────────────────────────
@@ -354,8 +417,10 @@ window.VisionNotificationUI = (function ($) {
     markAllDropdownCardsAsRead   : markAllDropdownCardsAsRead,
     renderLatestEventsSection    : renderLatestEventsSection,
     renderEventsBoardGrid        : renderEventsBoardGrid,
+    updateEventsBoardSeverityTabCounts: updateEventsBoardSeverityTabCounts,
     bindMarkAllReadButton        : bindMarkAllReadButton,
     bindEventsBoardFilter        : bindEventsBoardFilter,
+    bindEventsBoardFilters       : bindEventsBoardFilters,
     buildEventCard               : buildEventCard,
     buildDropdownCard            : buildDropdownCard,
   };

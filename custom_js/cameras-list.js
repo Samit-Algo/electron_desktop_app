@@ -6,6 +6,10 @@
 (function () {
   'use strict';
 
+  function escapeAttr(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  }
+
   function resetCreateCameraModal() {
     var nameEl = document.getElementById('cc-name');
     var streamUrlEl = document.getElementById('cc-stream-url');
@@ -66,14 +70,14 @@
     var countEl = document.getElementById('vision-cameras-count');
     if (!grid) return;
     if (countEl) countEl.textContent = '0';
-    grid.innerHTML = '<div class="col-12"><p class="text-body-tertiary mb-0">Loading…</p></div>';
+    grid.innerHTML = '<div class="vision-cameras-grid-message"><p class="text-body-tertiary mb-0">Loading…</p></div>';
 
     if (!window.visionAPI || typeof window.visionAPI.listCameras !== 'function') {
-      grid.innerHTML = '<div class="col-12"><p class="text-danger mb-0">API not available.</p></div>';
+      grid.innerHTML = '<div class="vision-cameras-grid-message"><p class="text-danger mb-0">API not available.</p></div>';
       return;
     }
     if (typeof window.visionAPI.isAuthenticated === 'function' && !window.visionAPI.isAuthenticated()) {
-      grid.innerHTML = '<div class="col-12"><p class="text-danger mb-0">Please sign in to view cameras.</p></div>';
+      grid.innerHTML = '<div class="vision-cameras-grid-message"><p class="text-danger mb-0">Please sign in to view cameras.</p></div>';
       return;
     }
 
@@ -82,30 +86,44 @@
         var list = Array.isArray(cameras) ? cameras : [];
         if (countEl) countEl.textContent = String(list.length);
         if (list.length === 0) {
-          grid.innerHTML = '<div class="col-12"><p class="text-body-tertiary mb-0">No cameras found.</p></div>';
+          grid.innerHTML = '<div class="vision-cameras-grid-message"><p class="text-body-tertiary mb-0">No cameras found.</p></div>';
           return;
         }
         grid.innerHTML = list.map(function (cam) {
-          var id = (cam.id || '').replace(/"/g, '&quot;');
+          var rawId = cam.id || '';
+          var idAttr = rawId.replace(/"/g, '&quot;');
           var name = (cam.name || cam.id || 'Unnamed').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          var idLine = cam.id ? String(cam.id) : '';
+          var idLineHtml = idLine.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          var titleName = escapeAttr(cam.name || cam.id || 'Unnamed');
+          var titleId = escapeAttr(idLine);
+          var ariaOpen = escapeAttr('Open camera: ' + (cam.name || cam.id || ''));
           var href = 'camera-detail.html?camera=' + encodeURIComponent(cam.id || '');
+          /* Same visual pattern as dashboard Latest Events (compact horizontal tile). */
           return (
-            '<div class="col-12 col-sm-6 col-md-4 col-xl-3">' +
-            '  <a class="card vision-camera-card h-100 text-decoration-none text-body" href="' + href + '" data-vision-camera-id="' + id + '">' +
-            '    <div class="card-body d-flex align-items-center">' +
-            '      <span class="fa-solid fa-video text-body-tertiary me-3 fs-4"></span>' +
-            '      <div class="flex-grow-1 min-w-0">' +
-            '        <h5 class="mb-0 text-truncate">' + name + '</h5>' +
-            '        <p class="mb-0 fs-9 text-body-tertiary">' + (cam.id ? String(cam.id) : '') + '</p>' +
+            '<div class="min-w-0">' +
+            '  <div class="btn-reveal-trigger position-relative rounded-2 overflow-hidden vision-camera-tile-card p-3" style="width:100%;height:170px;min-width:0;">' +
+            '    <div class="w-100 h-100 position-absolute top-0 start-0 bg-body-secondary"></div>' +
+            '    <div class="w-100 h-100 position-absolute top-0 start-0" style="background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%);"></div>' +
+            '    <div class="position-relative h-100 d-flex flex-column justify-content-between">' +
+            '      <div class="d-flex justify-content-between align-items-center">' +
+            '        <span class="badge badge-phoenix badge-phoenix-success fs-10" data-bs-theme="light">Camera</span>' +
             '      </div>' +
-            '      <span class="fas fa-pen text-body-tertiary fs-9" title="Open camera detail"></span>' +
+            '      <div class="min-w-0">' +
+            '        <h4 class="text-white fw-bold line-clamp-2 mb-1" title="' + titleName + '">' + name + '</h4>' +
+            '        <div class="d-flex align-items-center mt-2 min-w-0">' +
+            '          <span class="fa-solid fa-video text-white text-opacity-75 me-2 fs-10 flex-shrink-0" aria-hidden="true"></span>' +
+            '          <span class="text-white text-opacity-75 fs-9 text-truncate" title="' + titleId + '">' + (idLineHtml || '—') + '</span>' +
+            '        </div>' +
+            '      </div>' +
             '    </div>' +
-            '  </a>' +
+            '    <a class="stretched-link" href="' + href + '" data-vision-camera-id="' + idAttr + '" aria-label="' + ariaOpen + '"></a>' +
+            '  </div>' +
             '</div>'
           );
         }).join('');
 
-        grid.querySelectorAll('a[data-vision-camera-id]').forEach(function (link) {
+        grid.querySelectorAll('a[data-vision-camera-id].stretched-link').forEach(function (link) {
           link.addEventListener('click', function (e) {
             var href = this.getAttribute('href');
             if (!href) return;
@@ -118,7 +136,7 @@
       })
       .catch(function (err) {
         if (countEl) countEl.textContent = '0';
-        grid.innerHTML = '<div class="col-12"><p class="text-danger mb-0">' + (err.message || 'Failed to load cameras') + '</p></div>';
+        grid.innerHTML = '<div class="vision-cameras-grid-message"><p class="text-danger mb-0">' + (err.message || 'Failed to load cameras') + '</p></div>';
       });
   }
 

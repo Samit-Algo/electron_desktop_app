@@ -138,7 +138,7 @@
 
       if (filtered.length === 0) {
         var emptyHtml = state.layout === 'horizontal'
-          ? '<p class="text-body-tertiary mb-0">No events found' + (state.cameraId ? ' for this camera.' : '.') + '</p>'
+          ? '<div class="vision-events-grid-message"><p class="text-body-tertiary mb-0">No events found' + (state.cameraId ? ' for this camera.' : '.') + '</p></div>'
           : '<div class="col-12"><p class="text-body-tertiary mb-0">No events found' + (state.cameraId ? ' for this camera.' : '.') + '</p></div>';
         grid.innerHTML = emptyHtml;
         return;
@@ -147,7 +147,8 @@
       const height = state.compact ? '170px' : '236px';
       const padding = state.compact ? 'p-3' : 'p-4';
       const isHorizontal = state.layout === 'horizontal';
-      const cardStyle = isHorizontal ? 'width: 280px; height: ' + height + '; flex-shrink: 0;' : '';
+      /* Horizontal: fill responsive CSS grid (see .vision-events-horizontal-grid); avoid fixed 280px + scroll. */
+      const cardStyle = isHorizontal ? 'width: 100%; height: ' + height + '; min-width: 0;' : '';
       const colClass = isHorizontal ? '' : 'col-12 col-sm-6 col-md-4 col-xxl-3';
       grid.innerHTML = filtered.map(function (ev) {
         const sev = ev.severity || inferSeverity(ev.label);
@@ -194,15 +195,25 @@
     function refresh() {
       if (!state.isMounted || !state.container) return Promise.resolve();
       var grid = state.container.querySelector('#' + gridId);
-      var loadingHtml = state.layout === 'horizontal' ? '<p class="text-body-tertiary mb-0">Loading…</p>' : '<div class="col-12"><p class="text-body-tertiary mb-0">Loading…</p></div>';
+      var loadingHtml = state.layout === 'horizontal'
+        ? '<div class="vision-events-grid-message"><p class="text-body-tertiary mb-0">Loading…</p></div>'
+        : '<div class="col-12"><p class="text-body-tertiary mb-0">Loading…</p></div>';
       if (grid) grid.innerHTML = loadingHtml;
 
       if (!window.visionAPI || typeof window.visionAPI.listEvents !== 'function') {
-        if (grid) grid.innerHTML = '<div class="col-12"><p class="text-body-tertiary mb-0">API not available.</p></div>';
+        if (grid) {
+          grid.innerHTML = state.layout === 'horizontal'
+            ? '<div class="vision-events-grid-message"><p class="text-body-tertiary mb-0">API not available.</p></div>'
+            : '<div class="col-12"><p class="text-body-tertiary mb-0">API not available.</p></div>';
+        }
         return Promise.resolve();
       }
       if (typeof window.visionAPI.isAuthenticated === 'function' && !window.visionAPI.isAuthenticated()) {
-        if (grid) grid.innerHTML = '<div class="col-12"><p class="text-body-tertiary mb-0">Login required.</p></div>';
+        if (grid) {
+          grid.innerHTML = state.layout === 'horizontal'
+            ? '<div class="vision-events-grid-message"><p class="text-body-tertiary mb-0">Login required.</p></div>'
+            : '<div class="col-12"><p class="text-body-tertiary mb-0">Login required.</p></div>';
+        }
         return Promise.resolve();
       }
 
@@ -243,9 +254,26 @@
         })
         .catch(function (err) {
           if (grid) {
-            grid.innerHTML = '<div class="col-12"><p class="text-danger mb-0">' + escapeHtml(err.message || 'Failed to load events') + '</p></div>';
+            var errHtml = '<p class="text-danger mb-0">' + escapeHtml(err.message || 'Failed to load events') + '</p>';
+            grid.innerHTML = state.layout === 'horizontal'
+              ? '<div class="vision-events-grid-message">' + errHtml + '</div>'
+              : '<div class="col-12">' + errHtml + '</div>';
           }
         });
+    }
+
+    function ensureHorizontalGridStylesOnce() {
+      var sid = 'vision-events-horizontal-grid-styles-v2';
+      var legacy = document.getElementById('vision-events-horizontal-grid-styles');
+      if (legacy) legacy.remove();
+      if (document.getElementById(sid)) return;
+      var style = document.createElement('style');
+      style.id = sid;
+      style.textContent =
+        /* ~20rem min: fewer columns on medium widths → avoids 4+1 orphan rows when 5 items */
+        '.vision-events-widget .vision-events-horizontal-grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));}' +
+        '.vision-events-widget .vision-events-grid-message{grid-column:1/-1;min-width:0;}';
+      document.head.appendChild(style);
     }
 
     function bindFilters() {
@@ -270,22 +298,23 @@
     }
 
     function mount() {
+      if (state.layout === 'horizontal') ensureHorizontalGridStylesOnce();
       var title = state.cameraId ? 'Events for this camera' : 'Events';
       var gridClasses = state.layout === 'horizontal'
-        ? 'd-flex gap-3 overflow-x-auto pb-2'
+        ? 'vision-events-horizontal-grid'
         : 'row g-3 mb-3';
       var headerHtml = state.showHeader
         ? ('<div class="row gx-6 gy-3 mb-2 align-items-center"><div class="col-auto">' +
           '<h3 class="mb-0 fs-6">' + escapeHtml(title) + '<span class="fw-normal text-body-tertiary ms-2">(<span id="' + countId + '">0</span>)</span></h3></div></div>')
         : '';
       var loadingHtml = state.layout === 'horizontal'
-        ? '<p class="text-body-tertiary mb-0">Loading…</p>'
+        ? '<div class="vision-events-grid-message"><p class="text-body-tertiary mb-0">Loading…</p></div>'
         : '<div class="col-12"><p class="text-body-tertiary mb-0">Loading…</p></div>';
       state.container.innerHTML =
         '<div class="vision-events-widget">' +
         headerHtml +
         renderFilters() +
-        '<div class="' + gridClasses + '" id="' + gridId + '" style="' + (state.layout === 'horizontal' ? 'scrollbar-width: thin;' : '') + '">' +
+        '<div class="' + gridClasses + '" id="' + gridId + '">' +
         loadingHtml +
         '</div></div>';
       bindFilters();

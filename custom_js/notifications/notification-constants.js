@@ -31,6 +31,7 @@ window.VisionNotificationConstants = (function () {
     CRITICAL : 'Critical',  // Life safety: weapon, fire, fall, intrusion
     WARNING  : 'Warning',   // Policy violation: restricted zone, collision
     INFO     : 'Info',      // Informational: general detection
+    RESOLVED : 'Resolved',  // Acknowledged / cleared (when backend sends it)
   });
 
   // ─────────────────────────────────────────────
@@ -66,6 +67,7 @@ window.VisionNotificationConstants = (function () {
     Critical : 'badge-phoenix-danger',
     Warning  : 'badge-phoenix-warning',
     Info     : 'badge-phoenix-info',
+    Resolved : 'badge-phoenix-secondary',
   });
 
   // ─────────────────────────────────────────────

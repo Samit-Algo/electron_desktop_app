@@ -56,6 +56,7 @@ window.VisionNotificationNormalizer = (function () {
   // ─────────────────────────────────────────────
   function inferSeverityFromLabel(labelText) {
     var lowerLabel = String(labelText || '').toLowerCase();
+    if (lowerLabel.indexOf('resolved') !== -1) return Constants.SEVERITY.RESOLVED;
 
     var isCritical = Constants.CRITICAL_KEYWORDS.some(function (keyword) {
       return lowerLabel.indexOf(keyword) !== -1;
@@ -81,6 +82,7 @@ window.VisionNotificationNormalizer = (function () {
     var lowercase = String(severityString).toLowerCase();
     if (lowercase === 'critical') return Constants.SEVERITY.CRITICAL;
     if (lowercase === 'warning')  return Constants.SEVERITY.WARNING;
+    if (lowercase === 'resolved') return Constants.SEVERITY.RESOLVED;
     return Constants.SEVERITY.INFO;
   }
 
@@ -148,6 +150,9 @@ window.VisionNotificationNormalizer = (function () {
     var agentInfo = rawPayload.agent  || {};
     var frameInfo = rawPayload.frame  || {};
     var label     = eventInfo.label   || 'Event';
+    var severity  = eventInfo.severity
+      ? normalizeSeverity(eventInfo.severity)
+      : inferSeverityFromLabel(label);
 
     var thumbnailDataUrl = null;
     if (frameInfo.image_base64) {
@@ -162,7 +167,7 @@ window.VisionNotificationNormalizer = (function () {
       sessionId          : rawPayload.session_id || (rawPayload.metadata && rawPayload.metadata.session_id) || null,
       title              : label,
       body               : label,
-      severity           : inferSeverityFromLabel(label),
+      severity           : severity,
       timestamp          : eventInfo.timestamp || rawPayload.received_at || null,
       cameraId           : agentInfo.camera_id  || agentInfo.cameraId    || '',
       agentName          : agentInfo.agent_name || agentInfo.agentName   || '',
@@ -247,6 +252,7 @@ window.VisionNotificationNormalizer = (function () {
   // ─────────────────────────────────────────────
   return {
     normalizeNotification     : normalizeNotification,
+    normalizeSeverity         : normalizeSeverity,
     inferSeverityFromLabel    : inferSeverityFromLabel,
     getNotificationHref       : getNotificationHref,
     timeAgo                   : timeAgo,

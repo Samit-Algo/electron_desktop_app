@@ -682,7 +682,7 @@
     return localStorage.getItem('visionai_token') || '';
   }
 
-  const API_BASE = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://localhost:8000';
+  const API_BASE = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'https://api.samitweb.xyz';
 
   async function initWorkflowEditor() {
     try {

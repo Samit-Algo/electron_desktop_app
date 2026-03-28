@@ -25,7 +25,7 @@ function parseErrorDetail(detail) {
 class VisionAPIService {
   constructor() {
     // Backend URL - from api-config.js (desktop: localhost, mobile: deployed API)
-    this.baseURL = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://localhost:8000';
+    this.baseURL = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'https://api.samitweb.xyz';
     this.jetsonBaseURL = (typeof window !== 'undefined' && window.VISION_JETSON_BASE) ? window.VISION_JETSON_BASE : 'http://localhost:8001';
     this.token = localStorage.getItem('visionai_token');
     this.user = JSON.parse(localStorage.getItem('visionai_user') || 'null');
@@ -325,12 +325,21 @@ class VisionAPIService {
   /**
    * Events API
    */
-  async listEvents(range = 'all', limit = 50, skip = 0, cameraId = null) {
+  /**
+   * @param {string} range - today | yesterday | all
+   * @param {number} limit
+   * @param {number} skip
+   * @param {string|null} cameraId - optional (client may filter if unsupported)
+   * @param {{ startTs?: string, endTs?: string }} [extra] - ISO timestamps override range (backend events API)
+   */
+  async listEvents(range = 'all', limit = 50, skip = 0, cameraId = null, extra = {}) {
     const params = new URLSearchParams();
     params.set('range', range);
     params.set('limit', String(limit));
     params.set('skip', String(skip));
     if (cameraId) params.set('camera_id', String(cameraId));
+    if (extra && extra.startTs) params.set('start_ts', String(extra.startTs));
+    if (extra && extra.endTs) params.set('end_ts', String(extra.endTs));
     return await this.request(`/api/v1/events?${params.toString()}`);
   }
 

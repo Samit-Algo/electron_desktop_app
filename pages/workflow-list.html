@@ -96,7 +96,7 @@
 (function () {
   'use strict';
 
-  const API_BASE = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://localhost:8000';
+  const API_BASE = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'https://api.samitweb.xyz';
 
   // Helper to get auth token - uses same key as api-service.js (visionai_token)
   function getAuthToken() {
