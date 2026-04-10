@@ -542,11 +542,11 @@
             <div class="wf-section-content ps-5 pe-3 py-1">
               <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="class_detection_agent" data-category="activity" style="color: var(--wf-designer-color);">
                 <i class="fa-solid fa-eye text-muted"></i>
-                <span>Class Detection Agent</span>
+                <span>Object Detection Agent</span>
               </div>
               <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="class_detection_zone_agent" data-category="activity" style="color: var(--wf-designer-color);">
                 <i class="fa-solid fa-draw-polygon text-muted"></i>
-                <span>Class Detection Agent with Zone</span>
+                <span>Object Detection Agent with Zone</span>
               </div>
               <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="object_count_agent" data-category="activity" style="color: var(--wf-designer-color);">
                 <i class="fa-solid fa-list-ol text-muted"></i>
@@ -560,6 +560,10 @@
                 <i class="fa-solid fa-file-lines text-muted"></i>
                 <span>Report Node</span>
               </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="vlm_agent" data-category="activity" style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-brain text-muted"></i>
+                <span>VLM Confirmation Agent</span>
+              </div>
             </div>
           </div>
 
@@ -567,8 +571,8 @@
           <div class="wf-section mb-1" data-section="models">
             <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
               <div class="d-flex align-items-center gap-2">
-                <i class="fa-solid fa-brain text-muted small" style="width: 20px; text-align: center;"></i>
-                <span class="fw-medium small" style="color: var(--wf-designer-color);">Models</span>
+                <i class="fa-solid fa-camera text-muted small" style="width: 20px; text-align: center;"></i>
+                <span class="fw-medium small" style="color: var(--wf-designer-color);">Camera</span>
               </div>
               <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
             </div>
@@ -717,18 +721,19 @@
 
     const NODE_COMPATIBILITY = {
       start: ['camera'],
-      camera: ['class_detection_agent', 'class_detection_zone_agent', 'object_count_agent', 'person_behaviour_agent'],
-      class_detection_agent: ['notification', 'report'],
-      class_detection_zone_agent: ['notification', 'report'],
-      object_count_agent: ['notification', 'report'],
-      person_behaviour_agent: ['notification', 'report'],
+      camera: ['class_detection_agent', 'class_detection_zone_agent', 'object_count_agent', 'person_behaviour_agent', 'vlm_agent'],
+      class_detection_agent: ['notification', 'report', 'vlm_agent'],
+      class_detection_zone_agent: ['notification', 'report', 'vlm_agent'],
+      object_count_agent: ['notification', 'report', 'vlm_agent'],
+      person_behaviour_agent: ['notification', 'report', 'vlm_agent'],
+      vlm_agent: ['notification', 'report', 'end'],
       notification: ['end', 'report'],
       report: ['end', 'notification'],
       end: []
     };
 
     const RULE_META = [
-      { id: 'class_presence', name: 'Class Presence Detection', needsClass: true, classes: ['person', 'car', 'bicycle', 'truck', 'bus'], needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
+      { id: 'class_presence', name: 'Object Presence Detection', needsClass: true, classes: ['person', 'car', 'bicycle', 'truck', 'bus'], needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
       { id: 'weapon_detection', name: 'Weapon Detection', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
       { id: 'sleep_detection', name: 'Sleep Detection', needsClass: false, needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: false, zoneType: null, zoneDesc: '' },
       { id: 'class_count', name: 'Object Counter', needsClass: true, classes: ['person', 'car', 'truck', 'bicycle', 'bus', 'motorcycle'], needsWatchNames: false, needsIdleThreshold: false, needsAbsenceThreshold: false, needsZone: true, zoneType: 'line', zoneDesc: 'Draw 2 points for counting line.' },
@@ -776,7 +781,7 @@
       },
       class_detection_agent: {
         name: 'class_detection_agent',
-        label: 'Class Detection Agent',
+        label: 'Object Detection Agent',
         category: 'activity',
         inputs: 1,
         outputs: 1,
@@ -916,6 +921,22 @@
           }
         ]
       },
+      vlm_agent: {
+        name: 'vlm_agent',
+        label: 'VLM Confirmation Agent',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-brain',
+        fields: [
+          { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
+          { key: 'prompt', type: 'textarea', label: 'VLM Prompt', default: 'Analyze the image and confirm if the detection is valid.' },
+          { key: 'model_name', type: 'select', label: 'VLM Model', options: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet', 'gemini-pro'], default: 'gpt-4o' },
+          { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.7 },
+          { key: 'timeout_seconds', type: 'number', label: 'Timeout (seconds)', default: 30 },
+          { key: 'retry_count', type: 'number', label: 'Retry Count', default: 2 }
+        ]
+      },
       end: {
         name: 'end',
         label: 'End',
@@ -977,7 +998,7 @@
 
       if (agentType === 'class_detection_agent') {
         ruleOptions = [
-          { id: 'class_presence',   name: 'Class Presence Detection' },
+          { id: 'class_presence',   name: 'Object Presence Detection' },
           { id: 'fire_detection',   name: 'Fire Detection' },
           { id: 'weapon_detection', name: 'Weapon Detection' },
           { id: 'face_detection',   name: 'Face Recognition' }
@@ -1650,11 +1671,30 @@
       });
     });
 
+    function hasStartNode() {
+      const data = editor?.drawflow?.drawflow?.Home?.data || {};
+      return Object.values(data).some(node => node && node.name === 'start');
+    }
+
+    function addDefaultStartNode() {
+      if (hasStartNode()) return;
+      const def = NODE_DEFINITIONS['start'];
+      const data = initialDataFor(def);
+      const html = createNodeContentHtml(def, data);
+      editor.addNode('start', def.inputs, def.outputs, 40, 120, 'start', data, html);
+    }
+
     container.addEventListener('dragover', ev => ev.preventDefault());
+
     container.addEventListener('drop', ev => {
       ev.preventDefault();
       const key = ev.dataTransfer.getData('node') || dragNodeKey;
       if (!key || !NODE_DEFINITIONS[key]) return;
+      // Prevent adding multiple Start Nodes
+      if (key === 'start' && hasStartNode()) {
+        alert('A Start Node already exists. Only one Start Node is allowed per workflow.');
+        return;
+      }
       const def = NODE_DEFINITIONS[key];
       const position = container.getBoundingClientRect();
       const posX = (ev.clientX - position.left) / editor.zoom;
@@ -1664,14 +1704,6 @@
       editor.addNode(key, def.inputs, def.outputs, posX, posY, key, data, html);
       resetNodeCompatibility();
       selectedNodeForConnection = null;
-    });
-
-    container.addEventListener('click', ev => {
-      if (ev.target === container || ev.target.id === 'drawflow') {
-        resetNodeCompatibility();
-        resetPortsVisibility();
-        selectedNodeForConnection = null;
-      }
     });
 
     function refreshAgentNodeHtml(nodeId) {
@@ -2209,7 +2241,7 @@
       else if (e.deltaY > 0) editor.zoom_out();
     }, { passive: false });
 
-    clearBtn.addEventListener('click', () => { editor.clear(); });
+    clearBtn.addEventListener('click', () => { editor.clear(); addDefaultStartNode(); });
 
     exportBtn.addEventListener('click', () => {
       const data = editor.export();
@@ -2221,7 +2253,7 @@
       URL.revokeObjectURL(url);
     });
 
-    newBtn.addEventListener('click', () => { editor.clear(); });
+    newBtn.addEventListener('click', () => { editor.clear(); addDefaultStartNode(); });
 
     async function saveWorkflowToBackend() {
       if (hasUnusedEndNode()) {
@@ -2443,6 +2475,9 @@
 
     if (isEditMode && editWorkflowId) {
       loadWorkflowForEdit(editWorkflowId);
+    } else {
+      // Add default Start Node for new workflow
+      addDefaultStartNode();
     }
   }
 
