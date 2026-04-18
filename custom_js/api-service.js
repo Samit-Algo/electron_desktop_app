@@ -25,7 +25,7 @@ function parseErrorDetail(detail) {
 class VisionAPIService {
   constructor() {
     // Backend URL - from api-config.js (desktop: localhost, mobile: deployed API)
-    this.baseURL = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://localhost:8001';
+    this.baseURL = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://127.0.0.1:8000';
     this.jetsonBaseURL = (typeof window !== 'undefined' && window.VISION_JETSON_BASE) ? window.VISION_JETSON_BASE : 'http://localhost:8001';
     this.token = localStorage.getItem('visionai_token');
     this.refreshToken = localStorage.getItem('visionai_refresh_token');
