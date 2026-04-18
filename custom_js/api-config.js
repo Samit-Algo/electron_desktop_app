@@ -11,7 +11,7 @@
 (function() {
   'use strict';
 
-  var apiBase = 'https://api.samitweb.xyz';
+  var apiBase = 'http://127.0.0.1:8000';
   var jetsonBase = 'http://127.0.0.1:8001';
   // By default, workflow chat is served from the same API base as the rest of the app.
   var workflowChatBase = apiBase;

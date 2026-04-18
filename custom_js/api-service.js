@@ -25,10 +25,12 @@ function parseErrorDetail(detail) {
 class VisionAPIService {
   constructor() {
     // Backend URL - from api-config.js (desktop: localhost, mobile: deployed API)
-    this.baseURL = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'https://api.samitweb.xyz';
+    this.baseURL = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://localhost:8001';
     this.jetsonBaseURL = (typeof window !== 'undefined' && window.VISION_JETSON_BASE) ? window.VISION_JETSON_BASE : 'http://localhost:8001';
     this.token = localStorage.getItem('visionai_token');
+    this.refreshToken = localStorage.getItem('visionai_refresh_token');
     this.user = JSON.parse(localStorage.getItem('visionai_user') || 'null');
+    this._refreshing = null; // in-flight refresh promise
   }
 
   /**
@@ -61,10 +63,26 @@ class VisionAPIService {
 
     try {
       const response = await fetch(url, config);
-      
-      // Handle 401 Unauthorized - token expired
+
+      // Handle 401 Unauthorized - attempt token refresh before logging out
       if (response.status === 401) {
-        this.logout();
+        const refreshed = await this._tryRefresh();
+        if (refreshed) {
+          // Retry original request with new token
+          config.headers['Authorization'] = `Bearer ${this.token}`;
+          const retry = await fetch(url, config);
+          if (retry.status === 401) {
+            this._clearSession();
+            throw new Error('Session expired. Please login again.');
+          }
+          const retryData = await retry.json();
+          if (!retry.ok) {
+            const msg = parseErrorDetail(retryData?.detail) || `API Error: ${retry.statusText}`;
+            throw new Error(msg);
+          }
+          return retryData;
+        }
+        this._clearSession();
         throw new Error('Session expired. Please login again.');
       }
 
@@ -104,7 +122,7 @@ class VisionAPIService {
     const response = await fetch(url, config);
 
     if (response.status === 401) {
-      this.logout();
+      this._clearSession();
       throw new Error('Session expired. Please login again.');
     }
     if (!response.ok) {
@@ -227,10 +245,14 @@ class VisionAPIService {
       }),
     });
     
-    // Store token
+    // Store tokens
     if (response.access_token) {
       this.token = response.access_token;
       localStorage.setItem('visionai_token', this.token);
+      if (response.refresh_token) {
+        this.refreshToken = response.refresh_token;
+        localStorage.setItem('visionai_refresh_token', this.refreshToken);
+      }
       
       // Fetch user details
       const user = await this.getCurrentUser();
@@ -248,12 +270,53 @@ class VisionAPIService {
     return await this.request('/api/v1/auth/me');
   }
 
-  logout() {
+  async logout() {
+    if (this.refreshToken) {
+      try {
+        await this.requestWithoutAuth('/api/v1/auth/logout', {
+          method: 'POST',
+          body: JSON.stringify({ refresh_token: this.refreshToken }),
+        });
+      } catch (_) {
+        // Ignore errors — always clear local session
+      }
+    }
+    this._clearSession();
+  }
+
+  _clearSession() {
     this.token = null;
+    this.refreshToken = null;
     this.user = null;
     localStorage.removeItem('visionai_token');
+    localStorage.removeItem('visionai_refresh_token');
     localStorage.removeItem('visionai_user');
     window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { loggedIn: false } }));
+  }
+
+  async _tryRefresh() {
+    if (!this.refreshToken) return false;
+    // Deduplicate concurrent refresh calls
+    if (!this._refreshing) {
+      this._refreshing = (async () => {
+        try {
+          const data = await this.requestWithoutAuth('/api/v1/auth/refresh', {
+            method: 'POST',
+            body: JSON.stringify({ refresh_token: this.refreshToken }),
+          });
+          if (data.access_token) {
+            this.token = data.access_token;
+            localStorage.setItem('visionai_token', this.token);
+            return true;
+          }
+        } catch (_) {
+          return false;
+        } finally {
+          this._refreshing = null;
+        }
+      })();
+    }
+    return this._refreshing;
   }
 
   isAuthenticated() {
@@ -269,7 +332,7 @@ class VisionAPIService {
       localStorage.setItem('visionai_user', JSON.stringify(user));
       return true;
     } catch (error) {
-      this.logout();
+      this._clearSession();
       return false;
     }
   }
@@ -352,7 +415,7 @@ class VisionAPIService {
     const url = `${this.baseURL}/api/v1/events/${encodeURIComponent(eventId)}/image`;
     const res = await fetch(url, { headers: { 'Authorization': `Bearer ${this.token}` } });
     if (res.status === 401) {
-      this.logout();
+      this._clearSession();
       throw new Error('Session expired. Please login again.');
     }
     if (!res.ok) {
@@ -600,7 +663,7 @@ class VisionAPIService {
       body: formData,
     });
     if (response.status === 401) {
-      this.logout();
+      this._clearSession();
       throw new Error('Session expired. Please login again.');
     }
     const data = await response.json();
@@ -633,7 +696,7 @@ class VisionAPIService {
       body: formData,
     });
     if (response.status === 401) {
-      this.logout();
+      this._clearSession();
       throw new Error('Session expired. Please login again.');
     }
     const data = await response.json();
@@ -663,7 +726,7 @@ class VisionAPIService {
       body: formData,
     });
     if (response.status === 401) {
-      this.logout();
+      this._clearSession();
       throw new Error('Session expired. Please login again.');
     }
     const data = await response.json();
@@ -1009,7 +1072,7 @@ class VisionAPIService {
     });
 
     if (response.status === 401) {
-      this.logout();
+      this._clearSession();
       throw new Error('Session expired. Please login again.');
     }
 
@@ -1077,7 +1140,7 @@ class VisionAPIService {
     const url = `${this.baseURL}/api/v1/person-gallery/image/${encodeURIComponent(personId)}${params.toString() ? `?${params.toString()}` : ''}`;
     const res = await fetch(url, { headers: { 'Authorization': `Bearer ${this.token}` } });
     if (res.status === 401) {
-      this.logout();
+      this._clearSession();
       throw new Error('Session expired. Please login again.');
     }
     if (!res.ok) {

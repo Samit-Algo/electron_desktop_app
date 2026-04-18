@@ -625,6 +625,14 @@ registerProcessor('pcm-capture', PCMCaptureProcessor);
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone not supported.');
     if (!window.visionAPI?.isAuthenticated?.()) throw new Error('Please login first.');
 
+    /**
+     * Watchdog workflow editor uses its own voice WebSocket + mic. Only one should
+     * capture the microphone — release workflow voice before starting side chat voice.
+     */
+    if (typeof window.__workflowWatchdogVoiceRelease === 'function') {
+      try { window.__workflowWatchdogVoiceRelease(); } catch (_) { /* ignore */ }
+    }
+
     // Try the WebSocket path first.
     try {
       setVoiceState(VOICE_STATE.LISTENING);

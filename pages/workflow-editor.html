@@ -3771,12 +3771,27 @@
       let wfChatSessionId = newWorkflowChatSessionId();
       let wfChatLastWorkflow = null;
       let wfChatLastPlan = null;
+      let wfChatSlotFillPending = false;
       /** @type {Array<{user:string,assistant:string}>} */
       let wfChatTurns = [];
       /** Index into wfChatTurns for which assistant reply is shown */
       let wfChatSelectedTurnIndex = -1;
       /** @type {Array<{role:string,content:string,mode?:string}>} */
       let wfChatConversationHistory = [];
+
+      var wfWatchdogVoiceWs = null;
+      var wfWatchdogVoiceMic = null;
+      var wfWatchdogVoiceCtx = null;
+      var wfWatchdogVoiceWorklet = null;
+      var wfWatchdogVoiceSource = null;
+      var wfWatchdogVoiceNativeRate = 48000;
+      var wfWatchdogVoiceTtsChunks = [];
+      var wfWatchdogSpeaking = null;
+      var wfWatchdogVoiceActive = false;
+      var wfWatchdogVoiceLastUserText = '';
+      var wfWatchdogVoiceLlmAcc = '';
+      /** True after `tts_start` until TTS playback ends or empty `tts_done` (so `done` does not steal listening UI). */
+      var wfWatchdogVoiceAwaitingTtsDone = false;
 
       function truncatePromptLabel(s, max) {
         max = max || 44;
@@ -3923,6 +3938,7 @@
         wfChatSessionId = newWorkflowChatSessionId();
         wfChatLastWorkflow = null;
         wfChatLastPlan = null;
+        wfChatSlotFillPending = false;
         wfChatConversationHistory = [];
         wfChatTurns = [];
         wfChatSelectedTurnIndex = -1;
@@ -3942,6 +3958,7 @@
           loadingEl.setAttribute('aria-hidden', 'true');
         }
         chatInner && chatInner.classList.remove('wf-ai-chat-inner--fetching', 'wf-ai-chat-inner--building');
+        endWatchdogVoiceSession();
       }
 
       if (newThreadBtn) {
@@ -4068,8 +4085,9 @@
           }
         }
         if (voiceBtn) {
-          voiceBtn.disabled = v;
-          voiceBtn.classList.toggle('opacity-50', v);
+          var voiceSessionOpen = !!(wfWatchdogVoiceWs || wfWatchdogVoiceMic);
+          voiceBtn.disabled = v && !voiceSessionOpen;
+          voiceBtn.classList.toggle('opacity-50', v && !voiceSessionOpen);
         }
         if (ta) ta.disabled = v;
         if (v) stopSpeechListening();
@@ -4088,66 +4106,165 @@
         chatInner && chatInner.classList.toggle('wf-ai-chat-inner--building', !!on);
       }
 
-      async function runGenerate() {
-        if (!ta || busy) return;
-        const text = (ta.value || '').trim();
-        if (!text) {
-          alert('Enter a description of the Watch Dog you want to create.');
+      var WF_WATCHDOG_PCM_WORKLET = '\nclass PCMCaptureProcessor extends AudioWorkletProcessor {\n  constructor() {\n    super();\n    this._buf = [];\n    this._TARGET = 4096;\n  }\n  process(inputs) {\n    const ch = inputs[0] && inputs[0][0];\n    if (!ch) return true;\n    this._buf.push(new Float32Array(ch));\n    let total = this._buf.reduce((s, a) => s + a.length, 0);\n    if (total >= this._TARGET) {\n      const out = new Float32Array(total);\n      let offset = 0;\n      for (const b of this._buf) { out.set(b, offset); offset += b.length; }\n      this.port.postMessage(out.buffer, [out.buffer]);\n      this._buf = [];\n    }\n    return true;\n  }\n}\nregisterProcessor(\'pcm-capture\', PCMCaptureProcessor);\n';
+
+      var WF_WATCHDOG_MIC = { audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+
+      function wfDownsample(float32, fromRate, toRate) {
+        if (fromRate === toRate) return float32;
+        var ratio = fromRate / toRate;
+        var out = new Float32Array(Math.floor(float32.length / ratio));
+        for (var i = 0; i < out.length; i++) {
+          var srcIdx = i * ratio;
+          var lo = Math.floor(srcIdx);
+          var hi = Math.min(lo + 1, float32.length - 1);
+          var frac = srcIdx - lo;
+          out[i] = float32[lo] * (1 - frac) + float32[hi] * frac;
+        }
+        return out;
+      }
+
+      function wfFloat32ToPcm16(float32) {
+        var buf = new ArrayBuffer(float32.length * 2);
+        var view = new DataView(buf);
+        for (var i = 0; i < float32.length; i++) {
+          var s = Math.max(-1, Math.min(1, float32[i]));
+          view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+        return buf;
+      }
+
+      function buildWatchdogVoiceWsUrl() {
+        var api = window.visionAPI;
+        if (!api || !api.token) throw new Error('Not authenticated');
+        var b = String(api.baseURL || '').replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:');
+        return b + '/api/v1/watchdog/voice-stream?token=' + encodeURIComponent(api.token);
+      }
+
+      function teardownWatchdogVoiceMedia() {
+        if (wfWatchdogVoiceWorklet) {
+          try { wfWatchdogVoiceWorklet.port.onmessage = null; wfWatchdogVoiceWorklet.disconnect(); } catch (e1) {}
+          wfWatchdogVoiceWorklet = null;
+        }
+        if (wfWatchdogVoiceSource) { try { wfWatchdogVoiceSource.disconnect(); } catch (e2) {} wfWatchdogVoiceSource = null; }
+        if (wfWatchdogVoiceCtx) { try { wfWatchdogVoiceCtx.close(); } catch (e3) {} wfWatchdogVoiceCtx = null; }
+        if (wfWatchdogVoiceMic) {
+          try { wfWatchdogVoiceMic.getTracks().forEach(function (t) { t.stop(); }); } catch (e4) {}
+          wfWatchdogVoiceMic = null;
+        }
+      }
+
+      function closeWatchdogVoiceSocket() {
+        if (!wfWatchdogVoiceWs) return;
+        try {
+          wfWatchdogVoiceWs.onopen = wfWatchdogVoiceWs.onmessage = wfWatchdogVoiceWs.onerror = wfWatchdogVoiceWs.onclose = null;
+          if (wfWatchdogVoiceWs.readyState <= 1) wfWatchdogVoiceWs.close(1000, 'client');
+        } catch (e) {}
+        wfWatchdogVoiceWs = null;
+      }
+
+      function stopWatchdogTtsPlayback() {
+        wfWatchdogVoiceAwaitingTtsDone = false;
+        if (wfWatchdogSpeaking) {
+          try { wfWatchdogSpeaking.pause(); } catch (e) {}
+          wfWatchdogSpeaking = null;
+        }
+        wfWatchdogVoiceTtsChunks = [];
+      }
+
+      function endWatchdogVoiceSession() {
+        wfWatchdogVoiceActive = false;
+        wfWatchdogVoiceAwaitingTtsDone = false;
+        if (voiceBtn) {
+          voiceBtn.classList.remove('wf-ai-chat-voice--listening');
+          voiceBtn.setAttribute('aria-label', 'Voice assistant — speak to send');
+        }
+        stopWatchdogTtsPlayback();
+        closeWatchdogVoiceSocket();
+        teardownWatchdogVoiceMedia();
+        setBusy(false);
+        setAssistantStatusVisible(false);
+        setFetchLoading(false);
+      }
+
+      /**
+       * Side chat voice (ChatbotVoice) must not share the mic with Watchdog voice.
+       * Exposed so layout/chatbot-voice.js can release us before opening general-chat voice.
+       */
+      function registerWatchdogVoiceReleaseHook() {
+        window.__workflowWatchdogVoiceRelease = function () {
+          try { endWatchdogVoiceSession(); } catch (e) { /* ignore */ }
+        };
+      }
+
+      /** True while Watchdog voice session holds mic and/or socket (for mutual exclusion). */
+      function isWatchdogVoiceSessionOpen() {
+        return !!(wfWatchdogVoiceWs || wfWatchdogVoiceMic);
+      }
+
+      /**
+       * After each turn (TTS finished or no audio), show listening again while WS+mic stay up.
+       */
+      function wfResumeListeningAfterTurn() {
+        if (!wfWatchdogVoiceMic) return;
+        if (!wfWatchdogVoiceWs || wfWatchdogVoiceWs.readyState !== WebSocket.OPEN) return;
+        if (voiceBtn) {
+          voiceBtn.classList.add('wf-ai-chat-voice--listening');
+          voiceBtn.setAttribute('aria-label', 'Listening — tap to stop watchdog voice');
+        }
+        setAssistantStatusVisible(false);
+      }
+
+      function playWatchdogTts() {
+        if (!wfWatchdogVoiceTtsChunks.length) {
+          wfWatchdogVoiceAwaitingTtsDone = false;
+          wfResumeListeningAfterTurn();
           return;
         }
-        setBusy(true);
-        openAssistantPanelForUserMessage(text);
-        setAssistantStatusVisible(true, 'Researching design patterns…');
-        setFetchLoading(true, '');
-        const base = String(WORKFLOW_CHAT_API_BASE || '').replace(/\/$/, '');
-        try {
-          var verbose = !!((typeof window !== 'undefined' && window.WORKFLOW_CHAT_VERBOSE) || false);
-          var includePrev = (typeof window !== 'undefined' && window.WORKFLOW_CHAT_INCLUDE_PREVIOUS === true);
-          var sendHistory = (typeof window === 'undefined' || window.WORKFLOW_CHAT_SEND_HISTORY !== false);
-          var body = {
-            message: text,
-            session_id: wfChatSessionId,
-            verbose: verbose
-          };
-          if (includePrev) {
-            if (wfChatLastWorkflow) body.previous_workflow = wfChatLastWorkflow;
-            if (wfChatLastPlan != null) body.previous_plan = wfChatLastPlan;
-          }
-          if (sendHistory && wfChatConversationHistory.length) {
-            body.conversation_history = wfChatConversationHistory.slice(-20);
-          }
-          if (typeof window !== 'undefined' && typeof window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER === 'boolean') {
-            body.enable_intent_router = window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER;
-          }
-
-          const res = await fetch(base + '/api/v1/watchdog/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+        var blob = new Blob(wfWatchdogVoiceTtsChunks.map(function (b) { return new Uint8Array(b); }), { type: 'audio/wav' });
+        wfWatchdogVoiceTtsChunks = [];
+        var url = URL.createObjectURL(blob);
+        var audio = new Audio(url);
+        wfWatchdogSpeaking = audio;
+        if (voiceBtn) voiceBtn.classList.remove('wf-ai-chat-voice--listening');
+        setAssistantStatusVisible(true, 'Speaking…');
+        audio.play()
+          .then(function () { /* speaking state */ })
+          .catch(function () {
+            wfWatchdogSpeaking = null;
+            wfWatchdogVoiceAwaitingTtsDone = false;
+            URL.revokeObjectURL(url);
+            wfResumeListeningAfterTurn();
           });
-          const data = await res.json().catch(function () { return {}; });
-          writeAgentLog(data);
+        audio.onended = function () {
+          URL.revokeObjectURL(url);
+          wfWatchdogSpeaking = null;
+          wfWatchdogVoiceAwaitingTtsDone = false;
+          wfResumeListeningAfterTurn();
+        };
+      }
 
-          if (!res.ok) {
-            setAssistantStatusVisible(false);
-            setFetchLoading(false);
-            const detail = data.detail || data.message || res.statusText || 'Request failed';
-            var detailStr = typeof detail === 'string' ? detail : JSON.stringify(detail);
-            if (wfChatTurns.length) {
-              wfChatTurns[wfChatTurns.length - 1].assistant = 'Error: ' + detailStr;
-              renderTurnMessages(wfChatSelectedTurnIndex);
-            }
-            alert(detailStr);
-            return;
-          }
-
-          wfChatConversationHistory.push({ role: 'user', content: text });
+      async function applyWatchdogGeneratePayload(data, opts) {
+        opts = opts || {};
+        var voiceTurn = !!opts.voiceTurn;
+        var ut = opts.userText != null ? String(opts.userText).trim() : '';
+        if (ut) wfChatConversationHistory.push({ role: 'user', content: ut });
 
           var mode = data.mode || '';
           var hasWorkflow = !!data.workflow;
           var ok = data.success !== false;
           var assistantText = (data.assistant_text != null) ? String(data.assistant_text).trim() : '';
           var shortMessage = (data.message != null) ? String(data.message).trim() : '';
+          var slotQuestions = Array.isArray(data.slot_questions)
+            ? data.slot_questions.map(function (q) { return String(q || '').trim(); }).filter(Boolean)
+            : [];
+          var slotPrompt = '';
+          if (data.slot_fill_pending === true && slotQuestions.length) {
+            slotPrompt = 'I still need:\n- ' + slotQuestions.join('\n- ');
+          } else if (data.slot_fill_pending === true && data.slot_fill_prompt) {
+            slotPrompt = String(data.slot_fill_prompt).trim();
+          }
+          wfChatSlotFillPending = data.slot_fill_pending === true;
 
           if (data.router_reason && isDevUi() && routerReasonEl) {
             routerReasonEl.hidden = false;
@@ -4166,6 +4283,7 @@
             }
             alert(errMsg);
             wfChatConversationHistory.pop();
+            if (voiceTurn) setBusy(false);
             return;
           }
 
@@ -4184,6 +4302,7 @@
               else if (summary.length > 220) summary = summary.slice(0, 217) + '…';
             }
             if (!summary && (mode === 'chat' || mode === 'chat_refine')) summary = assistantText;
+            if (slotPrompt) summary = summary ? (summary + '\n\n' + slotPrompt) : slotPrompt;
             wfChatConversationHistory.push({ role: 'assistant', content: summary || '(no text)', mode: mode || 'unknown' });
           }
 
@@ -4194,6 +4313,7 @@
             }
             if (assistantText) appendToActiveTurn(assistantText);
             else if (data.clarification_needed && shortMessage) appendToActiveTurn(shortMessage);
+            if (slotPrompt) appendToActiveTurn(slotPrompt);
             setAssistantStatusVisible(false);
             if (mode === 'chat_refine' && hasWorkflow) {
               /* Same graph snapshot: keep canvas as-is; optional future: diff and patch */
@@ -4223,6 +4343,7 @@
             }
             var line = assistantText || shortMessage || (didImport ? 'Workflow updated.' : '');
             if (line) appendToActiveTurn(line);
+            if (slotPrompt) appendToActiveTurn(slotPrompt);
             setAssistantStatusVisible(false);
             pushAssistantHistorySummary();
           } else {
@@ -4245,17 +4366,20 @@
                 setModeUi('create');
                 var lineLeg = assistantText || shortMessage || 'Workflow updated.';
                 if (lineLeg) appendToActiveTurn(lineLeg);
-                wfChatConversationHistory.push({ role: 'assistant', content: assistantText || shortMessage || 'Workflow updated.', mode: 'create' });
+                if (slotPrompt) appendToActiveTurn(slotPrompt);
+                wfChatConversationHistory.push({ role: 'assistant', content: (assistantText || shortMessage || 'Workflow updated.') + (slotPrompt ? ('\n\n' + slotPrompt) : ''), mode: 'create' });
               } else {
                 console.warn('[Workflow chat] Unknown workflow payload:', wfLegacy);
                 if (assistantText || shortMessage) {
                   appendToActiveTurn(assistantText || shortMessage);
-                  wfChatConversationHistory.push({ role: 'assistant', content: assistantText || shortMessage, mode: 'legacy' });
+                  if (slotPrompt) appendToActiveTurn(slotPrompt);
+                  wfChatConversationHistory.push({ role: 'assistant', content: (assistantText || shortMessage) + (slotPrompt ? ('\n\n' + slotPrompt) : ''), mode: 'legacy' });
                 }
               }
             } else if (assistantText || shortMessage) {
               appendToActiveTurn(assistantText || shortMessage);
-              wfChatConversationHistory.push({ role: 'assistant', content: assistantText || shortMessage, mode: 'legacy' });
+              if (slotPrompt) appendToActiveTurn(slotPrompt);
+              wfChatConversationHistory.push({ role: 'assistant', content: (assistantText || shortMessage) + (slotPrompt ? ('\n\n' + slotPrompt) : ''), mode: 'legacy' });
             } else if (ok) {
               setAssistantStatusVisible(false);
               setFetchLoading(false);
@@ -4266,6 +4390,7 @@
                 renderTurnMessages(wfChatSelectedTurnIndex);
               }
               alert(nwMsg);
+              if (voiceTurn) setBusy(false);
               return;
             }
             setAssistantStatusVisible(false);
@@ -4276,9 +4401,248 @@
           }
 
           setFetchLoading(false);
-          ta.value = '';
-          resizeTa();
-          syncChatPrimaryAction();
+          if (opts.clearInput !== false && ta) {
+            ta.value = '';
+            resizeTa();
+            syncChatPrimaryAction();
+          }
+      }
+
+      async function startWatchdogVoiceSession() {
+        if (wfWatchdogVoiceWs || wfWatchdogVoiceMic) return;
+        if (!window.visionAPI || !window.visionAPI.token) throw new Error('Login required for watchdog voice.');
+        stopSpeechListening();
+
+        if (window.ChatbotVoice && typeof window.ChatbotVoice.stopVoiceAssistantCompletely === 'function') {
+          try { await window.ChatbotVoice.stopVoiceAssistantCompletely(); } catch (e) { /* ignore */ }
+        }
+
+        wfWatchdogVoiceLastUserText = '';
+        wfWatchdogVoiceLlmAcc = '';
+        wfWatchdogVoiceTtsChunks = [];
+
+        try {
+        wfWatchdogVoiceMic = await navigator.mediaDevices.getUserMedia(WF_WATCHDOG_MIC);
+        var AC = window.AudioContext || window.webkitAudioContext;
+        wfWatchdogVoiceCtx = new AC();
+        wfWatchdogVoiceNativeRate = wfWatchdogVoiceCtx.sampleRate;
+        var wb = new Blob([WF_WATCHDOG_PCM_WORKLET], { type: 'application/javascript' });
+        var wu = URL.createObjectURL(wb);
+        await wfWatchdogVoiceCtx.audioWorklet.addModule(wu);
+        URL.revokeObjectURL(wu);
+        wfWatchdogVoiceSource = wfWatchdogVoiceCtx.createMediaStreamSource(wfWatchdogVoiceMic);
+        wfWatchdogVoiceWorklet = new AudioWorkletNode(wfWatchdogVoiceCtx, 'pcm-capture');
+        wfWatchdogVoiceWorklet.port.onmessage = function (ev) {
+          if (!wfWatchdogVoiceWs || wfWatchdogVoiceWs.readyState !== WebSocket.OPEN) return;
+          var f32 = new Float32Array(ev.data);
+          var pcm = wfDownsample(f32, wfWatchdogVoiceNativeRate, 16000);
+          wfWatchdogVoiceWs.send(wfFloat32ToPcm16(pcm));
+        };
+        wfWatchdogVoiceSource.connect(wfWatchdogVoiceWorklet);
+
+        wfWatchdogVoiceWs = new WebSocket(buildWatchdogVoiceWsUrl());
+        wfWatchdogVoiceWs.binaryType = 'arraybuffer';
+
+        wfWatchdogVoiceWs.onopen = function () {
+          var verbose = !!((typeof window !== 'undefined' && window.WORKFLOW_CHAT_VERBOSE) || false);
+          var hist = wfChatConversationHistory.map(function (h) {
+            return { role: String(h.role || ''), content: String(h.content != null ? h.content : '') };
+          }).filter(function (h) { return h.role && h.content; }).slice(-20);
+          wfWatchdogVoiceWs.send(JSON.stringify({
+            type: 'start',
+            session_id: wfChatSessionId || null,
+            verbose: verbose,
+            enable_intent_router: (typeof window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER === 'boolean') ? window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER : true,
+            autofill_slots: true,
+            slot_fill_followup: !!wfChatSlotFillPending,
+            conversation_history: hist
+          }));
+        };
+
+        wfWatchdogVoiceWs.onmessage = function (ev) {
+          if (ev.data instanceof ArrayBuffer) {
+            wfWatchdogVoiceTtsChunks.push(ev.data);
+            return;
+          }
+          var msg;
+          try { msg = JSON.parse(ev.data); } catch (e) { return; }
+          var typ = msg.type;
+          if (typ === 'ready') {
+            wfWatchdogVoiceActive = true;
+            if (voiceBtn) {
+              voiceBtn.classList.add('wf-ai-chat-voice--listening');
+              voiceBtn.setAttribute('aria-label', 'Listening — tap to stop watchdog voice');
+            }
+            setAssistantStatusVisible(false);
+            return;
+          }
+          if (typ === 'speech_start') {
+            wfWatchdogVoiceLlmAcc = '';
+            wfWatchdogVoiceTtsChunks = [];
+            if (voiceBtn) voiceBtn.classList.add('wf-ai-chat-voice--listening');
+            openAssistantPanelForUserMessage('Listening…');
+            if (wfChatTurns.length) wfChatTurns[wfChatTurns.length - 1].assistant = '';
+            renderTurnMessages(wfChatSelectedTurnIndex);
+            return;
+          }
+          if (typ === 'partial_stt' && msg.text) {
+            if (wfChatTurns.length) {
+              wfChatTurns[wfChatTurns.length - 1].user = String(msg.text);
+              if (userSnippet) userSnippet.textContent = truncatePromptLabel(msg.text);
+              renderTurnMessages(wfChatSelectedTurnIndex);
+            }
+            return;
+          }
+          if (typ === 'speech_end') {
+            if (voiceBtn) voiceBtn.classList.remove('wf-ai-chat-voice--listening');
+            setAssistantStatusVisible(true, 'Processing…');
+            setBusy(true);
+            return;
+          }
+          if (typ === 'final_stt') {
+            wfWatchdogVoiceLastUserText = (msg.text != null) ? String(msg.text).trim() : '';
+            if (wfChatTurns.length) {
+              wfChatTurns[wfChatTurns.length - 1].user = wfWatchdogVoiceLastUserText || '—';
+              if (userSnippet) userSnippet.textContent = truncatePromptLabel(wfWatchdogVoiceLastUserText || 'Your message');
+              rebuildUserPromptMenu();
+              renderTurnMessages(wfChatSelectedTurnIndex);
+            }
+            return;
+          }
+          if (typ === 'watchdog_result' && msg.result) {
+            writeAgentLog(msg.result);
+            applyWatchdogGeneratePayload(msg.result, { userText: wfWatchdogVoiceLastUserText, clearInput: false, voiceTurn: true }).catch(function (e) { console.error(e); });
+            return;
+          }
+          if (typ === 'llm_token' && msg.delta) {
+            wfWatchdogVoiceLlmAcc += String(msg.delta);
+            if (wfChatTurns.length) wfChatTurns[wfChatTurns.length - 1].assistant = wfWatchdogVoiceLlmAcc;
+            renderTurnMessages(wfChatSelectedTurnIndex);
+            return;
+          }
+          if (typ === 'llm_done' && msg.text != null) {
+            wfWatchdogVoiceLlmAcc = String(msg.text);
+            if (wfChatTurns.length) wfChatTurns[wfChatTurns.length - 1].assistant = wfWatchdogVoiceLlmAcc;
+            renderTurnMessages(wfChatSelectedTurnIndex);
+            return;
+          }
+          if (typ === 'tts_start') {
+            wfWatchdogVoiceAwaitingTtsDone = true;
+            wfWatchdogVoiceTtsChunks = [];
+            return;
+          }
+          if (typ === 'tts_done') {
+            playWatchdogTts();
+            return;
+          }
+          if (typ === 'interrupted') {
+            wfWatchdogVoiceAwaitingTtsDone = false;
+            stopWatchdogTtsPlayback();
+            setBusy(false);
+            wfResumeListeningAfterTurn();
+            return;
+          }
+          if (typ === 'done') {
+            if (msg.session_id) wfChatSessionId = msg.session_id;
+            setBusy(false);
+            setFetchLoading(false);
+            if (!wfWatchdogSpeaking && !wfWatchdogVoiceAwaitingTtsDone) {
+              setAssistantStatusVisible(false);
+              wfResumeListeningAfterTurn();
+            }
+            return;
+          }
+          if (typ === 'error') {
+            wfWatchdogVoiceAwaitingTtsDone = false;
+            stopWatchdogTtsPlayback();
+            setBusy(false);
+            setFetchLoading(false);
+            var em = msg.message || 'Voice error';
+            if (wfChatTurns.length) {
+              wfChatTurns[wfChatTurns.length - 1].assistant = 'Error: ' + em;
+              renderTurnMessages(wfChatSelectedTurnIndex);
+            }
+            alert(em);
+            setAssistantStatusVisible(false);
+            wfResumeListeningAfterTurn();
+          }
+        };
+
+        wfWatchdogVoiceWs.onerror = function () {
+          alert('Watchdog voice connection error.');
+          endWatchdogVoiceSession();
+        };
+        wfWatchdogVoiceWs.onclose = function () {
+          wfWatchdogVoiceWs = null;
+          wfWatchdogVoiceActive = false;
+          if (voiceBtn) voiceBtn.classList.remove('wf-ai-chat-voice--listening');
+          stopWatchdogTtsPlayback();
+          teardownWatchdogVoiceMedia();
+          setBusy(false);
+        };
+        } catch (voiceStartErr) {
+          console.error('[WF watchdog voice] start failed:', voiceStartErr);
+          endWatchdogVoiceSession();
+          throw voiceStartErr;
+        }
+      }
+
+      async function runGenerate() {
+        if (!ta || busy) return;
+        const text = (ta.value || '').trim();
+        if (!text) {
+          alert('Enter a description of the Watch Dog you want to create.');
+          return;
+        }
+        setBusy(true);
+        openAssistantPanelForUserMessage(text);
+        setAssistantStatusVisible(true, 'Researching design patterns…');
+        setFetchLoading(true, '');
+        const base = String(WORKFLOW_CHAT_API_BASE || '').replace(/\/$/, '');
+        try {
+          var verbose = !!((typeof window !== 'undefined' && window.WORKFLOW_CHAT_VERBOSE) || false);
+          var sendHistory = (typeof window === 'undefined' || window.WORKFLOW_CHAT_SEND_HISTORY !== false);
+          var body = {
+            message: text,
+            session_id: wfChatSessionId,
+            verbose: verbose
+          };
+          if (wfChatLastWorkflow) {
+            body.previous_workflow = wfChatLastWorkflow;
+            if (wfChatLastPlan != null) body.previous_plan = wfChatLastPlan;
+          }
+          if (wfChatSlotFillPending) {
+            body.slot_fill_followup = true;
+          }
+          if (sendHistory && !wfChatSessionId && wfChatConversationHistory.length) {
+            body.conversation_history = wfChatConversationHistory.slice(-4);
+          }
+          if (typeof window !== 'undefined' && typeof window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER === 'boolean') {
+            body.enable_intent_router = window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER;
+          }
+
+          const res = await fetch(base + '/api/v1/watchdog/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          const data = await res.json().catch(function () { return {}; });
+          writeAgentLog(data);
+
+          if (!res.ok) {
+            setAssistantStatusVisible(false);
+            setFetchLoading(false);
+            const detail = data.detail || data.message || res.statusText || 'Request failed';
+            var detailStr = typeof detail === 'string' ? detail : JSON.stringify(detail);
+            if (wfChatTurns.length) {
+              wfChatTurns[wfChatTurns.length - 1].assistant = 'Error: ' + detailStr;
+              renderTurnMessages(wfChatSelectedTurnIndex);
+            }
+            alert(detailStr);
+            return;
+          }
+
+          await applyWatchdogGeneratePayload(data, { userText: text, clearInput: true, voiceTurn: false });
         } catch (err) {
           console.error('[Workflow chat]', err);
           setFetchLoading(false);
@@ -4299,9 +4663,20 @@
       if (sendBtn) sendBtn.addEventListener('click', function () { runGenerate(); });
       if (voiceBtn) {
         voiceBtn.addEventListener('click', function () {
+          if (wfWatchdogVoiceWs || wfWatchdogVoiceMic) {
+            endWatchdogVoiceSession();
+            return;
+          }
           if (busy) return;
           if (speechListening) {
             stopSpeechListening();
+            return;
+          }
+          if (window.visionAPI && window.visionAPI.token) {
+            startWatchdogVoiceSession().catch(function (err) {
+              console.warn('[WF watchdog voice]', err);
+              startSpeechListening();
+            });
             return;
           }
           startSpeechListening();
@@ -4318,6 +4693,7 @@
 
       if (typeof window !== 'undefined') {
         window.__workflowChatResetThread = resetWorkflowChatThread;
+        registerWatchdogVoiceReleaseHook();
       }
     }
 
