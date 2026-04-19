@@ -1,14 +1,101 @@
 const INTERNAL_HTML_RE = /\.html(?:$|[?#])/i;
+const PAGE_ROUTE_MAP = new Map([
+  ['/pages/dashboard.html', '/app/pages/dashboard/dashboard.html'],
+  ['/app/pages/dashboard.html', '/app/pages/dashboard/dashboard.html'],
+  ['/pages/cameras-list.html', '/app/pages/cameras/cameras-list.html'],
+  ['/app/pages/cameras-list.html', '/app/pages/cameras/cameras-list.html'],
+  ['/pages/camera-detail.html', '/app/pages/cameras/camera-detail.html'],
+  ['/app/pages/camera-detail.html', '/app/pages/cameras/camera-detail.html'],
+  ['/pages/agents-board.html', '/app/pages/agents/agents-list.html'],
+  ['/app/pages/agents-board.html', '/app/pages/agents/agents-list.html'],
+  ['/pages/agent-detail.html', '/app/pages/agents/agent-detail.html'],
+  ['/app/pages/agent-detail.html', '/app/pages/agents/agent-detail.html'],
+  ['/pages/workflow-list.html', '/app/pages/workflows/workflow-list.html'],
+  ['/app/pages/workflow-list.html', '/app/pages/workflows/workflow-list.html'],
+  ['/pages/workflow-editor.html', '/app/pages/workflows/workflow-editor.html'],
+  ['/app/pages/workflow-editor.html', '/app/pages/workflows/workflow-editor.html'],
+  ['/pages/static-video-library.html', '/app/pages/videos/video-library.html'],
+  ['/app/pages/static-video-library.html', '/app/pages/videos/video-library.html'],
+  ['/pages/chat.html', '/app/pages/chat/chat.html'],
+  ['/app/pages/chat.html', '/app/pages/chat/chat.html'],
+  ['/pages/person-gallery.html', '/app/pages/people/person-gallery.html'],
+  ['/app/pages/person-gallery.html', '/app/pages/people/person-gallery.html'],
+  ['/pages/events-board.html', '/app/pages/events/events.html'],
+  ['/app/pages/events-board.html', '/app/pages/events/events.html'],
+]);
 
 const isModifiedClick = e =>
   e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
 
 function toAbsoluteUrl(href) {
-  try { return new URL(href, window.location.href).href; } catch { return null; }
+  try {
+    const url = new URL(href, window.location.href);
+    const mapped = PAGE_ROUTE_MAP.get(url.pathname);
+    if (mapped) url.pathname = mapped;
+    return url.href;
+  } catch { return null; }
 }
 
 function copyAttributes(source, target) {
   Array.from(source.attributes).forEach(attr => target.setAttribute(attr.name, attr.value));
+}
+
+function absolutizeResourceUrls(root, pageUrl) {
+  if (!root || !pageUrl) return;
+  const attrs = ['src', 'href', 'data-src', 'data-href', 'poster'];
+  const isSkippable = value =>
+    !value ||
+    value.startsWith('#') ||
+    value.startsWith('mailto:') ||
+    value.startsWith('tel:') ||
+    value.startsWith('javascript:') ||
+    /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value) ||
+    value.startsWith('//');
+
+  root.querySelectorAll('*').forEach(el => {
+    attrs.forEach(attr => {
+      const raw = el.getAttribute(attr);
+      if (isSkippable(raw)) return;
+      try {
+        const abs = new URL(raw, pageUrl).href;
+        el.setAttribute(attr, abs);
+      } catch {
+        // ignore malformed URLs
+      }
+    });
+  });
+}
+
+function ensureCompanionAssets(root, pageUrl) {
+  if (!root || !pageUrl) return;
+  let url;
+  try { url = new URL(pageUrl, window.location.href); } catch { return; }
+  if (!url.pathname.endsWith('.html')) return;
+
+  const cssHref = new URL(url.pathname.replace(/\.html$/, '.css'), url.origin).href;
+  const jsSrc = new URL(url.pathname.replace(/\.html$/, '.js'), url.origin).href;
+
+  const hasCss = Array.from(root.querySelectorAll('link[rel="stylesheet"][href]'))
+    .some(link => {
+      try { return new URL(link.getAttribute('href'), pageUrl).href === cssHref; } catch { return false; }
+    });
+  const hasJs = Array.from(root.querySelectorAll('script[src]'))
+    .some(script => {
+      try { return new URL(script.getAttribute('src'), pageUrl).href === jsSrc; } catch { return false; }
+    });
+
+  if (!hasCss) {
+    const link = document.createElement('link');
+    link.setAttribute('rel', 'stylesheet');
+    link.setAttribute('href', cssHref);
+    root.insertBefore(link, root.firstChild);
+  }
+  if (!hasJs) {
+    const script = document.createElement('script');
+    script.setAttribute('type', 'module');
+    script.setAttribute('src', jsSrc);
+    root.appendChild(script);
+  }
 }
 
 function getPageDepth() {
@@ -129,7 +216,6 @@ async function loadPage(url, { push = true } = {}) {
   const html = await res.text();
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const nextPageContent = doc.querySelector('#page-content');
-  if (!nextPageContent) throw new Error(`No #page-content found in ${url}`);
 
   const title = doc.querySelector('title')?.textContent?.trim();
   if (title) document.title = title;
@@ -137,10 +223,34 @@ async function loadPage(url, { push = true } = {}) {
   const viewport = document.querySelector('.viewport-scrolls');
   if (!viewport) throw new Error('No .viewport-scrolls container found');
 
+  // Remove previously injected per-page assets from <head>.
+  document
+    .querySelectorAll('link[data-vision-page-asset="true"], style[data-vision-page-asset="true"]')
+    .forEach(el => el.remove());
+
   while (viewport.firstChild) viewport.removeChild(viewport.firstChild);
 
   const tmp = document.createElement('div');
-  tmp.innerHTML = nextPageContent.innerHTML;
+  if (nextPageContent) {
+    tmp.innerHTML = nextPageContent.innerHTML;
+  } else {
+    // Support module-style fragment pages that do not include #page-content.
+    tmp.innerHTML = html;
+  }
+  ensureCompanionAssets(tmp, url);
+  absolutizeResourceUrls(tmp, url);
+
+  // Move page-level styles to <head> so CSS always applies in SPA mode.
+  const pageHeadAssets = [];
+  tmp.querySelectorAll('link[rel="stylesheet"], style').forEach(el => {
+    pageHeadAssets.push(el.cloneNode(true));
+    el.remove();
+  });
+  pageHeadAssets.forEach(el => {
+    el.setAttribute('data-vision-page-asset', 'true');
+    document.head.appendChild(el);
+  });
+
   while (tmp.firstChild) viewport.appendChild(tmp.firstChild);
 
   await executeInjectedScripts(viewport);
@@ -200,7 +310,4 @@ export function initRouter() {
     loadPage(url, { push: false }).catch(err => console.error('SPA navigation error:', err));
   });
 
-  // Expose global helper for imperative navigation
-  window.visionaiSpa = window.visionaiSpa || {};
-  window.visionaiSpa.navigate = navigate;
 }

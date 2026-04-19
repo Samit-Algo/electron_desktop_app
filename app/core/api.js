@@ -203,6 +203,3 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
-
-// Keep backward-compat global
-window.visionAPI = api;

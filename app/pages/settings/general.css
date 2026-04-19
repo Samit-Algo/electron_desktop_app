@@ -1,0 +1,21 @@
+.settings-nav .nav-link {
+  color: var(--phoenix-body-color);
+  transition: all 0.2s ease;
+}
+.settings-nav .nav-link:hover {
+  background-color: var(--phoenix-body-bg-hover);
+  color: var(--phoenix-body-emphasis);
+}
+.settings-nav .nav-link.active {
+  background-color: var(--phoenix-primary-bg-subtle);
+  color: var(--phoenix-primary);
+}
+.setting-panel-item {
+  margin-bottom: 1.5rem;
+}
+.setting-panel-item-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--phoenix-body-emphasis);
+}

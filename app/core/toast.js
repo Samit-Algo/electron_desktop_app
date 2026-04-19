@@ -71,6 +71,3 @@ export const toast = {
   info:    (message, options) => showToast(message, 'info',    options),
   show: showToast,
 };
-
-// Keep backward-compat global
-window.VisionToast = toast;

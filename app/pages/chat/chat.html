@@ -1,0 +1,67 @@
+<div class="content chat-page-content">
+  <div class="row gy-3 mb-3 flex-shrink-0">
+    <div class="col-12">
+      <h2 class="mb-2 text-body-emphasis">Algo Vision Analyzer</h2>
+      <p class="text-body-tertiary fw-semibold mb-0 fs-9">Upload media in chat — it appears here as a card.</p>
+    </div>
+  </div>
+
+  <div class="row g-3 chat-page-main-row">
+    <!-- Left: User uploaded video / image cards -->
+    <div class="col-12 col-lg-4 min-h-0">
+      <div class="card h-100 d-flex flex-column min-h-0">
+        <div class="card-header bg-body-emphasis py-2 d-flex align-items-center flex-shrink-0">
+          <span class="fa-solid fa-images text-primary me-2 fs-9"></span>
+          <span class="fw-semibold fs-9">Your uploads</span>
+        </div>
+        <div class="card-body p-2 overflow-auto flex-grow-1 min-h-0" id="chat-media-cards">
+          <p class="text-body-tertiary fs-9 mb-0 text-center py-4" id="chat-media-empty">No uploads yet. Send an image or video in chat to see it here.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Chat -->
+    <div class="col-12 col-lg-8 min-h-0">
+      <div class="card h-100 d-flex flex-column min-h-0">
+        <div class="card-header bg-body-emphasis py-2 d-flex align-items-center">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle text-primary me-2" style="width:24px;height:24px;">
+            <span data-feather="cpu" style="width:14px;height:14px;"></span>
+          </span>
+          <span class="fw-semibold fs-9">Algo Vision Analyzer</span>
+        </div>
+        <div class="card-body p-0 d-flex flex-column flex-grow-1 overflow-hidden">
+          <div class="chat-messages-area flex-grow-1 overflow-auto p-3 scrollbar" id="chat-messages"></div>
+          <div class="card-footer border-top px-3 py-3 chat-page-footer" style="background: transparent;">
+            <div class="chatbot-input-container">
+              <div class="chat-attached-preview d-none align-items-center gap-2 px-2 py-1 mb-1 rounded" id="chat-attached-preview" aria-live="polite">
+                <span class="chat-attached-icon bg-body-secondary rounded d-flex align-items-center justify-content-center" style="width:36px;height:36px;">
+                  <span class="fas fa-video text-body-tertiary fs-9"></span>
+                </span>
+                <div class="flex-grow-1 min-w-0">
+                  <p class="mb-0 fs-9 text-body text-truncate chat-attached-filename"></p>
+                  <span class="text-body-tertiary fs-10">Video</span>
+                </div>
+                <button type="button" class="btn btn-link p-0 text-danger fs-9 chat-attached-remove" id="chat-attached-remove" aria-label="Remove video">
+                  <span class="fas fa-times"></span>
+                </button>
+              </div>
+              <textarea class="form-control fs-9" id="chat-input" rows="1" placeholder="Ask anything" style="margin-bottom: 2.75rem;"></textarea>
+              <div class="chatbot-controls-area">
+                <div class="chatbot-btn-group"></div>
+                <div class="chatbot-btn-group ms-auto">
+                  <input type="file" id="chat-attach-input" accept="image/*,video/*" class="d-none" aria-hidden="true" />
+                  <button type="button" class="chatbot-action-icon" id="chat-attach-btn" title="Upload image or video" aria-label="Upload">
+                    <span class="fas fa-paperclip fs-9"></span>
+                  </button>
+                  <button type="button" class="chatbot-send-btn ms-2" id="chat-send-btn" aria-label="Send" title="Send">
+                    <span class="fas fa-arrow-up fs-9"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

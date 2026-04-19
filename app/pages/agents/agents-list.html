@@ -1,0 +1,426 @@
+<link rel="stylesheet" href="agents-list.css">
+
+<div class="content">
+    <nav class="mb-3" aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="dashboard.html">Dashboard</a></li>
+            <li class="breadcrumb-item active">Agents Board</li>
+        </ol>
+    </nav>
+
+    <div class="row gx-6 gy-3 mb-3 align-items-center">
+        <div class="col-auto">
+            <h2 class="mb-0">Agents<span class="fw-normal text-body-tertiary ms-3">(<span id="vision-agents-count">0</span>)</span></h2>
+        </div>
+        <div class="col-auto ms-auto">
+            <div class="search-box me-3 d-inline-block">
+                <form class="position-relative">
+                    <input class="form-control search-input search" type="search" placeholder="Search agents" aria-label="Search" id="vision-agents-search" />
+                    <span class="fas fa-search search-box-icon"></span>
+                </form>
+            </div>
+            <button type="button" class="btn btn-phoenix-primary" id="vision-agents-create-btn" aria-label="Create agent">
+                <span class="fas fa-plus me-1"></span>Create Agent
+            </button>
+        </div>
+    </div>
+
+    <!-- Top bar filters -->
+    <div class="row g-2 g-md-3 mb-4 align-items-center agents-filters-bar">
+        <div class="col-12 col-md-auto">
+            <label for="vision-filter-camera" class="form-label small mb-0 text-body-tertiary">Camera</label>
+            <select class="form-select form-select-sm" id="vision-filter-camera" aria-label="Filter by camera">
+                <option value="">All cameras</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-auto">
+            <label for="vision-filter-rule-type" class="form-label small mb-0 text-body-tertiary">Rule Type</label>
+            <select class="form-select form-select-sm" id="vision-filter-rule-type" aria-label="Filter by rule type">
+                <option value="">All types</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-auto">
+            <label for="vision-filter-status" class="form-label small mb-0 text-body-tertiary">Status</label>
+            <select class="form-select form-select-sm" id="vision-filter-status" aria-label="Filter by status">
+                <option value="">All statuses</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-auto">
+            <label for="vision-filter-date" class="form-label small mb-0 text-body-tertiary">Quick Date</label>
+            <select class="form-select form-select-sm" id="vision-filter-date" aria-label="Filter by date">
+                <option value="">Any time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="last7">Last 7 days</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-auto align-self-end">
+            <button type="button" class="btn btn-phoenix-secondary btn-sm" id="vision-filters-clear" aria-label="Clear filters">Clear</button>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-9" id="vision-agents-board-grid">
+        <!-- Agents list injected by agents-list.js -->
+    </div>
+</div>
+
+<!-- =========================================================
+     Create Agent Modal — multi-step form
+ Step 1: Rule selection
+ Step 2: Configuration (camera, class, time window, run mode)
+ Step 3: Zone drawing (only for rules that require a zone)
+ ========================================================= -->
+<div class="modal fade" id="vision-create-agent-modal"
+     tabindex="-1" aria-labelledby="ca-modal-label" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <!-- Header -->
+            <div class="modal-header pb-2">
+                <div class="flex-grow-1 min-w-0">
+                    <h5 class="modal-title mb-1" id="ca-modal-label">
+                        <span id="ca-modal-title">Create Agent</span>
+                    </h5>
+                    <!-- Step pills -->
+                    <div class="d-flex align-items-center gap-1" id="ca-step-pills">
+                        <span class="badge rounded-pill bg-primary" id="ca-pill-1">1 · Rule</span>
+                        <span class="text-body-tertiary small">›</span>
+                        <span class="badge rounded-pill bg-secondary" id="ca-pill-2">2 · Configure</span>
+                        <span class="text-body-tertiary small" id="ca-pill-sep-3" style="display:none">›</span>
+                        <span class="badge rounded-pill bg-secondary" id="ca-pill-3" style="display:none">3 · Zone</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close ms-2" id="ca-close-btn" aria-label="Close"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body" id="ca-modal-body">
+
+                <!-- ── Step 1: Rule Selection ──────────────────────── -->
+                <div id="ca-step-1-content">
+                    <p class="small text-body-secondary mb-3">Select the type of monitoring this agent will perform:</p>
+                    <div class="row g-2" id="ca-rule-grid">
+                        <!-- Rule cards injected by JS -->
+                    </div>
+                </div>
+
+                <!-- ── Step 2: Configuration ──────────────────────── -->
+                <div id="ca-step-2-content" class="d-none">
+
+                    <!-- Selected rule chip -->
+                    <div class="d-flex align-items-center gap-2 mb-3 px-2 py-2 rounded"
+                         style="background:var(--phoenix-body-highlight-bg,#f1f5f9);border:1px solid var(--phoenix-border-color,#e2e8f0);"
+                         id="ca-selected-rule-chip">
+                        <span class="fs-5 flex-shrink-0" id="ca-chip-icon"></span>
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-semibold small text-truncate" id="ca-chip-name"></div>
+                            <div class="text-body-tertiary" style="font-size:.72rem" id="ca-chip-desc"></div>
+                        </div>
+                        <button type="button" class="btn btn-link btn-sm text-decoration-none text-body-tertiary p-0 flex-shrink-0"
+                                id="ca-change-rule-btn" style="font-size:.8rem;white-space:nowrap">
+                            Change rule
+                        </button>
+                    </div>
+
+                    <!-- Config fields -->
+                    <div id="ca-config-fields">
+
+                        <!-- Agent Name -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold mb-1">
+                                Agent Name
+                                <span class="text-body-tertiary fw-normal">(optional — auto-generated if blank)</span>
+                            </label>
+                            <input type="text" class="form-control form-control-sm" id="ca-name"
+                                   placeholder="e.g. Front Gate Monitor" maxlength="200" autocomplete="off">
+                        </div>
+
+                        <!-- Camera -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold mb-1">Camera <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="ca-camera">
+                                <option value="">— Loading cameras… —</option>
+                            </select>
+                        </div>
+
+                        <!-- Detection Class (conditional) -->
+                        <div class="mb-3 d-none" id="ca-class-group">
+                            <label class="form-label small fw-semibold mb-1">Detect <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="ca-class">
+                                <option value="">Select class…</option>
+                            </select>
+                        </div>
+
+                        <!-- Watch Names — face_detection -->
+                        <div class="mb-3 d-none" id="ca-watch-names-group">
+                            <label class="form-label small fw-semibold mb-1">Watch for person(s) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="ca-watch-names"
+                                   placeholder="sachin, john" autocomplete="off">
+                            <div class="form-text small">Comma-separated names. Each name must exist in the Person Gallery.</div>
+                        </div>
+
+                        <!-- Idle threshold — loom_machine_state -->
+                        <div class="mb-3 d-none" id="ca-idle-threshold-group">
+                            <label class="form-label small fw-semibold mb-1">Alert if machine is idle for longer than <span class="text-danger">*</span></label>
+                            <div class="input-group input-group-sm" style="max-width:200px">
+                                <input type="number" class="form-control" id="ca-idle-threshold" min="1" max="1440" step="1" placeholder="15">
+                                <span class="input-group-text">minutes</span>
+                            </div>
+                        </div>
+
+                        <!-- Absence threshold — person_near_machine -->
+                        <div class="mb-3 d-none" id="ca-absence-threshold-group">
+                            <label class="form-label small fw-semibold mb-1">Alert if no operator is nearby for longer than <span class="text-danger">*</span></label>
+                            <div class="input-group input-group-sm" style="max-width:200px">
+                                <input type="number" class="form-control" id="ca-absence-threshold" min="1" max="1440" step="1" placeholder="15">
+                                <span class="input-group-text">minutes</span>
+                            </div>
+                        </div>
+
+                        <!-- Schedule Type -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold mb-1">Schedule <span class="text-danger">*</span></label>
+                            <div class="row g-2" id="ca-sched-cards">
+                                <div class="col-6 col-sm-3">
+                                    <div class="ca-sched-card" data-sched="always">
+                                        <div class="ca-sched-icon">⏰</div>
+                                        <div class="ca-sched-label">Always</div>
+                                        <div class="ca-sched-desc">24/7, non-stop</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-sm-3">
+                                    <div class="ca-sched-card" data-sched="daily">
+                                        <div class="ca-sched-icon">📅</div>
+                                        <div class="ca-sched-label">Daily</div>
+                                        <div class="ca-sched-desc">Every day, set hours</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-sm-3">
+                                    <div class="ca-sched-card" data-sched="weekly">
+                                        <div class="ca-sched-icon">📆</div>
+                                        <div class="ca-sched-label">Weekly</div>
+                                        <div class="ca-sched-desc">Selected days of week</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-sm-3">
+                                    <div class="ca-sched-card" data-sched="once">
+                                        <div class="ca-sched-icon">🗓️</div>
+                                        <div class="ca-sched-label">Once</div>
+                                        <div class="ca-sched-desc">Specific date range</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Time window: full datetime (once) -->
+                        <div id="ca-time-once-group" class="d-none mb-3">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small fw-semibold mb-1">Active from <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" class="form-control form-control-sm" id="ca-start-time">
+                                    <div class="text-danger d-none mt-1" style="font-size:.72rem" id="ca-start-time-error"></div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small fw-semibold mb-1">Active until <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" class="form-control form-control-sm" id="ca-end-time">
+                                    <div class="text-danger d-none mt-1" style="font-size:.72rem" id="ca-end-time-error"></div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-text small">The agent runs only within this date and time range.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Time window: time-of-day only (daily / weekly) -->
+                        <div id="ca-time-tod-group" class="d-none mb-3">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small fw-semibold mb-1">From <span class="text-danger">*</span></label>
+                                    <input type="time" class="form-control form-control-sm" id="ca-start-tod">
+                                    <div class="text-danger d-none mt-1" style="font-size:.72rem" id="ca-start-tod-error"></div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small fw-semibold mb-1">Until <span class="text-danger">*</span></label>
+                                    <input type="time" class="form-control form-control-sm" id="ca-end-tod">
+                                    <div class="text-danger d-none mt-1" style="font-size:.72rem" id="ca-end-tod-error"></div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-text small">Agent runs within this time window each active day.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active days: weekly only -->
+                        <div id="ca-active-days-group" class="d-none mb-3">
+                            <label class="form-label small fw-semibold mb-1">Active Days <span class="text-danger">*</span></label>
+                            <div class="d-flex flex-wrap gap-2 mt-1">
+                                <div class="form-check form-check-inline m-0">
+                                    <input class="form-check-input" type="checkbox" id="ca-day-mon" value="mon">
+                                    <label class="form-check-label small" for="ca-day-mon">Mon</label>
+                                </div>
+                                <div class="form-check form-check-inline m-0">
+                                    <input class="form-check-input" type="checkbox" id="ca-day-tue" value="tue">
+                                    <label class="form-check-label small" for="ca-day-tue">Tue</label>
+                                </div>
+                                <div class="form-check form-check-inline m-0">
+                                    <input class="form-check-input" type="checkbox" id="ca-day-wed" value="wed">
+                                    <label class="form-check-label small" for="ca-day-wed">Wed</label>
+                                </div>
+                                <div class="form-check form-check-inline m-0">
+                                    <input class="form-check-input" type="checkbox" id="ca-day-thu" value="thu">
+                                    <label class="form-check-label small" for="ca-day-thu">Thu</label>
+                                </div>
+                                <div class="form-check form-check-inline m-0">
+                                    <input class="form-check-input" type="checkbox" id="ca-day-fri" value="fri">
+                                    <label class="form-check-label small" for="ca-day-fri">Fri</label>
+                                </div>
+                                <div class="form-check form-check-inline m-0">
+                                    <input class="form-check-input" type="checkbox" id="ca-day-sat" value="sat">
+                                    <label class="form-check-label small" for="ca-day-sat">Sat</label>
+                                </div>
+                                <div class="form-check form-check-inline m-0">
+                                    <input class="form-check-input" type="checkbox" id="ca-day-sun" value="sun">
+                                    <label class="form-check-label small" for="ca-day-sun">Sun</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Run Mode -->
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold mb-1">Run Mode</label>
+                            <div class="d-flex gap-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="ca-run-mode"
+                                           id="ca-run-continuous" value="continuous" checked>
+                                    <label class="form-check-label small" for="ca-run-continuous">
+                                        <strong>Continuous</strong> — runs non-stop
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="ca-run-mode"
+                                           id="ca-run-patrol" value="patrol">
+                                    <label class="form-check-label small" for="ca-run-patrol">
+                                        <strong>Patrol</strong> — check at intervals
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Patrol fields (hidden unless patrol selected) -->
+                        <div id="ca-patrol-group" class="d-none mb-3 p-2 rounded"
+                             style="background:var(--phoenix-body-highlight-bg,#f1f5f9);border:1px solid var(--phoenix-border-color,#e2e8f0)">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small fw-semibold mb-1">Check every <span class="text-danger">*</span></label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" id="ca-interval-minutes" min="1" max="1440" step="1" placeholder="10">
+                                        <span class="input-group-text">min</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small fw-semibold mb-1">Each check runs for <span class="text-danger">*</span></label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" id="ca-check-duration" min="1" max="86400" step="1" placeholder="30">
+                                        <span class="input-group-text">sec</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- /ca-config-fields -->
+                </div><!-- /ca-step-2-content -->
+
+                <!-- ── Step 3: Zone Drawing ─────────────────────────── -->
+                <div id="ca-step-3-content" class="d-none">
+
+                    <!-- Instructions -->
+                    <p class="small text-body-secondary mb-1" id="ca-zone-instruction">Draw the monitoring zone on the camera frame below.</p>
+                    <p class="small text-body-tertiary mb-2" id="ca-zone-subinstruction"></p>
+
+                    <!-- Canvas wrapper -->
+                    <div id="ca-zone-canvas-wrap"
+                         style="position:relative;width:100%;background:#0f172a;border-radius:8px;overflow:hidden;min-height:160px;cursor:crosshair;user-select:none;-webkit-user-select:none;">
+                        <canvas id="ca-zone-canvas"
+                                style="display:block;width:100%;height:auto;touch-action:none;"
+                                width="640" height="360"></canvas>
+                        <!-- Loading overlay -->
+                        <div id="ca-zone-loading"
+                             class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                             style="background:rgba(0,0,0,.65);color:#94a3b8;z-index:2;">
+                            <div class="text-center">
+                                <div class="spinner-border spinner-border-sm mb-2"></div><br>
+                                <span class="small">Loading camera frame…</span>
+                            </div>
+                        </div>
+                        <!-- Error overlay -->
+                        <div id="ca-zone-error"
+                             class="d-none position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                             style="background:rgba(0,0,0,.65);color:#f87171;z-index:2;">
+                            <div class="text-center px-3">
+                                <div class="mb-1" style="font-size:1.5rem">⚠️</div>
+                                <span class="small" id="ca-zone-error-msg">Could not load camera frame.</span><br>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="ca-zone-retry-btn">Retry</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Controls row -->
+                    <div class="d-flex align-items-center gap-2 mt-2">
+                        <span class="small text-body-tertiary" id="ca-zone-hint">Click to add points.</span>
+                        <div class="ms-auto d-flex gap-1">
+                            <button type="button" class="btn btn-phoenix-secondary btn-sm" id="ca-zone-undo-btn" disabled>
+                                <span class="fas fa-undo me-1"></span>Undo
+                            </button>
+                            <button type="button" class="btn btn-phoenix-danger btn-sm" id="ca-zone-clear-btn" disabled>
+                                <span class="fas fa-trash me-1"></span>Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Saved indicator -->
+                    <div id="ca-zone-saved-indicator" class="d-none mt-2 p-2 rounded small text-success"
+                         style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);">
+                        <span class="fas fa-check-circle me-1"></span>
+                        Zone saved. You can still redraw before creating the agent.
+                    </div>
+
+                </div><!-- /ca-step-3-content -->
+
+                <!-- API error alert -->
+                <div id="ca-error-alert" class="alert alert-danger d-none mt-3 mb-0 py-2 px-3 small" role="alert">
+                    <span id="ca-error-msg"></span>
+                    <button type="button" class="btn-close btn-sm float-end" id="ca-error-dismiss" style="font-size:.65rem"></button>
+                </div>
+
+            </div><!-- /modal-body -->
+
+            <!-- Footer -->
+            <div class="modal-footer py-2 border-top">
+                <button type="button" class="btn btn-phoenix-secondary btn-sm d-none" id="ca-back-btn">
+                    <span class="fas fa-arrow-left me-1"></span>Back
+                </button>
+                <button type="button" class="btn btn-phoenix-secondary btn-sm" id="ca-cancel-btn">Cancel</button>
+                <div class="ms-auto d-flex gap-2">
+                    <!-- Step 1 → Step 2 -->
+                    <button type="button" class="btn btn-phoenix-primary btn-sm" id="ca-next-btn" disabled>
+                        Next <span class="fas fa-arrow-right ms-1"></span>
+                    </button>
+                    <!-- Step 2 → Step 3 (zone required) -->
+                    <button type="button" class="btn btn-phoenix-primary btn-sm d-none" id="ca-zone-btn">
+                        Draw Zone <span class="fas fa-draw-polygon ms-1"></span>
+                    </button>
+                    <!-- Final submit -->
+                    <button type="button" class="btn btn-success btn-sm d-none" id="ca-create-btn" disabled>
+                        <span class="fas fa-check me-1"></span>
+                        <span id="ca-create-text">Create Agent</span>
+                        <span class="spinner-border spinner-border-sm d-none ms-1" id="ca-create-spinner"></span>
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- /modal-content -->
+    </div>
+</div>
+
+<script type="module" src="agents-list.js"></script>

@@ -1,0 +1,1292 @@
+    /* CSS Variables for theming - Compatible with Bootstrap */
+    :root {
+      --lf-card-bg: #0d0d0d;
+      --lf-card-border: #2a2a2a;
+      --lf-card-color: #ffffff;
+      --lf-header-border: #1a1a1a;
+      --lf-input-bg: #141414;
+      --lf-input-border: #2a2a2a;
+      --lf-input-focus-bg: #1a1a1a;
+      --lf-placeholder-color: #525252;
+      --lf-label-color: #9ca3af;
+      --lf-icon-color: #6b7280;
+      --lf-footer-color: #9ca3af;
+      --lf-play-btn-border: #3a3a3a;
+      --lf-play-btn-hover-bg: #1a1a1a;
+      --lf-provider-badge-bg: #1a1a1a;
+      --lf-provider-badge-color: #d1d5db;
+      --lf-select-option-bg: #1a1a1a;
+      --wf-canvas-bg: #020617;
+      --wf-sidebar-bg: #020617;
+      --wf-designer-color: #e5e7eb;
+      --wf-canvas-border: #111827;
+      --wf-grid-color: #1f2937;
+      --bs-primary: #6366f1;
+      --bs-primary-rgb: 99, 102, 241;
+      /* AI chat dock */
+      --wf-chat-surface: rgba(13, 13, 13, 0.94);
+      --wf-chat-surface-border: rgba(55, 55, 55, 0.95);
+      --wf-chat-placeholder: var(--lf-placeholder-color);
+      --wf-chat-icon-hover: var(--lf-play-btn-hover-bg);
+      --wf-chat-send-bg: #6366f1;
+      --wf-chat-send-hover: #4f46e5;
+      --wf-chat-model-bg: var(--lf-provider-badge-bg);
+      --wf-chat-model-color: var(--lf-provider-badge-color);
+      --wf-chat-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      /* Node card width — responsive with higher cap for readability */
+      --wf-node-card-width: min(220px, max(150px, calc((100vw - 120px) * 0.85)));
+    }
+
+    [data-bs-theme="light"] {
+      --lf-card-bg: #ffffff;
+      --lf-card-border: #e5e7eb;
+      --lf-card-color: #111827;
+      --lf-header-border: #f3f4f6;
+      --lf-input-bg: #f9fafb;
+      --lf-input-border: #d1d5db;
+      --lf-input-focus-bg: #ffffff;
+      --lf-placeholder-color: #9ca3af;
+      --lf-label-color: #6b7280;
+      --lf-icon-color: #9ca3af;
+      --lf-footer-color: #6b7280;
+      --lf-play-btn-border: #d1d5db;
+      --lf-play-btn-hover-bg: #f3f4f6;
+      --lf-provider-badge-bg: #f3f4f6;
+      --lf-provider-badge-color: #4b5563;
+      --lf-select-option-bg: #ffffff;
+      --wf-canvas-bg: #f8fafc;
+      --wf-sidebar-bg: #f1f5f9;
+      --wf-designer-color: #374151;
+      --wf-canvas-border: #e2e8f0;
+      --wf-grid-color: #cbd5e1;
+      --wf-chat-surface: rgba(255, 255, 255, 0.97);
+      --wf-chat-surface-border: rgba(226, 232, 240, 0.98);
+      --wf-chat-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+    }
+
+    /* Workflow Designer Layout using Bootstrap utility classes with custom extensions */
+    .workflow-designer {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      height: calc(100vh - 60px);
+      background: var(--wf-canvas-bg);
+      overflow: hidden;
+    }
+
+    /* Canvas Grid Background - Custom style needed */
+    .wf-canvas::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: radial-gradient(var(--wf-grid-color) 0.7px, transparent 0.8px);
+      background-size: 18px 18px;
+      opacity: .45;
+    }
+
+    /* Node Card Styles - Minimal custom CSS where Bootstrap is insufficient */
+    .lf-card {
+      width: var(--wf-node-card-width);
+      max-width: min(220px, calc((100vw - 100px) * 0.85));
+      box-sizing: border-box;
+      background: var(--lf-card-bg);
+      border-radius: 10px;
+      color: var(--lf-card-color);
+      box-shadow: 0 0 0 1px var(--lf-card-border), 0 4px 20px rgba(0,0,0,0.15);
+      overflow: hidden;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .lf-card-header {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--lf-header-border);
+    }
+
+    .lf-title {
+      gap: 10px;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--lf-card-color);
+      line-height: 1.15;
+    }
+
+    .lf-header-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      height: auto;
+      border-radius: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      font-size: 12px;
+      color: var(--lf-icon-color);
+      line-height: 1;
+    }
+    .lf-header-icon i {
+      display: block;
+      line-height: 1;
+      transform: translateY(1px);
+    }
+
+    .lf-play-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      background: transparent;
+      border: 1px solid var(--lf-play-btn-border);
+      color: var(--lf-icon-color);
+      font-size: 9px;
+      transition: all 0.2s ease;
+    }
+
+    .lf-play-btn:hover {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+
+    .lf-card-body {
+      padding: 8px 12px;
+    }
+
+    @media (max-width: 576px) {
+      .lf-card-header {
+        padding: 6px 8px;
+      }
+      .lf-card-body {
+        padding: 6px 8px;
+      }
+      .lf-title {
+        font-size: 12px;
+      }
+      .lf-card[data-wf-type] .lf-title-text {
+        font-size: 12px;
+      }
+      .lf-field-label {
+        font-size: 9px;
+      }
+      .lf-input-wrapper input,
+      .lf-input-wrapper select,
+      .lf-input-wrapper textarea {
+        font-size: 10px;
+        padding: 4px 6px;
+      }
+    }
+
+    /* Workflow canvas nodes — depth, accent strip, per-type color */
+    .lf-card[data-wf-type] {
+      --wf-accent: #6366f1;
+      --wf-accent-mid: #818cf8;
+      --wf-accent-dim: rgba(99, 102, 241, 0.16);
+      --wf-accent-glow: rgba(99, 102, 241, 0.42);
+      position: relative;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: linear-gradient(155deg, #15151d 0%, var(--lf-card-bg) 44%, #070709 100%);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 2px 6px rgba(0, 0, 0, 0.4),
+        0 16px 36px -14px rgba(0, 0, 0, 0.75),
+        0 0 50px -20px var(--wf-accent-dim);
+      transition: transform 0.22s cubic-bezier(0.34, 1.18, 0.64, 1), box-shadow 0.24s ease, border-color 0.2s ease;
+      overflow: hidden;
+    }
+
+    .lf-card[data-wf-type]::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--wf-accent), var(--wf-accent-mid));
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .lf-card[data-wf-type]::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: radial-gradient(110% 85% at 100% -25%, var(--wf-accent-dim), transparent 52%);
+      opacity: 0.9;
+      z-index: 0;
+    }
+
+    .lf-card[data-wf-type] > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .lf-card[data-wf-type="start"] {
+      --wf-accent: #22d3ee;
+      --wf-accent-mid: #5eead4;
+      --wf-accent-dim: rgba(34, 211, 238, 0.18);
+      --wf-accent-glow: rgba(34, 211, 238, 0.45);
+    }
+
+    .lf-card[data-wf-type="camera"] {
+      --wf-accent: #38bdf8;
+      --wf-accent-mid: #7dd3fc;
+      --wf-accent-dim: rgba(56, 189, 248, 0.16);
+      --wf-accent-glow: rgba(56, 189, 248, 0.42);
+    }
+
+    .lf-card[data-wf-type="class_detection_agent"] {
+      --wf-accent: #8b5cf6;
+      --wf-accent-mid: #c4b5fd;
+      --wf-accent-dim: rgba(139, 92, 246, 0.18);
+      --wf-accent-glow: rgba(139, 92, 246, 0.45);
+    }
+
+    .lf-card[data-wf-type="person_behaviour_agent"] {
+      --wf-accent: #ec4899;
+      --wf-accent-mid: #f9a8d4;
+      --wf-accent-dim: rgba(236, 72, 153, 0.16);
+      --wf-accent-glow: rgba(236, 72, 153, 0.42);
+    }
+
+    .lf-card[data-wf-type="class_detection_zone_agent"] {
+      --wf-accent: #6366f1;
+      --wf-accent-mid: #a5b4fc;
+      --wf-accent-dim: rgba(99, 102, 241, 0.18);
+      --wf-accent-glow: rgba(99, 102, 241, 0.45);
+    }
+
+    .lf-card[data-wf-type="object_count_agent"] {
+      --wf-accent: #10b981;
+      --wf-accent-mid: #6ee7b7;
+      --wf-accent-dim: rgba(16, 185, 129, 0.15);
+      --wf-accent-glow: rgba(16, 185, 129, 0.4);
+    }
+
+    .lf-card[data-wf-type="notification"] {
+      --wf-accent: #f59e0b;
+      --wf-accent-mid: #fcd34d;
+      --wf-accent-dim: rgba(245, 158, 11, 0.16);
+      --wf-accent-glow: rgba(245, 158, 11, 0.4);
+    }
+
+    .lf-card[data-wf-type="report"] {
+      --wf-accent: #14b8a6;
+      --wf-accent-mid: #5eead4;
+      --wf-accent-dim: rgba(20, 184, 166, 0.15);
+      --wf-accent-glow: rgba(20, 184, 166, 0.4);
+    }
+
+    .lf-card[data-wf-type="end"] {
+      --wf-accent: #fb7185;
+      --wf-accent-mid: #fda4af;
+      --wf-accent-dim: rgba(251, 113, 133, 0.16);
+      --wf-accent-glow: rgba(251, 113, 133, 0.42);
+    }
+
+    .lf-card[data-wf-type] .lf-card-header {
+      padding: 10px 12px 9px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, transparent 100%);
+    }
+
+    .lf-card[data-wf-type] .lf-title {
+      gap: 12px;
+    }
+
+    .lf-card[data-wf-type] .lf-title-text {
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: -0.01em;
+      text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
+    }
+
+    .lf-card[data-wf-type] .lf-header-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      height: auto;
+      border-radius: 0;
+      font-size: 13px;
+      flex-shrink: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      color: var(--lf-icon-color);
+      line-height: 1;
+    }
+
+    .lf-card[data-wf-type] .lf-card-body {
+      padding: 10px 12px 11px;
+    }
+
+    .lf-card[data-wf-type] .lf-section-indicator {
+      width: 3px;
+      align-self: stretch;
+      min-height: 26px;
+      margin-top: 3px;
+      border-radius: 999px;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.12);
+    }
+
+    .lf-card[data-wf-type] .lf-section-indicator.purple {
+      background: linear-gradient(180deg, #c4b5fd, #6366f1);
+    }
+
+    .lf-card[data-wf-type] .lf-section-indicator.cyan {
+      background: linear-gradient(180deg, #67e8f9, #06b6d4);
+    }
+
+    .lf-card[data-wf-type] .lf-section-indicator.blue {
+      background: linear-gradient(180deg, #93c5fd, #3b82f6);
+    }
+
+    .drawflow .drawflow-node:hover .lf-card[data-wf-type] {
+      transform: translateY(-3px);
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+        0 8px 20px rgba(0, 0, 0, 0.45),
+        0 22px 48px -16px rgba(0, 0, 0, 0.55),
+        0 0 60px -14px var(--wf-accent-glow);
+    }
+
+    .drawflow .drawflow-node.selected:has(.lf-card[data-wf-type]) {
+      filter: none;
+    }
+
+    .drawflow .drawflow-node.selected:not(:has(.lf-card[data-wf-type])) {
+      filter: drop-shadow(0 0 0 1px #4f46e5) drop-shadow(0 0 0 4px rgba(79, 70, 229, 0.35));
+    }
+
+    .drawflow .drawflow-node.selected .lf-card[data-wf-type] {
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow:
+        0 0 0 2px var(--wf-accent),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+        0 0 0 5px var(--wf-accent-dim),
+        0 10px 28px rgba(0, 0, 0, 0.5),
+        0 0 52px -8px var(--wf-accent-glow);
+    }
+
+    [data-bs-theme="light"] .lf-card[data-wf-type] {
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: linear-gradient(155deg, #ffffff 0%, #f8fafc 48%, #f1f5f9 100%);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.85) inset,
+        0 2px 6px rgba(15, 23, 42, 0.06),
+        0 14px 32px -12px rgba(15, 23, 42, 0.12),
+        0 0 40px -18px var(--wf-accent-dim);
+    }
+
+    [data-bs-theme="light"] .lf-card[data-wf-type] .lf-card-header {
+      border-bottom-color: rgba(15, 23, 42, 0.07);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.35) 100%);
+    }
+
+    [data-bs-theme="light"] .lf-card[data-wf-type] .lf-title-text {
+      text-shadow: none;
+    }
+
+    [data-bs-theme="light"] .drawflow .drawflow-node:hover .lf-card[data-wf-type] {
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+        0 8px 24px rgba(15, 23, 42, 0.1),
+        0 0 48px -12px var(--wf-accent-glow);
+    }
+
+    [data-bs-theme="light"] .drawflow .drawflow-node.selected .lf-card[data-wf-type] {
+      box-shadow:
+        0 0 0 2px var(--wf-accent),
+        0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+        0 0 0 5px var(--wf-accent-dim),
+        0 12px 28px rgba(15, 23, 42, 0.12);
+    }
+
+    /* Form Sections with Indicators */
+    .lf-section-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .lf-section-indicator.purple { background: #6366f1; }
+    .lf-section-indicator.cyan { background: #06b6d4; }
+    .lf-section-indicator.blue { background: #3b82f6; }
+
+    .lf-field-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--lf-label-color);
+    }
+
+    .lf-field-label i {
+      font-size: 9px;
+      color: var(--lf-icon-color);
+    }
+
+    /* Custom Input Styling for Node Cards */
+    .lf-input-wrapper input,
+    .lf-input-wrapper select,
+    .lf-input-wrapper textarea {
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--lf-input-border);
+      background-color: var(--lf-input-bg);
+      color: var(--lf-card-color);
+      font-size: 11px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .lf-input-wrapper input::placeholder,
+    .lf-input-wrapper textarea::placeholder {
+      color: var(--lf-placeholder-color);
+    }
+
+    .lf-input-wrapper input:focus,
+    .lf-input-wrapper select:focus,
+    .lf-input-wrapper textarea:focus {
+      border-color: #6366f1;
+      background-color: var(--lf-input-focus-bg);
+    }
+
+    .lf-input-wrapper input[type="password"] {
+      padding-right: 50px;
+    }
+
+    .lf-input-wrapper.with-icon-left input,
+    .lf-input-wrapper.with-icon-left select {
+      padding-left: 28px;
+    }
+
+    .lf-input-wrapper.with-icon-right input {
+      padding-right: 28px;
+    }
+
+    .lf-input-icon-left {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--lf-icon-color);
+      font-size: 10px;
+      pointer-events: none;
+    }
+
+    .lf-input-icon-right {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--lf-icon-color);
+      font-size: 10px;
+    }
+
+    .lf-input-icon-right i {
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+
+    .lf-input-icon-right i:hover {
+      color: var(--lf-card-color);
+    }
+
+    .lf-input-wrapper select {
+      appearance: none;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    .lf-input-wrapper select option {
+      background-color: var(--lf-select-option-bg);
+      color: var(--lf-card-color);
+    }
+
+    .lf-input-wrapper textarea {
+      min-height: 36px;
+      resize: vertical;
+    }
+
+    .lf-footer {
+      padding: 6px 12px;
+      border-top: 1px solid var(--lf-header-border);
+      font-size: 10px;
+      color: var(--lf-footer-color);
+    }
+
+    .lf-footer-icon {
+      font-size: 10px;
+    }
+
+    .lf-provider-badge {
+      padding: 4px 10px;
+      background: var(--lf-provider-badge-bg);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--lf-provider-badge-color);
+    }
+
+    /* Drawflow Specific Styles */
+    #drawflow {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      position: relative;
+    }
+
+    .drawflow {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drawflow .drawflow-node {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      margin: 0;
+      min-width: 0;
+      max-width: min(220px, calc((100vw - 100px) * 0.85));
+      min-height: 58px;
+      position: absolute;
+      z-index: 2;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .drawflow .drawflow-node:active {
+      cursor: grabbing;
+    }
+
+    .drawflow .drawflow-node .drawflow_content_node {
+      pointer-events: auto;
+    }
+
+
+    /* SVG Connection styles */
+    .drawflow svg {
+      z-index: 0;
+      position: absolute;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    .drawflow svg .connection {
+      pointer-events: all;
+    }
+
+    .drawflow svg .connection path {
+      fill: none;
+    }
+
+    /* Port styling - Fixed alignment */
+    .drawflow .drawflow-node .input,
+    .drawflow .drawflow-node .output {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #c7d2fe, #6366f1);
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      cursor: crosshair;
+      z-index: 100;
+      pointer-events: all;
+      box-shadow:
+        0 0 0 2px rgba(99, 102, 241, 0.35),
+        0 2px 10px rgba(0, 0, 0, 0.45);
+      transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .drawflow .drawflow-node .input {
+      left: -7px !important;
+      top: 50% !important;
+      transform: translateY(-50%);
+      margin: 0 !important;
+    }
+
+    .drawflow .drawflow-node .output {
+      right: -7px !important;
+      top: 50% !important;
+      transform: translateY(-50%);
+      margin: 0 !important;
+    }
+
+    .drawflow .drawflow-node:hover .input,
+    .drawflow .drawflow-node:hover .output {
+      border-color: rgba(255, 255, 255, 0.85);
+      box-shadow:
+        0 0 0 3px rgba(99, 102, 241, 0.45),
+        0 4px 16px rgba(99, 102, 241, 0.55);
+    }
+
+    .drawflow .drawflow-node:hover .input {
+      transform: translateY(-50%) scale(1.08);
+    }
+
+    .drawflow .drawflow-node:hover .output {
+      transform: translateY(-50%) scale(1.08);
+    }
+
+    /* Connector - Animated flow line */
+    .drawflow .connection .main-path {
+      stroke: #6366f1 !important;
+      stroke-width: 2px !important;
+      stroke-linecap: round !important;
+      stroke-dasharray: 8 4 !important;
+      animation: wf-flow 1.5s linear infinite !important;
+      opacity: 1 !important;
+      fill: none !important;
+    }
+
+    @keyframes wf-flow {
+      to { stroke-dashoffset: -24; }
+    }
+
+    /* Override selected connection styles */
+    .drawflow .connection.selected .main-path {
+      stroke: #6366f1 !important;
+      stroke-width: 2px !important;
+      stroke-dasharray: 8 4 !important;
+    }
+
+    /* Force all connection paths */
+    .drawflow svg .connection path {
+      fill: none !important;
+    }
+
+    /* Node compatibility states */
+    .wf-node.compatible { display: none; }
+    .wf-node.incompatible { display: none; }
+    .wf-node.neutral { display: none; }
+
+    .wf-section-item.compatible {
+      border: 1px solid #22c55e !important;
+      background: rgba(34, 197, 94, 0.15) !important;
+    }
+
+    .wf-section-item.incompatible {
+      border: 1px solid #ef4444 !important;
+      background: rgba(239, 68, 68, 0.15) !important;
+      opacity: 0.5;
+    }
+
+    .wf-section-item.neutral {
+      opacity: 1;
+    }
+
+    /* Connection preview */
+    .connection-preview { stroke: #22c55e !important; stroke-width: 2px !important; stroke-dasharray: 5 5 !important; opacity: 0.7; }
+    .connection-invalid { stroke: #ef4444 !important; stroke-width: 2px !important; stroke-dasharray: 5 5 !important; opacity: 0.7; }
+
+    /* Ports visibility control */
+    .drawflow .drawflow-node .input,
+    .drawflow .drawflow-node .output { transition: opacity .15s ease; }
+    .drawflow .drawflow-node .hidden-port { visibility: hidden; opacity: 0; pointer-events: none; }
+
+    /* Sidebar section expand/collapse */
+    .wf-section-content { display: none; }
+    .wf-section.expanded .wf-section-content { display: block; }
+    .wf-section.expanded .wf-section-arrow { transform: rotate(90deg); }
+
+    /* Custom Button Hover States */
+    .btn-wf-primary:hover { background-color: #4f46e5 !important; border-color: #4f46e5 !important; }
+    .btn-wf-secondary:hover { background-color: var(--lf-play-btn-hover-bg) !important; }
+    .wf-new-component-btn:hover { border-color: #6366f1 !important; color: #6366f1 !important; }
+    .wf-section-header:hover { background: rgba(99, 102, 241, 0.1); }
+    .wf-section-item:hover { background: rgba(99, 102, 241, 0.15); }
+
+    /* Floating toolbar button hover */
+    .wf-floating-toolbar button:hover {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+
+    /* Scheduler conditional groups - hide when not applicable */
+    .wf-sched-hidden {
+      display: none !important;
+    }
+
+    /* Notification node when schedule is "always" - no End connection, red indicator */
+    .drawflow-node.wf-no-end .output {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    .drawflow-node.wf-no-end .drawflow_content_node .lf-card[data-wf-type]::before {
+      background: linear-gradient(90deg, #ef4444, #f87171) !important;
+    }
+
+    .drawflow-node.wf-no-end .drawflow_content_node .lf-card[data-wf-type] {
+      border-color: #ef4444 !important;
+      box-shadow:
+        0 0 0 2px rgba(239, 68, 68, 0.85),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+        0 8px 28px rgba(239, 68, 68, 0.28) !important;
+    }
+
+    /* End node when schedule is Always - show red, "don't use" */
+    .drawflow-node.wf-end-unused .drawflow_content_node .lf-card[data-wf-type]::before {
+      background: linear-gradient(90deg, #dc2626, #f87171) !important;
+    }
+
+    .drawflow-node.wf-end-unused .drawflow_content_node .lf-card[data-wf-type] {
+      border-color: #ef4444 !important;
+      box-shadow:
+        0 0 0 2px rgba(239, 68, 68, 0.9),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 10px 32px rgba(239, 68, 68, 0.3) !important;
+      background: linear-gradient(155deg, rgba(239, 68, 68, 0.12) 0%, var(--lf-card-bg) 55%, #070709 100%) !important;
+    }
+    .drawflow-node.wf-end-unused .drawflow_content_node .lf-card[data-wf-type] .lf-footer {
+      color: #f87171 !important;
+    }
+
+    /* Canvas column: dot grid + room for AI chat dock */
+    .wf-canvas-column {
+      padding-bottom: 7.5rem;
+    }
+
+    /* AI chat dock — matches app theme; inherits document dir for RTL/LTR */
+    .wf-ai-chat {
+      position: fixed;
+      z-index: 25;
+      bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(42rem, calc(100vw - 1.5rem));
+      max-width: 100%;
+      direction: inherit;
+      /* Centering uses physical left:50% so the bar stays viewport-centered in both LTR and RTL */
+    }
+
+    .wf-ai-chat-inner {
+      background: var(--wf-chat-surface);
+      border: 1px solid var(--wf-chat-surface-border);
+      border-radius: 1.25rem;
+      box-shadow: var(--wf-chat-shadow);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 0.75rem 0.875rem 0.625rem;
+    }
+
+    .wf-ai-chat-input {
+      display: block;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--lf-card-color);
+      font-size: 0.875rem;
+      line-height: 1.45;
+      resize: none;
+      min-height: 2.5rem;
+      max-height: 8rem;
+      padding: 0.2rem 0.15rem;
+      text-align: start;
+    }
+
+    .wf-ai-chat-input::placeholder {
+      color: var(--wf-chat-placeholder);
+      opacity: 1;
+    }
+
+    .wf-ai-chat-input:focus {
+      outline: none;
+    }
+
+    .wf-ai-chat-toolbar {
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--lf-header-border);
+      gap: 0.5rem;
+    }
+
+    .wf-ai-chat-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      border: none;
+      border-radius: 0.5rem;
+      background: transparent;
+      color: var(--lf-icon-color);
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .wf-ai-chat-icon-btn:hover {
+      background: var(--wf-chat-icon-hover);
+      color: var(--lf-card-color);
+    }
+
+    .wf-ai-chat-icon-btn:focus-visible {
+      outline: 2px solid var(--bs-primary);
+      outline-offset: 2px;
+    }
+
+    .wf-ai-chat-model-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border: 1px solid var(--lf-input-border);
+      background: var(--wf-chat-model-bg);
+      color: var(--wf-chat-model-color);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.28rem 0.65rem;
+      line-height: 1.2;
+    }
+
+    .wf-ai-chat-model-btn:hover {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+
+    .wf-ai-chat-model-label {
+      display: inline-block;
+      max-width: 9rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .wf-ai-chat-model-btn::after {
+      display: inline-block;
+      margin-inline-start: 0.2rem;
+      vertical-align: 0.15em;
+      content: "";
+      border-top: 0.28em solid;
+      border-inline-end: 0.22em solid transparent;
+      border-inline-start: 0.22em solid transparent;
+      opacity: 0.7;
+    }
+
+    .wf-ai-chat-send {
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: var(--wf-chat-send-bg);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s ease;
+    }
+
+    .wf-ai-chat-send:hover {
+      background: var(--wf-chat-send-hover);
+    }
+
+    .wf-ai-chat-send:focus-visible {
+      outline: 2px solid var(--wf-chat-send-bg);
+      outline-offset: 2px;
+    }
+
+    .wf-ai-chat-send[hidden],
+    .wf-ai-chat-voice-btn[hidden] {
+      display: none !important;
+    }
+
+    /* Voice assistant — wave bars (not mic) */
+    .wf-ai-chat-voice-btn {
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      border: 1px solid var(--wf-chat-send-bg);
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.12);
+      color: var(--wf-chat-send-bg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .wf-ai-chat-voice-btn:hover:not(:disabled) {
+      background: rgba(99, 102, 241, 0.22);
+      border-color: var(--wf-chat-send-hover);
+    }
+
+    .wf-ai-chat-voice-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .wf-ai-chat-voice-btn:focus-visible {
+      outline: 2px solid var(--wf-chat-send-bg);
+      outline-offset: 2px;
+    }
+
+    .wf-ai-chat-voice-waves {
+      display: inline-flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      height: 14px;
+    }
+
+    .wf-ai-chat-voice-waves i {
+      display: block;
+      width: 3px;
+      border-radius: 1px;
+      background: currentColor;
+      transform-origin: center bottom;
+      font-style: normal;
+    }
+
+    .wf-ai-chat-voice-waves i:nth-child(1) { height: 6px; }
+    .wf-ai-chat-voice-waves i:nth-child(2) { height: 11px; }
+    .wf-ai-chat-voice-waves i:nth-child(3) { height: 8px; }
+    .wf-ai-chat-voice-waves i:nth-child(4) { height: 13px; }
+
+    .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening {
+      background: rgba(99, 102, 241, 0.28);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+      animation: wf-voice-pulse 1.2s ease-in-out infinite;
+    }
+
+    .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening .wf-ai-chat-voice-waves i {
+      animation: wf-voice-bar 0.55s ease-in-out infinite;
+    }
+
+    .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening .wf-ai-chat-voice-waves i:nth-child(1) { animation-delay: 0ms; }
+    .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening .wf-ai-chat-voice-waves i:nth-child(2) { animation-delay: 90ms; }
+    .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening .wf-ai-chat-voice-waves i:nth-child(3) { animation-delay: 45ms; }
+    .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening .wf-ai-chat-voice-waves i:nth-child(4) { animation-delay: 120ms; }
+
+    @keyframes wf-voice-bar {
+      0%, 100% { transform: scaleY(0.45); opacity: 0.75; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+
+    @keyframes wf-voice-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); }
+      50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); }
+    }
+
+    .wf-ai-chat .dropdown-menu {
+      font-size: 0.8125rem;
+      background: var(--lf-card-bg);
+      border: 1px solid var(--lf-card-border);
+      color: var(--lf-card-color);
+    }
+
+    .wf-ai-chat .dropdown-item {
+      color: var(--lf-card-color);
+    }
+
+    .wf-ai-chat .dropdown-item:hover,
+    .wf-ai-chat .dropdown-item:focus {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+
+    /* Chat: backend processing */
+    .wf-ai-chat-loading {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.4rem 0 0.1rem;
+      font-size: 0.8125rem;
+      color: var(--lf-label-color);
+    }
+    .wf-ai-chat-loading[hidden] {
+      display: none !important;
+    }
+    .wf-ai-chat-loading__spinner {
+      width: 1.1rem;
+      height: 1.1rem;
+      border: 2px solid var(--lf-input-border);
+      border-top-color: var(--bs-primary);
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: wf-chat-spin 0.65s linear infinite;
+    }
+    @keyframes wf-chat-spin {
+      to { transform: rotate(360deg); }
+    }
+    .wf-ai-chat-inner.wf-ai-chat-inner--fetching .wf-ai-chat-input,
+    .wf-ai-chat-inner.wf-ai-chat-inner--building .wf-ai-chat-input {
+      opacity: 0.72;
+      pointer-events: none;
+    }
+    .wf-ai-chat-inner.wf-ai-chat-inner--building .wf-ai-chat-toolbar {
+      opacity: 0.65;
+      pointer-events: none;
+    }
+
+    /* Floating agent chat: bottom-left, compact scroll */
+    .wf-ai-canvas-float {
+      position: absolute;
+      inset: 0;
+      z-index: 12;
+      pointer-events: none;
+    }
+    .wf-ai-canvas-float > * {
+      pointer-events: auto;
+    }
+    .wf-ai-assistant-panel {
+      position: absolute;
+      left: max(0.75rem, env(safe-area-inset-left, 0px));
+      bottom: calc(7.25rem + env(safe-area-inset-bottom, 0px));
+      width: min(300px, calc(100% - 1.5rem));
+      max-height: min(260px, 38vh);
+      display: flex;
+      flex-direction: column;
+      z-index: 1;
+    }
+    .wf-ai-assistant-panel[hidden] {
+      display: none !important;
+    }
+    .wf-ai-assistant-panel__glow {
+      position: absolute;
+      inset: -2px;
+      border-radius: 1.15rem;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.55), rgba(59, 130, 246, 0.5), rgba(16, 185, 129, 0.45));
+      opacity: 0.85;
+      filter: blur(0.5px);
+      z-index: 0;
+    }
+    .wf-ai-assistant-panel__inner {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      max-height: min(260px, 38vh);
+      background: var(--wf-chat-surface);
+      border: 1px solid var(--wf-chat-surface-border);
+      border-radius: 1rem;
+      padding: 0.5rem 0.6rem 0.45rem;
+      box-shadow: var(--wf-chat-shadow);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .wf-ai-assistant-panel__head {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-shrink: 0;
+      margin-bottom: 0.35rem;
+      min-width: 0;
+    }
+    .wf-ai-assistant-panel__avatar {
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 999px;
+      background: var(--lf-input-bg);
+      border: 1px solid var(--lf-input-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--lf-icon-color);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .wf-ai-user-msg-dropdown {
+      min-width: 0;
+      flex: 1;
+    }
+    .wf-ai-user-msg-dropdown-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      border: 0;
+      border-radius: 0.5rem;
+      padding: 0.32rem 0.45rem;
+      background: rgba(128, 128, 128, 0.14);
+      color: var(--lf-card-color);
+      font-size: 0.75rem;
+      text-align: start;
+      line-height: 1.25;
+    }
+    .wf-ai-user-msg-dropdown-btn:hover,
+    .wf-ai-user-msg-dropdown-btn:focus {
+      background: rgba(128, 128, 128, 0.22);
+      color: var(--lf-card-color);
+    }
+    .wf-ai-user-msg-dropdown-btn::after {
+      margin-inline-start: auto;
+      flex-shrink: 0;
+    }
+    .wf-ai-user-msg-dropdown__label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .wf-ai-user-msg-dropdown-menu {
+      max-width: min(280px, 85vw);
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+      background: var(--lf-card-bg);
+      border: 1px solid var(--lf-card-border);
+      color: var(--lf-card-color);
+    }
+    .wf-ai-user-msg-dropdown-menu .dropdown-item {
+      white-space: normal;
+      word-break: break-word;
+      padding-top: 0.35rem;
+      padding-bottom: 0.35rem;
+      color: var(--lf-card-color);
+    }
+    .wf-ai-user-msg-dropdown-menu .dropdown-item:hover,
+    .wf-ai-user-msg-dropdown-menu .dropdown-item:focus {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+    .wf-ai-user-msg-dropdown-menu .dropdown-item.active {
+      background: rgba(99, 102, 241, 0.22);
+      color: var(--lf-card-color);
+      font-weight: 600;
+    }
+    .wf-ai-assistant-panel__status {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.78rem;
+      color: var(--lf-label-color);
+      margin-bottom: 0.4rem;
+    }
+    .wf-ai-assistant-panel__status[hidden] {
+      display: none !important;
+    }
+    .wf-ai-assist-spin {
+      width: 0.95rem;
+      height: 0.95rem;
+      border: 2px solid var(--lf-input-border);
+      border-top-color: var(--bs-primary);
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: wf-chat-spin 0.65s linear infinite;
+    }
+    .wf-ai-clarification-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.2rem 0.45rem;
+      border-radius: 0.35rem;
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      margin-bottom: 0.35rem;
+    }
+    .wf-ai-clarification-badge[hidden] {
+      display: none !important;
+    }
+    .wf-ai-assistant-messages {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: var(--lf-card-color);
+      margin-bottom: 0.25rem;
+    }
+    .wf-ai-msg-block {
+      margin-bottom: 0.65rem;
+      padding-bottom: 0.55rem;
+      border-bottom: 1px solid var(--lf-header-border);
+    }
+    .wf-ai-msg-block:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    .wf-ai-msg-block p {
+      margin: 0 0 0.45rem;
+    }
+    .wf-ai-msg-block p:last-child {
+      margin-bottom: 0;
+    }
+    .wf-ai-agent-log {
+      font-size: 0.7rem;
+      color: var(--lf-label-color);
+      margin-top: 0.25rem;
+    }
+    .wf-ai-agent-log summary {
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .wf-ai-agent-log summary::-webkit-details-marker {
+      display: none;
+    }
+    .wf-ai-agent-log__body {
+      margin: 0.35rem 0 0;
+      padding: 0.4rem;
+      max-height: 120px;
+      overflow: auto;
+      font-size: 0.65rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 0.35rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--lf-label-color);
+    }
+    .wf-ai-router-reason {
+      margin-top: 0.25rem;
+      font-size: 0.7rem;
+    }
+    .wf-ai-router-reason[hidden] {
+      display: none !important;
+    }
+
+    /* Generated node enter — slow, smooth ease */
+    @keyframes wf-gen-node-in {
+      0% {
+        opacity: 0;
+        transform: scale(0.9) translateY(20px);
+        filter: blur(5px);
+      }
+      45% {
+        opacity: 0.92;
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+      }
+    }
+    .drawflow .drawflow-node.wf-gen-node-enter {
+      animation: wf-gen-node-in 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      will-change: transform, opacity, filter;
+    }
+
+    /*
+     * During chat import: kill wf-flow. Draw-in animation sets stroke-dasharray/offset via JS with setProperty(..., 'important')
+     * so it wins over .drawflow .connection .main-path { stroke-dasharray: 8 4 !important }.
+     */
+    .wf-canvas--gen-animating .drawflow .connection .main-path.wf-gen-conn-dots {
+      animation: none !important;
+      stroke: #6366f1 !important;
+      stroke-width: 2px !important;
+      stroke-linecap: round !important;
+      fill: none !important;
+      opacity: 1 !important;
+    }
+
+    .wf-canvas--gen-animating {
+      cursor: progress;
+    }
+    

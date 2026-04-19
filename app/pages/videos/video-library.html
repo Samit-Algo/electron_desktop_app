@@ -1,0 +1,22 @@
+<div class="content">
+  <div class="row gy-3 mb-3">
+    <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div>
+        <h2 class="mb-1 text-body-emphasis">Static Video Library</h2>
+        <p class="text-body-tertiary fw-semibold mb-0 fs-9">Your uploaded videos. Select one for analysis in Chat.</p>
+      </div>
+      <button type="button" class="btn btn-phoenix-secondary btn-sm" id="library-refresh-btn">
+        <span class="fas fa-rotate me-1"></span>Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="row g-3" id="library-grid"></div>
+
+  <div class="card d-none" id="library-empty-card">
+    <div class="card-body text-center py-6">
+      <span class="fa-solid fa-video text-body-tertiary fs-4"></span>
+      <p class="text-body-tertiary mt-2 mb-0">No static videos found for this user.</p>
+    </div>
+  </div>
+</div>

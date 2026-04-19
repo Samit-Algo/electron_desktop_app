@@ -1,0 +1,101 @@
+<div class="content">
+  <!-- Page Header -->
+  <div class="row gy-3 mb-4 align-items-center">
+    <div class="col-12 col-md-8">
+      <h2 class="mb-2 text-body-emphasis">
+        <i class="fas fa-users me-2 text-primary"></i>Person Gallery
+      </h2>
+      <p class="text-body-tertiary mb-0">People registered for face recognition in live video. Click a card to view all uploaded photos.</p>
+    </div>
+    <div class="col-12 col-md-4 text-md-end">
+      <button type="button" class="btn btn-phoenix-primary btn-sm" id="chatbot-find-person-btn">
+        <i class="fas fa-user-plus me-2"></i>Add Person
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading state -->
+  <div id="person-gallery-loading" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="text-body-tertiary mt-2 mb-0">Loading person gallery...</p>
+  </div>
+
+  <!-- Empty state -->
+  <div id="person-gallery-empty" class="d-none">
+    <div class="card border border-translucent">
+      <div class="card-body text-center py-5">
+        <i class="fas fa-user-slash text-body-tertiary fs-1 mb-3"></i>
+        <h5 class="text-body-emphasis">No persons in gallery</h5>
+        <p class="text-body-tertiary mb-0">Use the <strong>Add Person to Gallery</strong> button above to add people (upload at least 4 photos per person).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Person list: one card per person -->
+  <div id="person-gallery-grid" class="row g-4 d-none">
+    <!-- Person cards injected by JS -->
+  </div>
+
+  <!-- Detail view: only this person's images -->
+  <div id="person-detail-view" class="d-none">
+    <div class="d-flex align-items-center gap-2 mb-4">
+      <button type="button" class="btn btn-phoenix-secondary btn-sm" id="person-detail-back">
+        <i class="fas fa-arrow-left me-1"></i>Back to gallery
+      </button>
+    </div>
+    <h5 class="text-body-emphasis mb-2">
+      <i class="fas fa-user me-2 text-primary"></i><span id="person-detail-name">—</span>
+    </h5>
+    <p class="text-body-tertiary small mb-4" id="person-detail-meta">—</p>
+    <div id="person-detail-images-loading" class="text-center py-4">
+      <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+    </div>
+    <div id="person-detail-images" class="row g-4 d-none">
+      <!-- One card per image, injected by JS -->
+    </div>
+  </div>
+
+  <!-- Add Person modal -->
+  <div class="modal fade" id="find-person-modal" tabindex="-1" aria-labelledby="find-person-modal-label" aria-hidden="true" data-bs-backdrop="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="find-person-modal-label">
+            <span class="fas fa-user-plus me-2"></span>Add Person Form
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-body-tertiary small mb-3">Upload at least 4 photos per person for accurate recognition. Each photo must show one clear face (different angles or lighting is better).</p>
+          <form id="find-person-form">
+            <div class="mb-3">
+              <label for="find-person-name" class="form-label">Person's name</label>
+              <input type="text" class="form-control" id="find-person-name" name="name" placeholder="e.g. sachin" required maxlength="200" autocomplete="off">
+            </div>
+            <div class="mb-3">
+              <label for="find-person-existing" class="form-label">Existing persons in gallery</label>
+              <select class="form-select" id="find-person-existing">
+                <option value="">Select a person from the list (optional)</option>
+              </select>
+              <div class="form-text">Choosing one will fill the name field above.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Photos (select at least 4, one face per photo)</label>
+              <input type="file" class="form-control" id="find-person-file" name="files" accept="image/jpeg,image/png,image/webp" multiple required>
+              <div class="form-text">Select 4 or more images. JPG, PNG or WebP. Each image must contain exactly one detectable face.</div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-phoenix-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-phoenix-primary" id="find-person-submit-btn">
+            <span class="find-person-btn-text">Upload</span>
+            <span class="find-person-spinner spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

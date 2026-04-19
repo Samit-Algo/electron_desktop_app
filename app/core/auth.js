@@ -1,3 +1,4 @@
+import { navigate } from './router.js';
 import { api } from './api.js';
 import { toast } from './toast.js';
 
@@ -420,12 +421,8 @@ export async function initAuthGuard() {
         toast.success(`Welcome, ${event.detail.user.full_name || event.detail.user.email || 'User'}!`);
       }
       setTimeout(() => {
-        const dashboardPath = '/pages/dashboard.html';
-        if (window.visionaiSpa?.navigate) {
-          window.visionaiSpa.navigate(dashboardPath).catch(() => { window.location.href = dashboardPath; });
-        } else {
-          window.location.href = dashboardPath;
-        }
+        const dashboardPath = '/app/pages/dashboard/dashboard.html';
+        navigate(dashboardPath).catch(() => { window.location.href = dashboardPath; });
       }, 300);
     } else {
       showLoginPage();

@@ -1,0 +1,177 @@
+<link rel="stylesheet" href="camera-detail.css">
+
+<div class="content">
+            <nav class="mb-3" aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="dashboard.html">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Camera Details</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <h2 class="mb-1 text-body-emphasis" id="camera-title">Camera</h2>
+                    <p class="text-body-tertiary mb-0 fs-9">Live view + agent monitoring</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-phoenix-secondary btn-sm" href="dashboard.html">
+                        <span class="fa-solid fa-arrow-left me-1"></span>Back
+                    </a>
+                </div>
+            </div>
+
+            <!-- Reuse Chat page layout: left list + right "conversation" (replaced with video player) -->
+            <div class="chat d-flex phoenix-offcanvas-container pt-1 mt-n1 mb-9" id="camera-detail-shell">
+                <!-- Left sidebar -->
+                <div class="card p-3 p-xl-1 mt-xl-n1 chat-sidebar me-3 phoenix-offcanvas phoenix-offcanvas-start" id="agent-sidebar" style="min-width: 320px;">
+                    <!-- Search (same idea as chat) -->
+                    <div class="form-icon-container mb-4 d-sm-none d-xl-block">
+                        <input class="form-control form-icon-input" id="agent-search" type="text" placeholder="Search agents" />
+                        <span class="fas fa-user text-body fs-9 form-icon"></span>
+                    </div>
+
+                    <!-- Tabs: All->Active, Read->Waiting, Unread->Inactive -->
+                    <ul class="nav nav-phoenix-pills mb-4 d-sm-none d-xl-flex" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link cursor-pointer active" data-agent-filter="active" role="tab" aria-selected="true">Active Agents</a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link cursor-pointer" data-agent-filter="scheduled" role="tab" aria-selected="false">Waiting Agents</a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link cursor-pointer" data-agent-filter="completed" role="tab" aria-selected="false">Inactive Agents</a>
+                        </li>
+                    </ul>
+
+                    <div class="scrollbar" style="max-height: 70vh;">
+                        <ul class="nav chat-thread-tab flex-column list" id="agent-list">
+                            <li class="nav-item" id="agent-list-loading">
+                                <div class="text-body-tertiary fs-9 p-3">Loading agents...</div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Right content: video player replaces chat thread -->
+                <div class="card flex-1 phoenix-offcanvas-container">
+                    <div class="d-flex flex-column">
+                        <div class="card-header p-3 p-md-4 d-flex flex-between-center">
+                            <div class="d-flex align-items-center">
+                                <span class="fa-solid fa-video text-primary me-2" id="stream-type-icon"></span>
+                                <div class="d-flex flex-column flex-md-row align-items-md-center">
+                                    <div class="fw-semibold text-body-emphasis me-3" id="camera-header-name">Live Camera</div>
+                                    <p class="fs-9 mb-0 me-2">
+                                        <span class="fa-solid fa-circle text-success fs-11 me-2" id="camera-status-dot"></span>
+                                        <span id="camera-status-text">Live</span>
+                                    </p>
+                                    <button class="btn btn-phoenix-secondary btn-sm ms-2 d-none" type="button" id="switch-to-camera-btn" title="Switch back to camera stream">
+                                        <span class="fa-solid fa-video me-1"></span>Camera View
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-icon btn-phoenix-primary" type="button" id="toggle-agent-sidebar" title="Collapse/Expand Agents">
+                                    <span class="fa-solid fa-angles-left"></span>
+                                </button>
+                                <button class="btn btn-icon btn-phoenix-primary" type="button" id="camera-reload" title="Reload">
+                                    <span class="fa-solid fa-rotate"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card-body p-0 visionai-right-body">
+                            <div class="position-relative bg-black visionai-video-stage">
+                                <video id="camera-video" class="w-100 h-100 visionai-video" controls autoplay muted playsinline></video>
+                                <!-- Agent frame stream (JPEG per frame; shown when agent selected, avoids fMP4 break) -->
+                                <img id="camera-agent-frames" class="w-100 h-100 visionai-video visionai-agent-frames" alt="Agent view" style="display:none; object-fit:contain;">
+                                <!-- Agent overlay canvas (Option A) -->
+                                <canvas id="agent-overlay-canvas" class="visionai-agent-overlay"></canvas>
+
+                                <div class="position-absolute bottom-0 start-0 m-3">
+                                    <span class="badge bg-dark bg-opacity-75 text-white fs-9" id="camera-overlay-badge">
+                                        <span class="fa-solid fa-eye me-1"></span>Live preview
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- CCTV-style Timeline (dummy, 24h with zoom) -->
+                            <div class="visionai-timeline border-top border-translucent" id="visionai-timeline" aria-label="Camera timeline">
+                                <div class="cctv-timeline__header">
+                                    <div class="cctv-timeline__title">
+                                        <span class="fa-solid fa-clock me-2 text-info"></span>
+                                        <span class="fw-semibold">Timeline</span>
+                                        <span class="cctv-timeline__subtitle ms-2">Dummy 24h view</span>
+                                    </div>
+                                    <div class="cctv-timeline__controls" aria-label="Timeline zoom controls">
+                                        <button class="btn btn-phoenix-secondary btn-sm cctv-timeline__btn" type="button" id="cctv-zoom-out" title="Zoom out (mouse wheel supported)">
+                                            <span class="fa-solid fa-minus"></span>
+                                        </button>
+                                        <span class="cctv-timeline__zoom-pill" id="cctv-zoom-label" aria-live="polite">24h</span>
+                                        <button class="btn btn-phoenix-secondary btn-sm cctv-timeline__btn" type="button" id="cctv-zoom-in" title="Zoom in (mouse wheel supported)">
+                                            <span class="fa-solid fa-plus"></span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- vis-timeline container (engine handles zoom/pan/scales) -->
+                                <div class="cctv-vis" id="cctv-vis"></div>
+                                <!-- Event hover popup (custom overlay) -->
+                                <div class="cctv-event-popup" id="cctv-event-popup" aria-hidden="true">
+                                    <div class="cctv-event-popup__media">
+                                        <div class="cctv-event-popup__img-wrap">
+                                            <img class="cctv-event-popup__img" id="cctv-event-popup-img" alt="" />
+                                        </div>
+                                    </div>
+                                    <div class="cctv-event-popup__meta">
+                                        <div class="cctv-event-popup__title" id="cctv-event-popup-title">Event</div>
+                                        <div class="cctv-event-popup__row">
+                                            <span class="cctv-event-popup__k">Time</span>
+                                            <span class="cctv-event-popup__v" id="cctv-event-popup-time">--:--</span>
+                                        </div>
+                                        <div class="cctv-event-popup__row">
+                                            <span class="cctv-event-popup__k">Agent</span>
+                                            <span class="cctv-event-popup__v" id="cctv-event-popup-agent">—</span>
+                                        </div>
+                                        <div class="cctv-event-popup__row">
+                                            <span class="cctv-event-popup__k">Severity</span>
+                                            <span class="cctv-event-popup__v" id="cctv-event-popup-sev">—</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Events & Agents for this camera (widgets, filtered by current camera) -->
+                            <div class="border-top border-translucent p-3" id="vision-camera-events-agents-section">
+                                <div class="row g-4">
+                                    <div class="col-12 col-lg-6">
+                                        <div id="vision-camera-events-widget" class="vision-widget-container"></div>
+                                    </div>
+                                    <div class="col-12 col-lg-6">
+                                        <div id="vision-camera-agents-widget" class="vision-widget-container"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-footer p-3">
+                            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                                <div class="d-flex gap-2 align-items-center">
+                                    <span class="badge badge-phoenix badge-phoenix-info fs-10" id="camera-id-badge">cam</span>
+                                    <span class="text-body-tertiary fs-9">Click a tab to filter agents; search to narrow.</span>
+                                </div>
+                                <a class="btn btn-phoenix-secondary btn-sm" href="events-board.html">
+                                    <span class="fa-solid fa-bell me-1"></span>Open Events Board
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            
+
+            <!-- Page script: executed by layout-loader after injection -->
+            
+        </div>
+
+<script type="module" src="camera-detail.js"></script>

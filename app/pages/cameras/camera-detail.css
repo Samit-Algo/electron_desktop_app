@@ -1,0 +1,534 @@
+                /* Make the chat-derived layout feel right for video */
+                #agent-sidebar .nav-link { user-select: none; }
+                #agent-list .nav-link { border-radius: .5rem; }
+                #agent-list .agent-item.active {
+                    background-color: rgba(var(--phoenix-primary-rgb), 0.1);
+                }
+                #agent-list .agent-item.active .nav-link {
+                    background-color: rgba(var(--phoenix-primary-rgb), 0.05);
+                }
+
+                /* Blinking green dot for active agents */
+                @keyframes agent-status-blink {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.35; }
+                }
+                #agent-list .agent-item[data-agent-status="active"] .avatar.status-online::before {
+                    animation: agent-status-blink 1.2s ease-in-out infinite;
+                }
+
+                /* Events & Agents widgets (shared with agents-board) */
+                .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+                .vision-widget-container .agent-status-badge { font-size: 0.7rem; font-weight: 600; }
+                .vision-widget-container .agent-card[data-agent-card] { cursor: pointer; }
+                .vision-widget-container .agents-group-header { padding-left: 0.25rem; }
+                .vision-widget-container .agents-group-title { font-size: 0.95rem; font-weight: 600; }
+                .vision-widget-container .agents-group-count { font-weight: 400; color: var(--phoenix-body-tertiary, #64748b); }
+                .vision-widget-container .agent-insight-card .card-body { padding: 0.875rem 1rem; }
+                .vision-widget-container .agent-card-row-1 { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+                .vision-widget-container .agent-card-name { font-size: 0.95rem; font-weight: 600; }
+                .vision-widget-container .agent-card-camera { font-size: 0.8rem; }
+                .vision-widget-container .agent-chip { display: inline-block; padding: 0.2rem 0.5rem; font-size: 0.7rem; font-weight: 500; border-radius: 6px; background: var(--phoenix-body-bg, #f1f5f9); color: var(--phoenix-body-color, #334155); }
+                .vision-widget-container .agent-status-monitoring { background-color: #22c55e; color: #fff; }
+                .vision-widget-container .agent-status-scheduled { background-color: #3b82f6; color: #fff; }
+                .vision-widget-container .agent-status-sleeping { background-color: #8b5cf6; color: #fff; }
+                .vision-widget-container .agent-status-paused { background-color: #f59e0b; color: #1e293b; }
+                .vision-widget-container .agent-status-completed { background-color: #94a3b8; color: #fff; }
+                .vision-widget-container .agent-status-inactive { background-color: #64748b; color: #fff; }
+                .vision-widget-container .agent-status-error { background-color: #ef4444; color: #fff; }
+                .vision-widget-container .agent-status-default { background-color: var(--phoenix-primary); color: #fff; }
+                .vision-widget-container .btn-reveal-trigger:hover .btn-reveal { opacity: 1; }
+                .vision-widget-container .btn-reveal { opacity: 0; transition: opacity 0.2s ease; }
+
+                /* Agent overlay canvas (draw detections over camera video) */
+                .visionai-video-stage { position: relative; }
+                .visionai-agent-overlay {
+                    position: absolute;
+                    inset: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 4;
+                }
+
+                /* Sidebar collapse: hide left panel, let video take full width */
+                #camera-detail-shell.visionai-sidebar-collapsed #agent-sidebar { display: none !important; }
+
+                /* Timeline: always visible under the camera (right pane).
+                   When the sidebar collapses, the right pane becomes full width, so the timeline does too. */
+                #visionai-timeline { display: block; background: #0b0f14; }
+
+                /* No internal scrolling: timeline should push the page naturally */
+                .visionai-right-body {
+                    overflow: visible;
+                    min-height: auto;
+                    flex: 0 0 auto;
+                }
+
+                /* Make right pane height flexible (avoid any vertical clipping from chat layout styles) */
+                #camera-detail-shell,
+                #camera-detail-shell > .card,
+                #camera-detail-shell .phoenix-offcanvas-container,
+                #camera-detail-shell .card {
+                    height: auto !important;
+                    max-height: none !important;
+                    overflow: visible !important;
+                }
+
+                /* Video sizing:
+                   - Responsive height (no hard fixed px that can cause clipping on small screens)
+                   - No crop: always show full frame */
+                .visionai-video-stage {
+                    height: clamp(320px, 55vh, 620px);
+                    background: #000;
+                }
+                .visionai-video {
+                    object-fit: contain !important;
+                    object-position: center center !important;
+                    background: #000;
+                    display: block;
+                }
+
+                /* ------------------------------------------------------------------
+                   CCTV timeline (dummy 24h + zoom) — pro timeline model + themes
+                   Theme tokens: set data-theme="dark|light" on <html> or <body>
+                   ------------------------------------------------------------------ */
+                :root,
+                [data-theme="dark"] {
+                    --cctv-bg: #0b0f14;
+                    --cctv-header-bg: rgba(0,0,0,0.18);
+                    --cctv-header-border: rgba(255,255,255,0.06);
+                    --cctv-text: rgba(255,255,255,0.92);
+                    --cctv-text-muted: rgba(255,255,255,0.55);
+                    --cctv-pill-bg: rgba(0,0,0,0.35);
+                    --cctv-pill-border: rgba(255,255,255,0.10);
+
+                    --cctv-bar-bg: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+                    --cctv-bar-border: rgba(255,255,255,0.08);
+
+                    --cctv-grid-minor: rgba(255,255,255,0.06);
+                    --cctv-grid-major: rgba(255,255,255,0.12);
+                    --cctv-label: rgba(255,255,255,0.70);
+
+                    --cctv-seg-recording: rgba(13, 202, 240, 0.78);
+                    --cctv-seg-motion: rgba(13, 110, 253, 0.78);
+                    --cctv-seg-event: rgba(25, 135, 84, 0.88);
+
+                    --cctv-now: #13e6ff;
+                    --cctv-now-glow: rgba(19, 230, 255, 0.16);
+                    --cctv-now-label-bg: rgba(0,0,0,0.75);
+                    --cctv-now-label-text: rgba(255,255,255,0.92);
+
+                    --cctv-hover-line: rgba(19, 230, 255, 0.55);
+                    --cctv-hover-tip-bg: rgba(0,0,0,0.78);
+                    --cctv-hover-tip-text: rgba(255,255,255,0.92);
+                }
+
+                [data-theme="light"] {
+                    --cctv-bg: #f6f8fb;
+                    --cctv-header-bg: rgba(0,0,0,0.04);
+                    --cctv-header-border: rgba(0,0,0,0.08);
+                    --cctv-text: rgba(0,0,0,0.88);
+                    --cctv-text-muted: rgba(0,0,0,0.55);
+                    --cctv-pill-bg: rgba(255,255,255,0.70);
+                    --cctv-pill-border: rgba(0,0,0,0.10);
+
+                    --cctv-bar-bg: linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.02));
+                    --cctv-bar-border: rgba(0,0,0,0.12);
+
+                    --cctv-grid-minor: rgba(0,0,0,0.10);
+                    --cctv-grid-major: rgba(0,0,0,0.18);
+                    --cctv-label: rgba(0,0,0,0.65);
+
+                    --cctv-seg-recording: rgba(0, 145, 255, 0.70);
+                    --cctv-seg-motion: rgba(0, 180, 120, 0.70);
+                    --cctv-seg-event: rgba(255, 140, 0, 0.78);
+
+                    --cctv-now: #00bcd4;
+                    --cctv-now-glow: rgba(0, 188, 212, 0.18);
+                    --cctv-now-label-bg: rgba(255,255,255,0.90);
+                    --cctv-now-label-text: rgba(0,0,0,0.85);
+
+                    --cctv-hover-line: rgba(0, 188, 212, 0.55);
+                    --cctv-hover-tip-bg: rgba(255,255,255,0.92);
+                    --cctv-hover-tip-text: rgba(0,0,0,0.86);
+
+                    --cctv-popup-bg: rgba(255,255,255,0.96);
+                    --cctv-popup-text: rgba(0,0,0,0.88);
+                    --cctv-popup-muted: rgba(0,0,0,0.55);
+                    --cctv-popup-border: rgba(0,0,0,0.12);
+                }
+
+                .cctv-timeline__header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                    padding: 10px 12px;
+                    background: var(--cctv-header-bg);
+                    border-bottom: 1px solid var(--cctv-header-border);
+                }
+                .cctv-timeline__title {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    color: var(--cctv-text);
+                }
+                .cctv-timeline__subtitle {
+                    font-size: 12px;
+                    color: var(--cctv-text-muted);
+                }
+                .cctv-timeline__controls {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .cctv-timeline__zoom-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 52px;
+                    padding: 4px 10px;
+                    border-radius: 999px;
+                    font-size: 12px;
+                    color: color-mix(in oklab, var(--cctv-text) 92%, transparent);
+                    background: var(--cctv-pill-bg);
+                    border: 1px solid var(--cctv-pill-border);
+                    user-select: none;
+                }
+                .cctv-timeline__btn {
+                    border-color: rgba(255,255,255,0.12) !important;
+                }
+
+                /* The timeline block itself */
+                .cctv-timeline {
+                    width: 100%;
+                    padding: 10px 12px 14px 12px;
+                    background: var(--cctv-bg);
+                }
+                .cctv-timeline__labels {
+                    position: relative;
+                    height: 18px;
+                    margin-bottom: 8px;
+                    font-size: 12px;
+                    color: var(--cctv-label);
+                    user-select: none;
+                    overflow: hidden;
+                    cursor: grab;
+                }
+                .cctv-timeline__labels.is-panning { cursor: grabbing; }
+                .cctv-timeline__label {
+                    position: absolute;
+                    top: 0;
+                    transform: translateX(-50%);
+                    white-space: nowrap;
+                    letter-spacing: 0.2px;
+                }
+                .cctv-timeline__bar {
+                    position: relative;
+                    height: 52px;
+                    border-radius: 10px;
+                    background: var(--cctv-bar-bg);
+                    border: 1px solid var(--cctv-bar-border);
+                    overflow: hidden;
+                    cursor: grab;
+                }
+                .cctv-timeline__bar.is-panning { cursor: grabbing; }
+                .cctv-timeline__grid {
+                    position: absolute;
+                    inset: 0;
+                    pointer-events: none;
+                }
+                .cctv-timeline__tick {
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    width: 1px;
+                    background: var(--cctv-grid-minor);
+                }
+                .cctv-timeline__tick--major {
+                    background: var(--cctv-grid-major);
+                }
+
+                .cctv-timeline__segments {
+                    position: absolute;
+                    inset: 0;
+                    pointer-events: none;
+                }
+                .cctv-seg {
+                    position: absolute;
+                    height: 6px;
+                    border-radius: 999px;
+                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+                }
+                .cctv-seg--recording {
+                    background: var(--cctv-seg-recording);
+                }
+                .cctv-seg--event {
+                    background: var(--cctv-seg-event);
+                }
+                .cctv-seg--motion {
+                    background: var(--cctv-seg-motion);
+                }
+
+                /* Lanes for thin bars */
+                .cctv-seg[data-lane="0"] { top: 14px; }
+                .cctv-seg[data-lane="1"] { top: 24px; }
+                .cctv-seg[data-lane="2"] { top: 34px; }
+
+                /* Current time marker */
+                .cctv-timeline__now {
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    width: 2px;
+                    background: var(--cctv-now);
+                    box-shadow: 0 0 0 3px var(--cctv-now-glow);
+                    z-index: 3;
+                    pointer-events: none;
+                }
+                .cctv-timeline__now::before {
+                    content: '';
+                    position: absolute;
+                    top: -7px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    background: var(--cctv-now);
+                    box-shadow: 0 0 0 4px var(--cctv-now-glow);
+                }
+                .cctv-timeline__now::after {
+                    content: attr(data-label);
+                    position: absolute;
+                    top: -30px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    padding: 4px 8px;
+                    border-radius: 999px;
+                    font-size: 11px;
+                    line-height: 1;
+                    white-space: nowrap;
+                    color: var(--cctv-now-label-text);
+                    background: var(--cctv-now-label-bg);
+                    border: 1px solid color-mix(in oklab, var(--cctv-now) 35%, transparent);
+                }
+                .cctv-timeline__now.is-clamped-left::after,
+                .cctv-timeline__now.is-clamped-right::after {
+                    content: attr(data-label) " (off-screen)";
+                }
+
+                /* Hover cursor */
+                .cctv-timeline__hover {
+                    position: absolute;
+                    top: 0;
+                    bottom: 0;
+                    width: 1px;
+                    background: var(--cctv-hover-line);
+                    z-index: 2;
+                    pointer-events: none;
+                    opacity: 0;
+                    transition: opacity 80ms ease;
+                }
+                .cctv-timeline__hover.is-visible { opacity: 1; }
+                .cctv-timeline__hover-tip {
+                    position: absolute;
+                    top: 6px;
+                    transform: translateX(-50%);
+                    padding: 4px 8px;
+                    border-radius: 999px;
+                    font-size: 11px;
+                    line-height: 1;
+                    white-space: nowrap;
+                    color: var(--cctv-hover-tip-text);
+                    background: var(--cctv-hover-tip-bg);
+                    border: 1px solid color-mix(in oklab, var(--cctv-hover-line) 40%, transparent);
+                    z-index: 4;
+                    pointer-events: none;
+                    opacity: 0;
+                    transition: opacity 80ms ease;
+                }
+                .cctv-timeline__hover-tip.is-visible { opacity: 1; }
+
+                /* ------------------------------------------------------------------
+                   vis-timeline skinning (override defaults)
+                   ------------------------------------------------------------------ */
+                .cctv-vis {
+                    width: 100%;
+                    background: var(--cctv-bg);
+                    padding: 10px 12px 12px 12px;
+                }
+
+                .cctv-vis .vis-timeline {
+                    border: 1px solid var(--cctv-bar-border) !important;
+                    border-radius: 10px !important;
+                    background: var(--cctv-bar-bg) !important;
+                }
+                .cctv-vis .vis-panel,
+                .cctv-vis .vis-panel.vis-center,
+                .cctv-vis .vis-panel.vis-left,
+                .cctv-vis .vis-panel.vis-right,
+                .cctv-vis .vis-panel.vis-top,
+                .cctv-vis .vis-panel.vis-bottom {
+                    background: transparent !important;
+                    border: 0 !important;
+                }
+
+                /* Dense / compact layout */
+                .cctv-vis .vis-time-axis {
+                    border: 0 !important;
+                    background: transparent !important;
+                }
+                .cctv-vis .vis-time-axis .vis-text {
+                    color: var(--cctv-label) !important;
+                    font-size: 12px !important;
+                    letter-spacing: 0.2px;
+                }
+                .cctv-vis .vis-itemset {
+                    border: 0 !important;
+                }
+
+                /* Grid hierarchy */
+                .cctv-vis .vis-grid.vis-major { border-color: var(--cctv-grid-major) !important; }
+                .cctv-vis .vis-grid.vis-minor { border-color: var(--cctv-grid-minor) !important; }
+
+                /* Group labels: compact */
+                .cctv-vis .vis-labelset .vis-label {
+                    color: var(--cctv-text) !important;
+                    background: transparent !important;
+                    border-color: transparent !important;
+                }
+                .cctv-vis .vis-labelset .vis-label .vis-inner {
+                    padding: 4px 8px !important;
+                    opacity: 0.75;
+                    font-size: 12px !important;
+                }
+                .cctv-vis .vis-group { border-color: color-mix(in oklab, var(--cctv-grid-minor) 80%, transparent) !important; }
+
+                /* Activity bars */
+                .cctv-vis .vis-item {
+                    border: 0 !important;
+                    border-radius: 999px !important;
+                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+                    height: 8px;
+                }
+                .cctv-vis .vis-item.vis-range .vis-item-content {
+                    padding: 0 !important;
+                    line-height: 0 !important;
+                }
+                .cctv-vis .vis-item.cctv-recording { background: var(--cctv-seg-recording) !important; }
+                .cctv-vis .vis-item.cctv-motion { background: var(--cctv-seg-motion) !important; }
+                .cctv-vis .vis-item.cctv-event { background: var(--cctv-seg-event) !important; }
+
+                /* NOW playhead via custom time */
+                .cctv-vis .vis-custom-time {
+                    background: var(--cctv-now) !important;
+                    width: 2px !important;
+                    box-shadow: 0 0 0 3px var(--cctv-now-glow);
+                    pointer-events: none;
+                }
+                .cctv-vis .vis-custom-time::before {
+                    content: '';
+                    position: absolute;
+                    top: -7px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    background: var(--cctv-now);
+                    box-shadow: 0 0 0 4px var(--cctv-now-glow);
+                }
+                .cctv-vis .vis-custom-time .vis-custom-time-marker {
+                    color: var(--cctv-now-label-text) !important;
+                    background: var(--cctv-now-label-bg) !important;
+                    border: 1px solid color-mix(in oklab, var(--cctv-now) 35%, transparent) !important;
+                    border-radius: 999px !important;
+                    padding: 4px 8px !important;
+                    font-size: 11px !important;
+                }
+
+                /* ------------------------------------------------------------------
+                   Timeline event hover popup
+                   ------------------------------------------------------------------ */
+                .cctv-event-popup {
+                    position: fixed;
+                    z-index: 9999;
+                    display: none;
+                    width: 320px;
+                    max-width: 360px;
+                    border-radius: 14px;
+                    background: var(--cctv-popup-bg, rgba(0,0,0,0.88));
+                    color: var(--cctv-popup-text, rgba(255,255,255,0.92));
+                    border: 1px solid var(--cctv-popup-border, rgba(255,255,255,0.12));
+                    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+                    overflow: hidden;
+                    pointer-events: none;
+                }
+                :root,
+                [data-theme="dark"] {
+                    --cctv-popup-bg: rgba(9, 12, 18, 0.92);
+                    --cctv-popup-text: rgba(255,255,255,0.92);
+                    --cctv-popup-muted: rgba(255,255,255,0.60);
+                    --cctv-popup-border: rgba(255,255,255,0.10);
+                }
+                .cctv-event-popup[data-show="true"] { display: grid; grid-template-columns: 110px 1fr; }
+                .cctv-event-popup__media { background: rgba(0,0,0,0.10); }
+                .cctv-event-popup__img-wrap {
+                    width: 110px;
+                    height: 110px;
+                    background: rgba(0,0,0,0.20);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .cctv-event-popup__img {
+                    width: 110px;
+                    height: 110px;
+                    object-fit: cover;
+                    display: none;
+                }
+                .cctv-event-popup__meta { padding: 10px 12px; }
+                .cctv-event-popup__title {
+                    font-weight: 700;
+                    font-size: 13px;
+                    margin-bottom: 6px;
+                    line-height: 1.2;
+                }
+                .cctv-event-popup__row {
+                    display: flex;
+                    align-items: baseline;
+                    justify-content: space-between;
+                    gap: 10px;
+                    font-size: 12px;
+                    line-height: 1.3;
+                    padding: 2px 0;
+                }
+                .cctv-event-popup__k { color: var(--cctv-popup-muted); }
+                .cctv-event-popup__v { color: var(--cctv-popup-text); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .cctv-event-popup__loading {
+                    font-size: 11px;
+                    color: var(--cctv-popup-muted);
+                }
+
+                .visionai-tooltip {
+                    position: fixed;
+                    z-index: 9999;
+                    max-width: 320px;
+                    padding: 8px 10px;
+                    border-radius: 10px;
+                    background: rgba(0,0,0,0.85);
+                    color: #fff;
+                    font-size: 12px;
+                    line-height: 1.25;
+                    pointer-events: none;
+                    opacity: 0;
+                    transform: translateY(6px);
+                    transition: opacity .12s ease, transform .12s ease;
+                }
+                .visionai-tooltip[data-show="true"] {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            

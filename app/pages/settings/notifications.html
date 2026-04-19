@@ -1,0 +1,228 @@
+<div class="content">
+  <div class="row g-0">
+    <!-- Left Sidebar - Settings Navigation -->
+    <div class="col-12 col-lg-3 border-end border-translucent">
+      <div class="p-4">
+        <div class="mb-4">
+          <div class="d-flex align-items-center mb-2">
+            <div class="avatar avatar-l me-2">
+              <div class="avatar-name rounded-circle bg-body-secondary">
+                <span id="userAvatar" class="text-body-emphasis">U</span>
+              </div>
+            </div>
+            <div class="flex-1">
+              <h6 id="userEmail" class="mb-0 text-body-emphasis">user@example.com</h6>
+              <p class="mb-0 fs-9 text-body-tertiary">Pro Plan</p>
+            </div>
+          </div>
+        </div>
+        <nav class="settings-nav">
+          <ul class="nav flex-column">
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="general.html">
+                <span class="me-2" data-feather="settings" style="width: 16px; height: 16px;"></span>
+                <span>General</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active d-flex align-items-center px-2 py-2 rounded-2" href="notifications.html">
+                <span class="me-2" data-feather="bell" style="width: 16px; height: 16px;"></span>
+                <span>Notifications</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2 fas fa-infinity" style="width: 16px; height: 16px; font-size: 16px;"></span>
+                <span>Agents</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2" data-feather="arrow-right" style="width: 16px; height: 16px;"></span>
+                <span>Tab</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2" data-feather="box" style="width: 16px; height: 16px;"></span>
+                <span>Models</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2" data-feather="cloud" style="width: 16px; height: 16px;"></span>
+                <span>Cloud Agents</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2" data-feather="tool" style="width: 16px; height: 16px;"></span>
+                <span>Tools &amp; MCP</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2" data-feather="file-text" style="width: 16px; height: 16px;"></span>
+                <span>Rules and Commands</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2" data-feather="globe" style="width: 16px; height: 16px;"></span>
+                <span>Indexing &amp; Docs</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2 fas fa-network-wired" style="width: 16px; height: 16px; font-size: 16px;"></span>
+                <span>Network</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2" data-feather="layers" style="width: 16px; height: 16px;"></span>
+                <span>Beta</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center px-2 py-2 rounded-2" href="#!">
+                <span class="me-2" data-feather="book" style="width: 16px; height: 16px;"></span>
+                <span>Docs</span>
+                <span class="ms-auto" data-feather="external-link" style="width: 12px; height: 12px;"></span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Right Content - Notification Settings -->
+    <div class="col-12 col-lg-9">
+      <div class="p-4 p-lg-6">
+        <div class="mb-6">
+          <h2 class="mb-2 text-body-emphasis">Notification Settings</h2>
+          <p class="text-body-tertiary mb-0 fs-9">Configure how you receive alerts. WebSocket (in-app) is enabled by default.</p>
+        </div>
+        <div id="saveStatus" class="mb-4" style="display:none;"></div>
+        <div class="scrollbar">
+          <!-- Desktop (OS) Notifications -->
+          <div class="setting-panel-item mt-0">
+            <h5 class="setting-panel-item-title">Desktop (OS) Notifications</h5>
+            <p class="text-body-tertiary mb-3">System popups (Windows Action Center, macOS Notification Center). Enable to get alerts when the app is in the background.</p>
+            <div class="border border-translucent rounded-3 p-4 bg-body-emphasis">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <span id="osNotifStatus" class="badge badge-phoenix fs-10 mb-2">Checking...</span>
+                  <p class="mb-0 fs-9 text-body-tertiary">Click Enable to allow desktop notifications. You can also enable by clicking the notification bell in the top bar.</p>
+                </div>
+                <button type="button" class="btn btn-phoenix-primary btn-sm" id="btnEnableOsNotifications">
+                  <span class="fas fa-bell me-1"></span>Enable
+                </button>
+              </div>
+              <hr>
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1">Show OS popup notifications</h6>
+                  <p class="mb-0 fs-9 text-body-tertiary">When enabled, notifications appear as system popups. Turn off to stop OS popups (in-app notifications still work).</p>
+                </div>
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="chOsPopup" checked>
+                  <label class="form-check-label" for="chOsPopup">On</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Channels -->
+          <div class="setting-panel-item mt-4">
+            <h5 class="setting-panel-item-title">Channels</h5>
+            <p class="text-body-tertiary mb-3">Enable notification channels. You must provide an email address when enabling email.</p>
+            <div class="border border-translucent rounded-3 p-4 bg-body-emphasis">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h6 class="mb-1">In-App (WebSocket)</h6>
+                  <p class="mb-0 fs-9 text-body-tertiary">Real-time notifications in the app. Enabled by default for all users.</p>
+                </div>
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="chWebsocket" checked disabled>
+                  <label class="form-check-label" for="chWebsocket">Always on</label>
+                </div>
+              </div>
+              <hr>
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1 me-3">
+                  <h6 class="mb-1">Email</h6>
+                  <p class="mb-2 fs-9 text-body-tertiary">Receive notifications by email. Enter your email address below when enabled.</p>
+                  <input type="email" class="form-control" id="emailAddress" placeholder="your@email.com" style="max-width: 300px;">
+                </div>
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="chEmail">
+                  <label class="form-check-label" for="chEmail">Enable</label>
+                </div>
+              </div>
+              <hr>
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1">Mobile (FCM)</h6>
+                  <p class="mb-0 fs-9 text-body-tertiary">Push notifications to your mobile app. Register your device via the app when prompted.</p>
+                </div>
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="chFcm">
+                  <label class="form-check-label" for="chFcm">Enable</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- By Severity -->
+          <div class="setting-panel-item mt-4">
+            <h5 class="setting-panel-item-title">Event Notifications (by Severity)</h5>
+            <p class="text-body-tertiary mb-3">Choose channels for detection events: critical (fall, fire, weapon), warning, info.</p>
+            <div class="border border-translucent rounded-3 p-4 bg-body-emphasis">
+              <div class="mb-4">
+                <label class="form-label fw-semibold">Critical (fall, fire, weapon, intrusion)</label>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="sev_critical_ws" checked><label class="form-check-label" for="sev_critical_ws">In-App</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="sev_critical_email"><label class="form-check-label" for="sev_critical_email">Email</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="sev_critical_fcm"><label class="form-check-label" for="sev_critical_fcm">Mobile</label></div>
+              </div>
+              <div class="mb-4">
+                <label class="form-label fw-semibold">Warning (violation, restricted zone)</label>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="sev_warning_ws" checked><label class="form-check-label" for="sev_warning_ws">In-App</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="sev_warning_email"><label class="form-check-label" for="sev_warning_email">Email</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="sev_warning_fcm"><label class="form-check-label" for="sev_warning_fcm">Mobile</label></div>
+              </div>
+              <div class="mb-0">
+                <label class="form-label fw-semibold">Info (general detections)</label>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="sev_info_ws" checked><label class="form-check-label" for="sev_info_ws">In-App</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="sev_info_email"><label class="form-check-label" for="sev_info_email">Email</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="sev_info_fcm"><label class="form-check-label" for="sev_info_fcm">Mobile</label></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- By Type -->
+          <div class="setting-panel-item mt-4">
+            <h5 class="setting-panel-item-title">System Notifications</h5>
+            <p class="text-body-tertiary mb-3">Camera offline and report ready alerts.</p>
+            <div class="border border-translucent rounded-3 p-4 bg-body-emphasis">
+              <div class="mb-4">
+                <label class="form-label fw-semibold">Camera Offline</label>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="type_camera_ws" checked><label class="form-check-label" for="type_camera_ws">In-App</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="type_camera_email"><label class="form-check-label" for="type_camera_email">Email</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="type_camera_fcm"><label class="form-check-label" for="type_camera_fcm">Mobile</label></div>
+              </div>
+              <div class="mb-0">
+                <label class="form-label fw-semibold">Report Ready</label>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="type_report_email" checked><label class="form-check-label" for="type_report_email">Email (report attachment)</label></div>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-phoenix-primary mt-4" id="btnSave">
+            <span class="fas fa-save me-2"></span>Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

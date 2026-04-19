@@ -1,0 +1,33 @@
+.agent-detail-event-card { transition: box-shadow 0.2s ease; overflow: hidden; }
+.agent-detail-event-card:hover { box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.08); }
+.agent-detail-event-card .card-body { overflow: hidden; min-width: 0; }
+.agent-detail-event-card .event-image-link {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.agent-detail-event-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+.agent-detail-config-table { font-size: 0.875rem; }
+.agent-detail-config-table dt { color: var(--phoenix-body-tertiary, #64748b); }
+
+/* Status colors – state machine */
+.agent-status-monitoring { background-color: #22c55e; color: #fff; }
+.agent-status-scheduled  { background-color: #3b82f6; color: #fff; }
+.agent-status-sleeping   { background-color: #8b5cf6; color: #fff; }
+.agent-status-paused     { background-color: #f59e0b; color: #1e293b; }
+.agent-status-completed  { background-color: #94a3b8; color: #fff; }
+.agent-status-inactive   { background-color: #64748b; color: #fff; }
+.agent-status-error      { background-color: #ef4444; color: #fff; }
+.agent-status-default    { background-color: var(--phoenix-primary, #3874ff); color: #fff; }
+
+/* Legacy aliases */
+.agent-status-running    { background-color: #22c55e; color: #fff; }
+.agent-status-failed     { background-color: #ef4444; color: #fff; }
+.agent-status-cancelled  { background-color: #64748b; color: #fff; }

@@ -1,0 +1,92 @@
+.vision-dashboard-stat-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+}
+
+.vision-dashboard-stat-card {
+  min-width: 0;
+}
+
+.vision-dashboard-stat-card-inner {
+  min-width: 0;
+}
+
+.vision-dashboard-stat-card .stat-value-suffix {
+  white-space: nowrap;
+}
+
+.vision-events-widget-container .line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#live-camera-grid .grid-stack-item-content {
+  height: 100%;
+  overflow: visible !important;
+}
+
+.camera-tile {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.camera-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: #000;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.camera-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: #000;
+}
+
+.camera-drag-surface {
+  cursor: move;
+  user-select: none;
+}
+
+.camera-drag-handle {
+  cursor: move;
+}
+
+#live-camera-grid .grid-stack-item.ui-resizable-autohide:hover > .ui-resizable-handle {
+  display: block !important;
+}
+
+#live-camera-grid .grid-stack-item > .ui-resizable-handle {
+  z-index: 50;
+}
+
+.vision-dashboard-live-grid-wrap {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.vision-dashboard-live-grid {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.camera-tile .card-header .d-flex.align-items-center.gap-2:first-child {
+  min-width: 0;
+}
+
+.camera-tile .camera-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
