@@ -299,7 +299,6 @@ registerProcessor('pcm-capture', PCMCaptureProcessor);
 `;
 
 function _buildWsUrl() {
-  const api = api;
   if (!api?.token) throw new Error('Not authenticated');
   const wsBase = api.baseURL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
   return `${wsBase}/api/v1/general-chat/voice-stream?token=${encodeURIComponent(api.token)}`;

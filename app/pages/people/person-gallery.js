@@ -264,3 +264,6 @@ if (document.readyState === 'loading') {
 } else {
   renderGallery();
 }
+window.addEventListener('vision:spa:navigated', function () {
+  if (document.getElementById('person-gallery-grid')) renderGallery();
+});

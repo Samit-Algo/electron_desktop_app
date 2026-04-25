@@ -1,0 +1,22 @@
+#vision-events-board-grid[data-loading="true"] #vision-events-skeleton-grid {
+  display: grid;
+}
+
+.vision-events-skeleton-grid {
+  display: none;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 0.75rem;
+}
+
+.vision-events-skeleton-card {
+  height: 14.75rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.12) 25%, rgba(148, 163, 184, 0.28) 50%, rgba(148, 163, 184, 0.12) 75%);
+  background-size: 240% 100%;
+  animation: vision-events-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes vision-events-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}

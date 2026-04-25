@@ -98,3 +98,26 @@
 .ca-sched-card .ca-sched-icon  { font-size: 1.25rem; line-height: 1; margin-bottom: 0.15rem; }
 .ca-sched-card .ca-sched-label { font-size: .82rem; font-weight: 600; }
 .ca-sched-card .ca-sched-desc  { font-size: .67rem; color: var(--phoenix-body-tertiary, #64748b); }
+
+#vision-agents-board-grid[data-loading="true"] #vision-agents-skeleton-grid {
+    display: grid;
+}
+
+.vision-agents-skeleton-grid {
+    display: none;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    gap: 0.75rem;
+}
+
+.vision-agents-skeleton-card {
+    height: 11.5rem;
+    border-radius: 0.75rem;
+    background: linear-gradient(90deg, rgba(148, 163, 184, 0.12) 25%, rgba(148, 163, 184, 0.28) 50%, rgba(148, 163, 184, 0.12) 75%);
+    background-size: 240% 100%;
+    animation: vision-agents-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes vision-agents-shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}

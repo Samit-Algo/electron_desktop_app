@@ -3,7 +3,7 @@
 <div class="content">
     <nav class="mb-3" aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
-            <li class="breadcrumb-item"><a href="dashboard.html">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="/app/pages/dashboard/dashboard.html">Dashboard</a></li>
             <li class="breadcrumb-item active">Agents Board</li>
         </ol>
     </nav>
@@ -59,8 +59,23 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-9" id="vision-agents-board-grid">
-        <!-- Agents list injected by agents-list.js -->
+    <div class="row g-3 mb-9" id="vision-agents-board-grid" data-loading="true">
+        <div class="col-12">
+            <div class="vision-agents-skeleton-grid" id="vision-agents-skeleton-grid">
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+                <div class="vision-agents-skeleton-card"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -422,5 +437,3 @@
         </div><!-- /modal-content -->
     </div>
 </div>
-
-<script type="module" src="agents-list.js"></script>

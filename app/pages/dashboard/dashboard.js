@@ -9,6 +9,21 @@ let statsPollTimer = null;
 const livePlayers = new Map();
 let cameraData = [];
 
+function setStatsLoading(isLoading) {
+  const el = document.getElementById('vision-dashboard-stats');
+  if (el) el.setAttribute('data-loading', isLoading ? 'true' : 'false');
+}
+
+function setEventsLoading(isLoading) {
+  const el = document.getElementById('vision-latest-events');
+  if (el) el.setAttribute('data-loading', isLoading ? 'true' : 'false');
+}
+
+function setCamerasLoading(isLoading) {
+  const el = document.getElementById('live-camera-grid');
+  if (el) el.setAttribute('data-loading', isLoading ? 'true' : 'false');
+}
+
 function inferSeverityFromLabel(label) {
   const t = String(label || '').toLowerCase();
   if (t.includes('weapon') || t.includes('fire') || t.includes('fall') || t.includes('intrusion')) return 'Critical';
@@ -35,14 +50,13 @@ function startDashboardStatsPolling() {
 }
 
 async function refreshDashboardStats() {
-  const api = api;
   if (!api || typeof api.isAuthenticated !== 'function' || !api.isAuthenticated()) return;
 
   const setText = (id, s) => { const el = document.getElementById(id); if (el) el.textContent = s; };
 
   try {
     const agentsPromise = typeof api.request === 'function'
-      ? api.request('/api/v1/agents/list').catch(() => [])
+      ? api.request('/api/v1/agents').catch(() => [])
       : Promise.resolve([]);
 
     const EVENT_LIMIT = 200;
@@ -94,8 +108,10 @@ async function refreshDashboardStats() {
     const weekTotal = typeof weekRes.total === 'number' && !Number.isNaN(weekRes.total) ? weekRes.total : weekItems.length;
     setText('vision-stat-events-week', String(weekTotal));
     setText('vision-stat-events-today-badge', `${todayTotal} today`);
+    setStatsLoading(false);
   } catch (e) {
     console.warn('[dashboard stats]', e);
+    setStatsLoading(false);
   }
 }
 
@@ -235,6 +251,7 @@ function showOverlay(tileId, text) {
 
 async function loadCameras() {
   if (!api || !api.isAuthenticated()) return;
+  setCamerasLoading(true);
   try {
     const cameras = await api.listCameras();
     cameraData = cameras;
@@ -243,6 +260,7 @@ async function loadCameras() {
     if (loadingEl) loadingEl.remove();
     if (!cameras || cameras.length === 0) {
       gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">No cameras found</p></div>';
+      setCamerasLoading(false);
       return;
     }
     gridEl.innerHTML = '';
@@ -254,11 +272,13 @@ async function loadCameras() {
       const videoEl = document.getElementById(`video-${camera.id}`);
       if (videoEl) { const player = await initLivePlayer(camera, videoEl); if (player) livePlayers.set(camera.id, player); }
     }
+    setCamerasLoading(false);
   } catch (error) {
     const gridEl = document.getElementById('live-camera-grid');
     const loadingEl = document.getElementById('camera-loading');
     if (loadingEl) loadingEl.remove();
     gridEl.innerHTML = `<div class="d-flex justify-content-center align-items-center p-5"><p class="text-danger">Error loading cameras: ${error.message}</p></div>`;
+    setCamerasLoading(false);
   }
 }
 
@@ -285,7 +305,7 @@ function initCameraGrid() {
     const card = body.closest?.('.camera-tile');
     const camId = card?.getAttribute('data-camera-id');
     if (!camId) return;
-    const href = `camera-detail.html?camera=${encodeURIComponent(camId)}`;
+    const href = `/app/pages/cameras/camera-detail.html?camera=${encodeURIComponent(camId)}`;
     navigate(href).catch?.(() => { window.location.href = href; });
   });
 
@@ -341,7 +361,8 @@ let latestEventsWidget = null;
 function onEventNotification() { if (latestEventsWidget && latestEventsWidget.refresh) latestEventsWidget.refresh(); }
 
 function mountLatestEventsWidget() {
-  const container = document.getElementById('vision-dashboard-latest-events');
+  const container = document.getElementById('vision-latest-events');
+  console.log('[Dashboard] mountLatestEventsWidget: container=', !!container, 'VisionEventsBoardWidget=', typeof window.VisionEventsBoardWidget);
   if (!container) return;
   if (latestEventsWidget) { try { latestEventsWidget.destroy(); } catch (e) {} latestEventsWidget = null; }
   if (typeof window.VisionEventsBoardWidget !== 'undefined' && window.VisionEventsBoardWidget.mount) {
@@ -349,28 +370,51 @@ function mountLatestEventsWidget() {
       dateRange: 'all', maxItems: 5, compact: true, showFilters: false, showHeader: false, layout: 'horizontal'
     });
     window.addEventListener('vision:event-notification', onEventNotification);
+    console.log('[Dashboard] events widget mounted successfully');
+    setEventsLoading(false);
+  } else {
+    console.error('[Dashboard] VisionEventsBoardWidget not available!');
+    setEventsLoading(false);
   }
 }
 
-function cleanupPlayers() {
+function stopCameraStreams() {
   stopDashboardStatsPolling();
   livePlayers.forEach(player => { if (player && typeof player.destroy === 'function') player.destroy(); });
   livePlayers.clear();
+}
+
+function cleanupPlayers() {
+  stopCameraStreams();
   window.removeEventListener('vision:event-notification', onEventNotification);
   if (latestEventsWidget && latestEventsWidget.destroy) { try { latestEventsWidget.destroy(); } catch (e) {} latestEventsWidget = null; }
 }
 
 window.addEventListener('beforeunload', cleanupPlayers);
-window.__visionaiPageCleanup = cleanupPlayers;
 
-async function boot() {
+export async function boot() {
+  if (!document.getElementById('live-camera-grid')) return;
+
+  stopDashboardStatsPolling();
+  cleanupPlayers();
+  setStatsLoading(true);
+  setEventsLoading(true);
+  setCamerasLoading(true);
+
+  // Re-register cleanup so the router can call it on next navigation away
+  window.__visionaiPageCleanup = cleanupPlayers;
+
+  // Mount events widget immediately (same as old code) — widget has its own auth check
   mountLatestEventsWidget();
+
   await ensureGridStack();
   await ensureWsFmp4Player();
 
+  // Wait for API auth to be ready
   let tries = 0;
   const maxTries = 50;
   (function checkAuth() {
+    if (!document.getElementById('live-camera-grid')) return;
     if (api && api.isAuthenticated()) {
       loadCameras();
       startDashboardStatsPolling();
@@ -380,21 +424,27 @@ async function boot() {
       const gridEl = document.getElementById('live-camera-grid');
       const loadingEl = document.getElementById('camera-loading');
       if (loadingEl) loadingEl.remove();
-      gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">Please login to view cameras</p></div>';
+      if (gridEl) gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">Please login to view cameras</p></div>';
+      setCamerasLoading(false);
+      setStatsLoading(false);
+      setEventsLoading(false);
     }
   })();
-
-  window.addEventListener('authStateChanged', (event) => {
-    if (event.detail.loggedIn) {
-      loadCameras();
-      startDashboardStatsPolling();
-    } else {
-      stopDashboardStatsPolling();
-      cleanupPlayers();
-      const gridEl = document.getElementById('live-camera-grid');
-      gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">Please login to view cameras</p></div>';
-    }
-  });
 }
 
-boot().catch(console.error);
+window.addEventListener('authStateChanged', (event) => {
+  if (!document.getElementById('live-camera-grid')) return;
+  if (event.detail.loggedIn) {
+    setStatsLoading(true);
+    setCamerasLoading(true);
+    loadCameras();
+    startDashboardStatsPolling();
+  } else {
+    stopCameraStreams();
+    setStatsLoading(false);
+    setCamerasLoading(false);
+    setEventsLoading(false);
+    const gridEl = document.getElementById('live-camera-grid');
+    if (gridEl) gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">Please login to view cameras</p></div>';
+  }
+});

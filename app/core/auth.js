@@ -50,8 +50,15 @@ export async function checkAuth() {
     api.user = user;
     localStorage.setItem('visionai_user', JSON.stringify(user));
     return true;
-  } catch (_) {
-    api._clearSession();
+  } catch (err) {
+    const type = err?.errorType;
+    if (type === 'database_error') {
+      toast.error('Service temporarily unavailable. Please try again later.');
+    } else if (type === 'server_error') {
+      toast.error('An unexpected error occurred. Please try again.');
+    }
+    // auth_error = normal session expiry — redirect silently, no toast
+    if (type === 'auth_error' || err?.message?.includes('Session expired')) api._clearSession();
     return false;
   }
 }
@@ -70,7 +77,8 @@ const LOGIN_CONTENT_ID = 'login-page-content';
 const PROTECTED_PATHS = ['dashboard', 'camera-detail', 'cameras-list', 'events-board', 'agents-board', 'agent-detail', 'settings'];
 
 function isProtectedPath() {
-  return PROTECTED_PATHS.some(p => window.location.pathname.includes(p));
+  const page = sessionStorage.getItem('spa:page') || window.location.pathname;
+  return PROTECTED_PATHS.some(p => page.includes(p));
 }
 
 function hideAppChrome() {
@@ -298,7 +306,11 @@ function initLoginForm() {
       try {
         await login(email, password);
       } catch (error) {
-        toast.error(error.message || 'Login failed. Please check your credentials.');
+        const type = error?.errorType;
+        if (type === 'auth_error') toast.error('Invalid email or password.');
+        else if (type === 'validation_error') toast.error(error.message || 'Please check your input.');
+        else if (type === 'database_error') toast.error('Service temporarily unavailable. Please try again later.');
+        else toast.error(error.message || 'Login failed. Please check your credentials.');
       } finally {
         submitBtn.disabled = false;
         spinner?.classList.add('d-none');
@@ -335,7 +347,10 @@ function initRegisterForm() {
         toast.success('Account created successfully! Logging you in...');
         await login(email, password);
       } catch (error) {
-        toast.error(error.message || 'Registration failed. Please try again.');
+        const type = error?.errorType;
+        if (type === 'validation_error') toast.error(error.message || 'Please check your input.');
+        else if (type === 'database_error') toast.error('Service temporarily unavailable. Please try again later.');
+        else toast.error(error.message || 'Registration failed. Please try again.');
       } finally {
         submitBtn.disabled = false;
         spinner?.classList.add('d-none');

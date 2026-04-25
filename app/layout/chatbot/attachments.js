@@ -239,7 +239,6 @@ function formatTimestamp(iso) {
 }
 
 function buildUrlWithAuthToken() {
-  const api = api;
   const baseUrl = (api?.baseURL || '').replace(/\/$/, '');
   const token = api?.token ||
     (typeof localStorage !== 'undefined' ? localStorage.getItem('visionai_token') : null);

@@ -113,7 +113,7 @@ window.VisionNotificationNormalizer = (function () {
   function buildEventDetailUrl(eventId) {
     var urlParams = new URLSearchParams();
     if (eventId) urlParams.set('event_id', eventId);
-    return '../pages/event-detail.html?' + urlParams.toString();
+    return '/app/pages/events/event-detail.html?' + urlParams.toString();
   }
 
   // ─────────────────────────────────────────────

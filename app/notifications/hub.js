@@ -271,32 +271,18 @@ import { api } from '../core/api.js';
   // Makes a REST API call — only runs when logged in
   // ─────────────────────────────────────────────
   async function refreshDashboardFromApi() {
+    // The dashboard now uses VisionEventsBoardWidget which owns #vision-latest-events.
+    // Trigger the widget's own refresh instead of writing to the container directly.
     if ($('#vision-latest-events').length === 0) return;
-    if (!api || typeof api.listEvents !== 'function') return;
-    if (api.isAuthenticated && !api.isAuthenticated()) return;
-
-    try {
-      var apiResponse = await api.listEvents('today', 5, 0);
-      var eventItems  = Array.isArray(apiResponse && apiResponse.items) ? apiResponse.items : [];
-
-      var notificationsList = eventItems
-        .map(convertApiEventToNotification)
-        .filter(Boolean);
-
-      // Load thumbnails in parallel before rendering
-      await Promise.all(notificationsList.map(loadThumbnailFromApi));
-
-      state.notificationsList = notificationsList;
-      UI.renderLatestEventsSection(notificationsList);
-    } catch (error) {
-      // API call failed — silently ignore (user might not be on dashboard page)
-    }
+    window.dispatchEvent(new CustomEvent('vision:event-notification'));
   }
 
   // ─────────────────────────────────────────────
   // Load Events Board data from API, then apply camera / search / severity (client)
   // ─────────────────────────────────────────────
   async function refreshEventsBoardFromApi() {
+    // events.js (ES module) now owns this page — skip to avoid double-render
+    if ($('#vision-events-board-grid[data-events-module]').length > 0) return;
     if ($('#vision-events-board-grid').length === 0) return;
     if (!api || typeof api.listEvents !== 'function') return;
     if (api.isAuthenticated && !api.isAuthenticated()) return;
@@ -384,7 +370,7 @@ import { api } from '../core/api.js';
     UI.updateBellBadge(state.unreadCount);
     UI.updateElectronBadge(state.unreadCount);
     UI.prependCardToDropdown(notification);
-    UI.renderLatestEventsSection(state.notificationsList);
+    window.dispatchEvent(new CustomEvent('vision:event-notification'));
     refreshEventsBoardFromApi();
     Popup.showPopup(notification);
 
@@ -462,6 +448,7 @@ import { api } from '../core/api.js';
 
     state.webSocketHandle      = null;
     state.unreadCount          = 0;
+    prefLoaded = false;
     state.notificationsList    = [];
     state.eventsBoardItems     = [];
     state.seenNotificationIds.clear();
@@ -497,18 +484,19 @@ import { api } from '../core/api.js';
   // Boot: initialize everything and start connecting
   // Called on page load and on every SPA navigation
   // ─────────────────────────────────────────────
+  var prefLoaded = false;
+
   function boot() {
     initializePageUI();
     connectToWebSocket();
     UI.updateBellBadge(state.unreadCount);
 
-    // Load initial data from API when logged in
     var isLoggedIn = api
       && typeof api.isAuthenticated === 'function'
       && api.isAuthenticated();
 
     if (isLoggedIn) {
-      if (api) loadOsPopupPreference();
+      if (!prefLoaded) { prefLoaded = true; loadOsPopupPreference(); }
       refreshDashboardFromApi();
       refreshEventsBoardFromApi();
     }
@@ -563,7 +551,6 @@ import { api } from '../core/api.js';
   // Run boot() now and also after DOM is ready
   // (layout-loader may inject this script mid-load)
   // ─────────────────────────────────────────────
-  boot();
   $(document).ready(function () {
     boot();
   });

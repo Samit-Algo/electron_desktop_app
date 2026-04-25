@@ -12,3 +12,26 @@
   background: #000;
   border-radius: 0.5rem;
 }
+
+#library-grid[data-loading="true"] #vision-library-skeleton-grid {
+  display: grid;
+}
+
+.vision-library-skeleton-grid {
+  display: none;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+
+.vision-library-skeleton-card {
+  height: 19.5rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.12) 25%, rgba(148, 163, 184, 0.28) 50%, rgba(148, 163, 184, 0.12) 75%);
+  background-size: 240% 100%;
+  animation: vision-library-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes vision-library-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}

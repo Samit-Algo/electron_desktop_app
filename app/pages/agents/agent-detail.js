@@ -83,7 +83,8 @@ function isStoppable(status) {
 
 function getAgentIdFromUrl() {
   try {
-    var params = new URLSearchParams(window.location.search);
+    var stateUrl = window.history.state && window.history.state.url ? window.history.state.url : window.location.href;
+    var params = new URLSearchParams(new URL(stateUrl, window.location.origin).search);
     return params.get('agent') || params.get('id') || '';
   } catch (e) { return ''; }
 }
@@ -96,7 +97,7 @@ function apiRequest(path, opts) {
 }
 
 function fetchAgentConfig(agentId) {
-  return apiRequest('/api/v1/agents/list').then(function (list) {
+  return apiRequest('/api/v1/agents').then(function (list) {
     var agents = Array.isArray(list) ? list : [];
     for (var i = 0; i < agents.length; i++) {
       if (agents[i].id === agentId) return agents[i];
@@ -338,7 +339,8 @@ function boot() {
   var backLink = document.getElementById('vision-agent-detail-back');
   var agentId  = getAgentIdFromUrl();
 
-  var backParams = new URLSearchParams(window.location.search);
+  var _backStateUrl = window.history.state && window.history.state.url ? window.history.state.url : window.location.href;
+  var backParams = new URLSearchParams(new URL(_backStateUrl, window.location.origin).search);
   backParams.delete('agent');
   backParams.delete('id');
   var agentsBoardHref = 'agents-board.html' + (backParams.toString() ? '?' + backParams.toString() : '');
@@ -407,7 +409,7 @@ function boot() {
       if (!agentId) return;
       if (!confirm('Stop this agent? It will be set to Inactive.')) return;
       stopBtn.disabled = true;
-      apiRequest('/api/v1/agents/stop/' + encodeURIComponent(agentId), { method: 'POST' })
+      apiRequest('/api/v1/agents/' + encodeURIComponent(agentId) + '/stop', { method: 'POST' })
         .then(function () {
           if (toast && toast.success) {
             toast.success('Agent stopped.');
@@ -427,7 +429,7 @@ function boot() {
     pauseBtn.addEventListener('click', function () {
       if (!agentId) return;
       pauseBtn.disabled = true;
-      apiRequest('/api/v1/agents/pause/' + encodeURIComponent(agentId), { method: 'POST' })
+      apiRequest('/api/v1/agents/' + encodeURIComponent(agentId) + '/pause', { method: 'POST' })
         .then(function () {
           if (toast && toast.success) {
             toast.success('Agent paused.');
@@ -447,7 +449,7 @@ function boot() {
     resumeBtn.addEventListener('click', function () {
       if (!agentId) return;
       resumeBtn.disabled = true;
-      apiRequest('/api/v1/agents/resume/' + encodeURIComponent(agentId), { method: 'POST' })
+      apiRequest('/api/v1/agents/' + encodeURIComponent(agentId) + '/resume', { method: 'POST' })
         .then(function () {
           if (toast && toast.success) {
             toast.success('Agent resumed.');

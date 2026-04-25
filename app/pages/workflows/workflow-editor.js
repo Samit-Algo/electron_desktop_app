@@ -70,7 +70,8 @@ import { api } from '../../core/api.js';
     }
 
     const container = document.getElementById('drawflow');
-    const urlParams = new URLSearchParams(window.location.search);
+    const _wsu = window.history.state && window.history.state.url ? window.history.state.url : window.location.href;
+    const urlParams = new URLSearchParams(new URL(_wsu, window.location.origin).search);
     const editWorkflowId = urlParams.get('workflow_id');
     const workflowName = urlParams.get('name') || '';
     const workflowOwner = urlParams.get('owner') || '';
@@ -508,7 +509,7 @@ import { api } from '../../core/api.js';
           const token = getAuthToken();
           const headers = { 'Content-Type': 'application/json' };
           if (token) headers['Authorization'] = `Bearer ${token}`;
-          const response = await fetch(API_BASE + '/api/v1/cameras/list', { method: 'GET', headers });
+          const response = await fetch(API_BASE + '/api/v1/cameras', { method: 'GET', headers });
           if (response.status === 401) { console.error('Authentication required for camera list'); return []; }
           if (!response.ok) throw new Error(`Failed to fetch cameras: ${response.status}`);
           const cameras = await response.json();
@@ -2606,7 +2607,6 @@ import { api } from '../../core/api.js';
       }
 
       function buildWatchdogVoiceWsUrl() {
-        var api = api;
         if (!api || !api.token) throw new Error('Not authenticated');
         var b = String(api.baseURL || '').replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:');
         return b + '/api/v1/watchdog/voice-stream?token=' + encodeURIComponent(api.token);

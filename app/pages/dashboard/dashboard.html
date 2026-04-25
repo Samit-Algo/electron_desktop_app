@@ -8,7 +8,7 @@
   </div>
 
   <!-- Top Statistics Cards -->
-  <div class="vision-dashboard-stat-cards mb-4">
+  <div class="vision-dashboard-stat-cards mb-4" id="vision-dashboard-stats" data-loading="true">
     <!-- Card 1: Total Cameras -->
     <div class="vision-dashboard-stat-card">
       <div class="card h-100">
@@ -120,13 +120,19 @@
           </h3>
           <p class="text-body-tertiary mb-0 fs-9">Most recent alerts across all cameras</p>
         </div>
-        <a class="btn btn-phoenix-secondary btn-sm align-self-start align-self-sm-center flex-shrink-0" href="events-board.html">
+        <a class="btn btn-phoenix-secondary btn-sm align-self-start align-self-sm-center flex-shrink-0" href="/app/pages/events/events.html">
           <span class="fa-solid fa-up-right-from-square me-1"></span>View more
         </a>
       </div>
     </div>
     <div class="col-12">
-      <div id="vision-dashboard-latest-events" class="vision-events-widget-container"></div>
+      <div id="vision-latest-events" class="vision-events-widget-container" data-loading="true">
+        <div class="vision-events-skeleton-grid" id="vision-events-skeleton-grid">
+          <div class="vision-events-skeleton-card"></div>
+          <div class="vision-events-skeleton-card"></div>
+          <div class="vision-events-skeleton-card"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -152,13 +158,13 @@
       </div>
     </div>
     <div class="col-12 min-w-0 vision-dashboard-live-grid-wrap">
-      <div class="grid-stack vision-dashboard-live-grid" id="live-camera-grid">
-        <div class="d-flex justify-content-center align-items-center p-5" id="camera-loading">
-          <div class="text-center">
-            <div class="spinner-border text-primary mb-3" role="status">
-              <span class="visually-hidden">Loading cameras...</span>
-            </div>
-            <p class="text-body-tertiary mb-0">Loading cameras...</p>
+      <div class="grid-stack vision-dashboard-live-grid" id="live-camera-grid" data-loading="true">
+        <div class="p-2" id="camera-loading">
+          <div class="vision-camera-skeleton-grid">
+            <div class="vision-camera-skeleton-tile"></div>
+            <div class="vision-camera-skeleton-tile"></div>
+            <div class="vision-camera-skeleton-tile"></div>
+            <div class="vision-camera-skeleton-tile"></div>
           </div>
         </div>
       </div>

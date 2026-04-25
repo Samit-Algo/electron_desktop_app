@@ -1,43 +1,5 @@
     /* CSS Variables for theming - Compatible with Bootstrap */
     :root {
-      --lf-card-bg: #0d0d0d;
-      --lf-card-border: #2a2a2a;
-      --lf-card-color: #ffffff;
-      --lf-header-border: #1a1a1a;
-      --lf-input-bg: #141414;
-      --lf-input-border: #2a2a2a;
-      --lf-input-focus-bg: #1a1a1a;
-      --lf-placeholder-color: #525252;
-      --lf-label-color: #9ca3af;
-      --lf-icon-color: #6b7280;
-      --lf-footer-color: #9ca3af;
-      --lf-play-btn-border: #3a3a3a;
-      --lf-play-btn-hover-bg: #1a1a1a;
-      --lf-provider-badge-bg: #1a1a1a;
-      --lf-provider-badge-color: #d1d5db;
-      --lf-select-option-bg: #1a1a1a;
-      --wf-canvas-bg: #020617;
-      --wf-sidebar-bg: #020617;
-      --wf-designer-color: #e5e7eb;
-      --wf-canvas-border: #111827;
-      --wf-grid-color: #1f2937;
-      --bs-primary: #6366f1;
-      --bs-primary-rgb: 99, 102, 241;
-      /* AI chat dock */
-      --wf-chat-surface: rgba(13, 13, 13, 0.94);
-      --wf-chat-surface-border: rgba(55, 55, 55, 0.95);
-      --wf-chat-placeholder: var(--lf-placeholder-color);
-      --wf-chat-icon-hover: var(--lf-play-btn-hover-bg);
-      --wf-chat-send-bg: #6366f1;
-      --wf-chat-send-hover: #4f46e5;
-      --wf-chat-model-bg: var(--lf-provider-badge-bg);
-      --wf-chat-model-color: var(--lf-provider-badge-color);
-      --wf-chat-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-      /* Node card width — responsive with higher cap for readability */
-      --wf-node-card-width: min(220px, max(150px, calc((100vw - 120px) * 0.85)));
-    }
-
-    [data-bs-theme="light"] {
       --lf-card-bg: #ffffff;
       --lf-card-border: #e5e7eb;
       --lf-card-color: #111827;
@@ -59,9 +21,47 @@
       --wf-designer-color: #374151;
       --wf-canvas-border: #e2e8f0;
       --wf-grid-color: #cbd5e1;
+      --bs-primary: #6366f1;
+      --bs-primary-rgb: 99, 102, 241;
+      /* AI chat dock */
       --wf-chat-surface: rgba(255, 255, 255, 0.97);
       --wf-chat-surface-border: rgba(226, 232, 240, 0.98);
+      --wf-chat-placeholder: var(--lf-placeholder-color);
+      --wf-chat-icon-hover: var(--lf-play-btn-hover-bg);
+      --wf-chat-send-bg: #6366f1;
+      --wf-chat-send-hover: #4f46e5;
+      --wf-chat-model-bg: var(--lf-provider-badge-bg);
+      --wf-chat-model-color: var(--lf-provider-badge-color);
       --wf-chat-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+      /* Node card width - responsive with higher cap for readability */
+      --wf-node-card-width: min(220px, max(150px, calc((100vw - 120px) * 0.85)));
+    }
+
+    [data-bs-theme="dark"] {
+      --lf-card-bg: #0d0d0d;
+      --lf-card-border: #2a2a2a;
+      --lf-card-color: #ffffff;
+      --lf-header-border: #1a1a1a;
+      --lf-input-bg: #141414;
+      --lf-input-border: #2a2a2a;
+      --lf-input-focus-bg: #1a1a1a;
+      --lf-placeholder-color: #525252;
+      --lf-label-color: #9ca3af;
+      --lf-icon-color: #6b7280;
+      --lf-footer-color: #9ca3af;
+      --lf-play-btn-border: #3a3a3a;
+      --lf-play-btn-hover-bg: #1a1a1a;
+      --lf-provider-badge-bg: #1a1a1a;
+      --lf-provider-badge-color: #d1d5db;
+      --lf-select-option-bg: #1a1a1a;
+      --wf-canvas-bg: #020617;
+      --wf-sidebar-bg: #020617;
+      --wf-designer-color: #e5e7eb;
+      --wf-canvas-border: #111827;
+      --wf-grid-color: #1f2937;
+      --wf-chat-surface: rgba(13, 13, 13, 0.94);
+      --wf-chat-surface-border: rgba(55, 55, 55, 0.95);
+      --wf-chat-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
     }
 
     /* Workflow Designer Layout using Bootstrap utility classes with custom extensions */
@@ -370,7 +370,7 @@
         0 0 52px -8px var(--wf-accent-glow);
     }
 
-    [data-bs-theme="light"] .lf-card[data-wf-type] {
+    html:not([data-bs-theme="dark"]) .lf-card[data-wf-type] {
       border: 1px solid rgba(15, 23, 42, 0.08);
       background: linear-gradient(155deg, #ffffff 0%, #f8fafc 48%, #f1f5f9 100%);
       box-shadow:
@@ -380,23 +380,23 @@
         0 0 40px -18px var(--wf-accent-dim);
     }
 
-    [data-bs-theme="light"] .lf-card[data-wf-type] .lf-card-header {
+    html:not([data-bs-theme="dark"]) .lf-card[data-wf-type] .lf-card-header {
       border-bottom-color: rgba(15, 23, 42, 0.07);
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.35) 100%);
     }
 
-    [data-bs-theme="light"] .lf-card[data-wf-type] .lf-title-text {
+    html:not([data-bs-theme="dark"]) .lf-card[data-wf-type] .lf-title-text {
       text-shadow: none;
     }
 
-    [data-bs-theme="light"] .drawflow .drawflow-node:hover .lf-card[data-wf-type] {
+    html:not([data-bs-theme="dark"]) .drawflow .drawflow-node:hover .lf-card[data-wf-type] {
       box-shadow:
         0 0 0 1px rgba(255, 255, 255, 0.9) inset,
         0 8px 24px rgba(15, 23, 42, 0.1),
         0 0 48px -12px var(--wf-accent-glow);
     }
 
-    [data-bs-theme="light"] .drawflow .drawflow-node.selected .lf-card[data-wf-type] {
+    html:not([data-bs-theme="dark"]) .drawflow .drawflow-node.selected .lf-card[data-wf-type] {
       box-shadow:
         0 0 0 2px var(--wf-accent),
         0 0 0 1px rgba(255, 255, 255, 0.9) inset,
@@ -1289,4 +1289,3 @@
     .wf-canvas--gen-animating {
       cursor: progress;
     }
-    

@@ -3,7 +3,7 @@
 <div class="content">
             <nav class="mb-3" aria-label="breadcrumb">
                 <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="dashboard.html">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="/app/pages/dashboard/dashboard.html">Dashboard</a></li>
                     <li class="breadcrumb-item active">Cameras</li>
                 </ol>
             </nav>
@@ -21,9 +21,20 @@
                 </button>
             </div>
 
-            <div class="vision-cameras-list-grid mb-9" id="vision-cameras-list-grid">
-                <!-- Camera cards injected by cameras-list.js -->
+            <div class="vision-cameras-list-grid mb-9" id="vision-cameras-list-grid" data-loading="true">
+                <div class="vision-cameras-skeleton-grid" id="vision-cameras-skeleton-grid">
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                    <div class="vision-cameras-skeleton-card"></div>
+                </div>
             </div>
         </div>
-
-<script type="module" src="cameras-list.js"></script>

@@ -282,3 +282,6 @@ if (document.readyState === 'loading') {
 } else {
   setTimeout(init, 0);
 }
+window.addEventListener('vision:spa:navigated', function () {
+  if (document.getElementById('chat-messages')) init();
+});

@@ -1,0 +1,73 @@
+<link rel="stylesheet" href="events.css">
+
+<div class="content">
+  <nav class="mb-3" aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="/app/pages/dashboard/dashboard.html">Dashboard</a></li>
+      <li class="breadcrumb-item active">Events Board</li>
+    </ol>
+  </nav>
+
+  <div class="d-flex flex-column flex-sm-row gap-2 gap-sm-3 justify-content-between align-items-stretch align-items-sm-center mb-4 min-w-0">
+    <div class="min-w-0">
+      <h2 class="mb-0">Events <span class="fw-normal text-body-tertiary ms-2">(<span id="vision-events-count">0</span>)</span></h2>
+    </div>
+    <div class="search-box">
+      <form class="position-relative" onsubmit="return false;">
+        <input class="form-control search-input search" type="search" placeholder="Search events" aria-label="Search" id="vision-events-search">
+        <span class="fas fa-search search-box-icon"></span>
+      </form>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="row g-2 g-md-3 mb-3 align-items-end">
+    <div class="col-12 col-md-auto">
+      <label for="vision-events-filter-camera" class="form-label small mb-0 text-body-tertiary">Camera</label>
+      <select class="form-select form-select-sm" id="vision-events-filter-camera">
+        <option value="">All cameras</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-auto">
+      <label for="vision-events-timeline" class="form-label small mb-0 text-body-tertiary">Timeline</label>
+      <select class="form-select form-select-sm" id="vision-events-timeline">
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="all" selected>All</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-auto align-self-end">
+      <button type="button" class="btn btn-phoenix-secondary btn-sm" id="vision-events-filters-clear">Clear</button>
+    </div>
+  </div>
+
+  <!-- Severity tabs -->
+  <div class="mb-4">
+    <ul class="nav nav-links mx-n2 flex-wrap" id="vision-events-severity-tabs">
+      <li class="nav-item"><a class="nav-link px-2 py-1 active" data-severity="all" href="#">All <span class="text-body-tertiary fw-semibold ms-1">(<span id="vision-events-cnt-all">0</span>)</span></a></li>
+      <li class="nav-item"><a class="nav-link px-2 py-1" data-severity="Critical" href="#">Critical <span class="text-body-tertiary fw-semibold ms-1">(<span id="vision-events-cnt-critical">0</span>)</span></a></li>
+      <li class="nav-item"><a class="nav-link px-2 py-1" data-severity="Warning" href="#">Warning <span class="text-body-tertiary fw-semibold ms-1">(<span id="vision-events-cnt-warning">0</span>)</span></a></li>
+      <li class="nav-item"><a class="nav-link px-2 py-1" data-severity="Info" href="#">Info <span class="text-body-tertiary fw-semibold ms-1">(<span id="vision-events-cnt-info">0</span>)</span></a></li>
+    </ul>
+  </div>
+
+  <!-- Grid -->
+  <div class="row g-3 mb-9" id="vision-events-board-grid" data-events-module="true" data-loading="true">
+    <div class="col-12">
+      <div class="vision-events-skeleton-grid" id="vision-events-skeleton-grid">
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+        <div class="vision-events-skeleton-card"></div>
+      </div>
+    </div>
+  </div>
+</div>

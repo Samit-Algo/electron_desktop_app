@@ -34,4 +34,27 @@
                 -webkit-box-orient: vertical;
                 overflow: hidden;
             }
+
+            #vision-cameras-list-grid[data-loading="true"] #vision-cameras-skeleton-grid {
+                display: grid;
+            }
+
+            .vision-cameras-skeleton-grid {
+                display: none;
+                gap: 1rem;
+                grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+            }
+
+            .vision-cameras-skeleton-card {
+                height: 170px;
+                border-radius: 0.75rem;
+                background: linear-gradient(90deg, rgba(148, 163, 184, 0.12) 25%, rgba(148, 163, 184, 0.28) 50%, rgba(148, 163, 184, 0.12) 75%);
+                background-size: 240% 100%;
+                animation: vision-cameras-shimmer 1.3s ease-in-out infinite;
+            }
+
+            @keyframes vision-cameras-shimmer {
+                0% { background-position: 100% 0; }
+                100% { background-position: -100% 0; }
+            }
         

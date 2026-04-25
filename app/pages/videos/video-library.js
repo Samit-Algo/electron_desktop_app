@@ -7,6 +7,30 @@ var CHAT_SELECTION_KEY = 'visionai_chat_selected_video_meta';
 var CHAT_PENDING_KEY = 'visionai_pending_chat_video';
 var CHAT_VIDEO_ID_KEY = 'visionai_chat_video_id';
 
+function setLibraryLoading(isLoading) {
+  var grid = document.getElementById('library-grid');
+  if (grid) grid.setAttribute('data-loading', isLoading ? 'true' : 'false');
+}
+
+function renderLibrarySkeleton() {
+  var grid = document.getElementById('library-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="col-12"><div class="vision-library-skeleton-grid" id="vision-library-skeleton-grid">' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '<div class="vision-library-skeleton-card"></div>' +
+    '</div></div>';
+}
+
 function formatDate(iso) {
   if (!iso) return 'Unknown date';
   try {
@@ -39,7 +63,7 @@ function saveVideoForChat(video) {
 }
 
 function navigateToChat() {
-  var href = 'chat.html';
+  var href = '/app/pages/chat/chat.html';
   navigate(href).catch(function () { window.location.href = href; });
 }
 
@@ -94,19 +118,17 @@ async function loadLibrary() {
     notifyError('API client not ready. Please refresh.');
     return;
   }
+  setLibraryLoading(true);
+  renderLibrarySkeleton();
   var grid = document.getElementById('library-grid');
-  if (grid) {
-    grid.innerHTML =
-      '<div class="col-12"><div class="card"><div class="card-body text-center py-5">' +
-      '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>' +
-      '</div></div></div>';
-  }
   try {
     var res = await api.listStaticVideos();
     renderLibrary(res && Array.isArray(res.videos) ? res.videos : []);
+    setLibraryLoading(false);
   } catch (err) {
     notifyError((err && err.message) ? err.message : 'Failed to load library.');
     if (grid) grid.innerHTML = '';
+    setLibraryLoading(false);
   }
 }
 
@@ -121,3 +143,6 @@ if (document.readyState === 'loading') {
 } else {
   setTimeout(init, 0);
 }
+window.addEventListener('vision:spa:navigated', function () {
+  if (document.getElementById('library-grid')) init();
+});

@@ -4,20 +4,20 @@ import { api } from '../../core/api.js';
 
                     // Get camera ID from URL - handle both SPA navigation and direct navigation
                     async function getCameraId() {
-                        // Try current location first
-                        let params = new URLSearchParams(window.location.search);
+                        // In SPA mode the browser URL is always index.html — read from history state
+                        const stateUrl = window.history.state && window.history.state.url ? window.history.state.url : window.location.href;
+                        let params = new URLSearchParams(new URL(stateUrl, window.location.origin).search);
                         let camId = params.get('camera');
-                        
-                        // If not found, wait a bit for SPA navigation to update the URL
+
                         if (!camId) {
-                            // Wait for URL to be updated by pushState (happens after script execution)
                             for (let i = 0; i < 10; i++) {
                                 await new Promise(resolve => setTimeout(resolve, 50));
-                                params = new URLSearchParams(window.location.search);
+                                const su = window.history.state && window.history.state.url ? window.history.state.url : window.location.href;
+                                params = new URLSearchParams(new URL(su, window.location.origin).search);
                                 camId = params.get('camera');
                                 if (camId) break;
-                                
-                                // Also check history state
+
+                                // Also check history state (legacy fallback)
                                 if (window.history.state && window.history.state.url) {
                                     try {
                                         const url = new URL(window.history.state.url, window.location.origin);
@@ -51,20 +51,61 @@ import { api } from '../../core/api.js';
                         return camId;
                     }
 
+                    // DOM element references — re-queried on every init() so SPA navigation works
+                    let titleEl, headerEl, idBadge, videoEl, containerEl, shellEl;
+                    let statusDot, statusText, overlayBadge, streamTypeIcon;
+                    let switchToCameraBtn, overlayCanvas, agentFramesEl;
+                    let btnSidebar, listEl, searchEl;
+                    let visContainer, zoomInBtn, zoomOutBtn, zoomLabel;
+                    let popupEl, popupImg, popupTitle, popupTime, popupAgent, popupSev;
+
+                    function queryDomRefs() {
+                        titleEl           = document.getElementById('camera-title');
+                        headerEl          = document.getElementById('camera-header-name');
+                        idBadge           = document.getElementById('camera-id-badge');
+                        videoEl           = document.getElementById('camera-video');
+                        containerEl       = videoEl?.closest('.position-relative');
+                        shellEl           = document.getElementById('camera-detail-shell');
+                        statusDot         = document.getElementById('camera-status-dot');
+                        statusText        = document.getElementById('camera-status-text');
+                        overlayBadge      = document.getElementById('camera-overlay-badge');
+                        streamTypeIcon    = document.getElementById('stream-type-icon');
+                        switchToCameraBtn = document.getElementById('switch-to-camera-btn');
+                        overlayCanvas     = document.getElementById('agent-overlay-canvas');
+                        agentFramesEl     = document.getElementById('camera-agent-frames');
+                        btnSidebar        = document.getElementById('toggle-agent-sidebar');
+                        listEl            = document.getElementById('agent-list');
+                        searchEl          = document.getElementById('agent-search');
+                        visContainer      = document.getElementById('cctv-vis');
+                        zoomInBtn         = document.getElementById('cctv-zoom-in');
+                        zoomOutBtn        = document.getElementById('cctv-zoom-out');
+                        zoomLabel         = document.getElementById('cctv-zoom-label');
+                        popupEl           = document.getElementById('cctv-event-popup');
+                        popupImg          = document.getElementById('cctv-event-popup-img');
+                        popupTitle        = document.getElementById('cctv-event-popup-title');
+                        popupTime         = document.getElementById('cctv-event-popup-time');
+                        popupAgent        = document.getElementById('cctv-event-popup-agent');
+                        popupSev          = document.getElementById('cctv-event-popup-sev');
+                    }
+
                     // Initialize camera with async camera ID retrieval
                     async function init() {
+                        // Re-query DOM every time — the SPA router replaces page content on navigation
+                        queryDomRefs();
+                        bindUiEvents();
+
                         const camId = await getCameraId();
 
                         if (!camId) {
                             console.error('No camera ID provided. URL:', window.location.href);
                             console.error('Search params:', window.location.search);
                             console.error('History state:', window.history.state);
-                            statusText.textContent = 'No camera ID';
+                            if (statusText) statusText.textContent = 'No camera ID';
                             return;
                         }
-                        
+
                         console.log('Camera ID from URL:', camId);
-                        
+
                         // Store camId for use by initCamera
                         currentCameraId = camId;
                         // Expose camera context to chatbot (for agent chat / zone drawing)
@@ -74,24 +115,10 @@ import { api } from '../../core/api.js';
                         } catch (_) {
                             // ignore
                         }
-                        
+
                         // Now initialize camera
                         await initCamera();
                     }
-
-                    const titleEl = document.getElementById('camera-title');
-                    const headerEl = document.getElementById('camera-header-name');
-                    const idBadge = document.getElementById('camera-id-badge');
-                    const videoEl = document.getElementById('camera-video');
-                    const containerEl = videoEl?.closest('.position-relative');
-                    const shellEl = document.getElementById('camera-detail-shell');
-                    const statusDot = document.getElementById('camera-status-dot');
-                    const statusText = document.getElementById('camera-status-text');
-                    const overlayBadge = document.getElementById('camera-overlay-badge');
-                    const streamTypeIcon = document.getElementById('stream-type-icon');
-                    const switchToCameraBtn = document.getElementById('switch-to-camera-btn');
-                    const overlayCanvas = document.getElementById('agent-overlay-canvas');
-                    const agentFramesEl = document.getElementById('camera-agent-frames');
 
                     // Store original canvas parent for restoring after fullscreen
                     let originalCanvasParent = null;
@@ -357,7 +384,7 @@ import { api } from '../../core/api.js';
                         // Base header (overlay will adjust badge text)
                         headerEl.textContent = cameraData?.name || camId || 'Live Camera';
                         if (streamTypeIcon) {
-                            streamTypeIcon.className = 'fa-solid fa-video text-primary me-2';
+                            streamTypeIcon.setAttribute('class', 'fa-solid fa-video text-primary me-2');
                         }
                         if (overlayBadge) {
                             overlayBadge.innerHTML = '<span class="fa-solid fa-eye me-1"></span>Live preview';
@@ -1098,7 +1125,6 @@ import { api } from '../../core/api.js';
 
                     // Collapse/expand agent sidebar (persists)
                     const SIDEBAR_KEY = 'visionai.cameraDetail.sidebarCollapsed.v1';
-                    const btnSidebar = document.getElementById('toggle-agent-sidebar');
                     function setSidebarBtnIcon() {
                         const icon = btnSidebar?.querySelector('span');
                         if (!icon || !shellEl) return;
@@ -1113,19 +1139,7 @@ import { api } from '../../core/api.js';
 
                         // Timeline is always visible under the camera; no extra toggling needed.
                     }
-                    // restore state (use the same path as user click so timeline + scroll behave consistently)
-                    if (shellEl) {
-                        const saved = localStorage.getItem(SIDEBAR_KEY) === 'true';
-                        setSidebarCollapsed(saved);
-                    }
-                    btnSidebar?.addEventListener('click', () => {
-                        const collapsed = shellEl?.classList.contains('visionai-sidebar-collapsed');
-                        setSidebarCollapsed(!collapsed);
-                    });
-
                     // Agent filtering (tabs + search)
-                    const listEl = document.getElementById('agent-list');
-                    const searchEl = document.getElementById('agent-search');
                     let activeFilter = 'active';
 
                     function escapeHtml(s) {
@@ -1314,18 +1328,30 @@ import { api } from '../../core/api.js';
                         });
                     }
 
-                    document.querySelectorAll('[data-agent-filter]').forEach((tab) => {
-                        tab.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            document.querySelectorAll('[data-agent-filter]').forEach(t => t.classList.remove('active'));
-                            tab.classList.add('active');
-                            activeFilter = tab.getAttribute('data-agent-filter') || 'active';
-                            applyFilter();
+                    function bindUiEvents() {
+                        // Sidebar toggle
+                        if (shellEl) {
+                            const saved = localStorage.getItem(SIDEBAR_KEY) === 'true';
+                            setSidebarCollapsed(saved);
+                        }
+                        btnSidebar?.addEventListener('click', () => {
+                            const collapsed = shellEl?.classList.contains('visionai-sidebar-collapsed');
+                            setSidebarCollapsed(!collapsed);
                         });
-                    });
 
-                    searchEl?.addEventListener('input', applyFilter);
-                    applyFilter();
+                        // Agent filter tabs + search
+                        document.querySelectorAll('[data-agent-filter]').forEach((tab) => {
+                            tab.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                document.querySelectorAll('[data-agent-filter]').forEach(t => t.classList.remove('active'));
+                                tab.classList.add('active');
+                                activeFilter = tab.getAttribute('data-agent-filter') || 'active';
+                                applyFilter();
+                            });
+                        });
+                        searchEl?.addEventListener('input', applyFilter);
+                        applyFilter();
+                    }
 
                     // Agents are loaded from initCamera() once camera id is known.
 
@@ -1353,10 +1379,6 @@ import { api } from '../../core/api.js';
                         return new Date(dayStart.getTime() + (minute * 60_000));
                     }
 
-                    const visContainer = document.getElementById('cctv-vis');
-                    const zoomInBtn = document.getElementById('cctv-zoom-in');
-                    const zoomOutBtn = document.getElementById('cctv-zoom-out');
-                    const zoomLabel = document.getElementById('cctv-zoom-label');
 
                     const VIS_CSS_HREF = '../node_modules/vis-timeline/styles/vis-timeline-graph2d.min.css';
                     const VIS_JS_SRC = '../node_modules/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js';
@@ -1473,12 +1495,6 @@ import { api } from '../../core/api.js';
                     // ------------------------------------------------------------
                     // Popup overlay using vis itemover/itemout
                     // ------------------------------------------------------------
-                    const popupEl = document.getElementById('cctv-event-popup');
-                    const popupImg = document.getElementById('cctv-event-popup-img');
-                    const popupTitle = document.getElementById('cctv-event-popup-title');
-                    const popupTime = document.getElementById('cctv-event-popup-time');
-                    const popupAgent = document.getElementById('cctv-event-popup-agent');
-                    const popupSev = document.getElementById('cctv-event-popup-sev');
 
                     function fmtTimeLocal(d) {
                         try {
@@ -1785,5 +1801,13 @@ import { api } from '../../core/api.js';
                             initCctvTimeline();
                         });
                     }, 500);
+
+                    window.addEventListener('vision:spa:navigated', function () {
+                        if (document.getElementById('camera-detail-shell')) {
+                            setTimeout(() => {
+                                init().then(() => { initCctvTimeline(); });
+                            }, 500);
+                        }
+                    });
                 })();
             

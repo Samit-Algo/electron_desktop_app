@@ -10,6 +10,18 @@ const PAGE_ROUTE_MAP = new Map([
   ['/app/pages/agents-board.html', '/app/pages/agents/agents-list.html'],
   ['/pages/agent-detail.html', '/app/pages/agents/agent-detail.html'],
   ['/app/pages/agent-detail.html', '/app/pages/agents/agent-detail.html'],
+  // Short relative paths (resolved from /app/index.html SPA shell)
+  ['/app/agent-detail.html', '/app/pages/agents/agent-detail.html'],
+  ['/app/agents-board.html', '/app/pages/agents/agents-list.html'],
+  ['/app/workflow-editor.html', '/app/pages/workflows/workflow-editor.html'],
+  ['/app/workflow-list.html', '/app/pages/workflows/workflow-list.html'],
+  ['/app/camera-detail.html', '/app/pages/cameras/camera-detail.html'],
+  ['/app/cameras-list.html', '/app/pages/cameras/cameras-list.html'],
+  ['/app/event-detail.html', '/app/pages/events/event-detail.html'],
+  ['/app/events-board.html', '/app/pages/events/events.html'],
+  ['/app/person-gallery.html', '/app/pages/people/person-gallery.html'],
+  ['/app/static-video-library.html', '/app/pages/videos/video-library.html'],
+  ['/app/chat.html', '/app/pages/chat/chat.html'],
   ['/pages/workflow-list.html', '/app/pages/workflows/workflow-list.html'],
   ['/app/pages/workflow-list.html', '/app/pages/workflows/workflow-list.html'],
   ['/pages/workflow-editor.html', '/app/pages/workflows/workflow-editor.html'],
@@ -22,6 +34,8 @@ const PAGE_ROUTE_MAP = new Map([
   ['/app/pages/person-gallery.html', '/app/pages/people/person-gallery.html'],
   ['/pages/events-board.html', '/app/pages/events/events.html'],
   ['/app/pages/events-board.html', '/app/pages/events/events.html'],
+  ['/pages/event-detail.html', '/app/pages/events/event-detail.html'],
+  ['/app/pages/event-detail.html', '/app/pages/events/event-detail.html'],
 ]);
 
 const isModifiedClick = e =>
@@ -139,7 +153,22 @@ async function executeInjectedScripts(root) {
         newScript.setAttribute('src', oldScript.getAttribute('src'));
         fixRelativePaths(newScript, pageDepth);
         const src = newScript.getAttribute('src');
-        if (document.querySelector(`script[src="${CSS.escape(src)}"]`)) {
+        const isModule = (newScript.getAttribute('type') || '').trim().toLowerCase() === 'module';
+
+        if (isModule) {
+          // Use dynamic import() so we get a real Promise and can call the exported boot()
+          // on every navigation — avoids the unreliable 150ms timeout and the singleton problem.
+          oldScript.parentNode?.removeChild(oldScript);
+          try {
+            const mod = await import(src);
+            if (typeof mod.boot === 'function') await mod.boot();
+          } catch (modErr) {
+            console.warn('Module import/boot error:', modErr);
+          }
+          continue;
+        }
+
+        if (document.querySelector(`script[src="${src.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`)) {
           oldScript.parentNode?.removeChild(oldScript);
           continue;
         }
@@ -175,8 +204,8 @@ function normalizeInternalLinks(root = document) {
   });
 }
 
-function updateActiveNav() {
-  const currentPath = window.location.pathname;
+function updateActiveNav(pageUrl) {
+  const currentPath = pageUrl ? new URL(pageUrl, window.location.href).pathname : window.location.pathname;
   document.querySelectorAll('.navbar-vertical .nav-link[href]').forEach(link => {
     try {
       const linkPath = new URL(link.getAttribute('href'), window.location.href).pathname;
@@ -253,14 +282,17 @@ async function loadPage(url, { push = true } = {}) {
 
   while (tmp.firstChild) viewport.appendChild(tmp.firstChild);
 
-  await executeInjectedScripts(viewport);
+  // Keep browser URL as the SPA shell so reloads don't load a bare fragment.
+  // Store the actual page in state/sessionStorage for back/forward and boot restore.
+  if (push) history.pushState({ url }, '', '/app/index.html');
+  sessionStorage.setItem('spa:page', url);
 
-  if (push) history.pushState({ url }, '', url);
+  await executeInjectedScripts(viewport);
 
   normalizeInternalLinks(document);
   reInitDynamicUi(viewport);
   viewport.scrollTop = 0;
-  updateActiveNav();
+  updateActiveNav(url);
 
   try { window.dispatchEvent(new CustomEvent('vision:spa:navigated', { detail: { url } })); } catch { /* ignore */ }
 }
@@ -276,6 +308,11 @@ function bindGlobalReloadButton() {
   });
 }
 
+export function getPageUrl() {
+  const stateUrl = history.state && history.state.url ? history.state.url : null;
+  return stateUrl || sessionStorage.getItem('spa:page') || window.location.href;
+}
+
 export function navigate(href, { push = true } = {}) {
   const abs = toAbsoluteUrl(href);
   if (!abs) return;
@@ -287,7 +324,7 @@ export function navigate(href, { push = true } = {}) {
 
 export function initRouter() {
   normalizeInternalLinks(document);
-  updateActiveNav();
+  updateActiveNav(sessionStorage.getItem('spa:page'));
   bindGlobalReloadButton();
 
   document.addEventListener('click', e => {

@@ -25,6 +25,24 @@ import { renderContentBlocksInBubble } from './attachments.js';
 import { init as initZoneEditor, openZoneEditorInBubble } from './zone-editor.js';
 import { init as initFlowDiagram, renderFlowDiagram } from './flow-diagram.js';
 
+// Hoisted so initChatbotTabs and other init functions can assign to it before the export declaration
+export const ChatbotCore = {
+  setVideoPath(path) {
+    if (!this._getActive || !this._getMode) return;
+    const active = this._getActive();
+    if (active) active.mode[this._getMode()].videoPath = path ? String(path).trim() || null : null;
+  },
+  setCameraId(id) {
+    if (!this._getActive || !this._getMode) return;
+    const active = this._getActive();
+    if (active) active.mode[this._getMode()].cameraId = id ? String(id).trim() || null : null;
+  },
+  _getActive: null,
+  _getMode: null,
+};
+
+window.ChatbotCore = ChatbotCore;
+
 // ============================================================================
 // SECTION 1: PATH & SCRIPT LOADING HELPERS
 // ============================================================================
@@ -825,23 +843,3 @@ if (document.readyState === 'loading') {
   else setTimeout(() => { if (typeof bootstrap !== 'undefined') initAll(); }, 100);
 }
 
-// ============================================================================
-// EXPORTED API
-// ============================================================================
-
-export const ChatbotCore = {
-  setVideoPath(path) {
-    if (!this._getActive || !this._getMode) return;
-    const active = this._getActive();
-    if (active) active.mode[this._getMode()].videoPath = path ? String(path).trim() || null : null;
-  },
-  setCameraId(id) {
-    if (!this._getActive || !this._getMode) return;
-    const active = this._getActive();
-    if (active) active.mode[this._getMode()].cameraId = id ? String(id).trim() || null : null;
-  },
-  _getActive: null,
-  _getMode: null,
-};
-
-window.ChatbotCore = ChatbotCore;

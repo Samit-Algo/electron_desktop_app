@@ -113,7 +113,7 @@ function startLocalServer() {
 
         return res.status(404).end();
       } else {
-        res.sendFile(path.join(appPath, 'pages', 'dashboard.html'));
+        res.sendFile(path.join(appPath, 'app', 'index.html'));
       }
     });
 
@@ -191,7 +191,7 @@ function createWindow() {
   const loadWindowURL = () => {
     if (server && server.listening) {
       const serverPort = getServerPort();
-      const url = `http://127.0.0.1:${serverPort}/pages/dashboard.html`;
+      const url = `http://127.0.0.1:${serverPort}/app/index.html`;
       console.log(`Loading window URL: ${url}`);
       mainWindow.loadURL(url).catch((err) => {
         console.error('Failed to load URL:', err);
@@ -217,7 +217,7 @@ function createWindow() {
     if (errorCode !== -3) {
       setTimeout(() => {
         const serverPort = getServerPort();
-        mainWindow.loadURL(`http://127.0.0.1:${serverPort}/pages/dashboard.html`);
+        mainWindow.loadURL(`http://127.0.0.1:${serverPort}/app/index.html`);
       }, 1000);
     }
   });

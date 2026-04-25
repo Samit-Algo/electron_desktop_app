@@ -16,4 +16,5 @@ export async function initSidebar() {
     });
   }
   host.dataset.sidebarReady = 'true';
+  if (typeof feather !== 'undefined') feather.replace({ width: '16px', height: '16px' });
 }

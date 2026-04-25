@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr" data-navigation-type="vertical" data-navbar-horizontal-shape="default">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+  <title>AlgoOrange Vision AI</title>
+
+  <!-- Favicons -->
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/img/favicons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/favicons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../assets/img/favicons/favicon-16x16.png">
+  <link rel="shortcut icon" type="image/x-icon" href="../assets/img/favicons/favicon.ico">
+  <link rel="manifest" href="../assets/img/favicons/manifest.json">
+  <meta name="msapplication-TileImage" content="../assets/img/favicons/mstile-150x150.png">
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- Core Scripts (must load before theme) -->
+  <script src="../vendors/simplebar/simplebar.min.js"></script>
+  <script src="../assets/js/config.js"></script>
+
+  <!-- External Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Vendor Stylesheets -->
+  <link href="../vendors/simplebar/simplebar.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.8/css/line.css">
+  <link href="../vendors/leaflet/leaflet.css" rel="stylesheet">
+  <link href="../vendors/leaflet.markercluster/MarkerCluster.css" rel="stylesheet">
+  <link href="../vendors/leaflet.markercluster/MarkerCluster.Default.css" rel="stylesheet">
+
+  <!-- Theme Stylesheets -->
+  <link href="../assets/css/theme-rtl.min.css" type="text/css" rel="stylesheet" id="style-rtl">
+  <link href="../assets/css/theme.min.css" type="text/css" rel="stylesheet" id="style-default">
+  <link href="../assets/css/user-rtl.min.css" type="text/css" rel="stylesheet" id="user-style-rtl">
+  <link href="../assets/css/user.css" type="text/css" rel="stylesheet" id="user-style-default">
+
+  <!-- RTL/LTR Direction Handler -->
+  <script>
+    var phoenixIsRTL = window.config && window.config.config && window.config.config.phoenixIsRTL;
+    if (phoenixIsRTL) {
+      document.getElementById('style-default').setAttribute('disabled', true);
+      document.getElementById('user-style-default').setAttribute('disabled', true);
+      document.querySelector('html').setAttribute('dir', 'rtl');
+    } else {
+      document.getElementById('style-rtl').setAttribute('disabled', true);
+      document.getElementById('user-style-rtl').setAttribute('disabled', true);
+    }
+  </script>
+
+  <!-- App Shell Layout Styles -->
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    :root {
+      --phoenix-navbar-top-height: 50px;
+    }
+
+    #app-root {
+      display: grid;
+      grid-template-columns:
+        var(--phoenix-navbar-vertical-width, 280px)
+        1fr
+        0px;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      overflow: hidden;
+      margin: 0;
+      transition: grid-template-columns 0.3s ease;
+    }
+
+    .navbar-top {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      position: relative;
+      z-index: 1030;
+      height: 50px !important;
+      min-height: 50px !important;
+      -webkit-app-region: drag;
+      padding-right: 140px;
+      padding-left: 10px;
+      background-color: var(--phoenix-body-bg);
+    }
+
+    .navbar-top .navbar-toggler,
+    .navbar-top .navbar-brand,
+    .navbar-top .search-box,
+    .navbar-top .nav-item,
+    .navbar-top input,
+    .navbar-top button,
+    .navbar-top a {
+      -webkit-app-region: no-drag;
+    }
+
+    .navbar-top .navbar-brand {
+      margin-right: 1rem;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    .navbar-top .navbar-logo {
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
+
+    main.main {
+      grid-column: 1 / 3;
+      grid-row: 2;
+      display: grid;
+      grid-template-columns: var(--phoenix-navbar-vertical-width, 280px) 1fr;
+      height: 100%;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .viewport-scrolls {
+      grid-column: 2;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    .content {
+      flex: 1;
+      min-width: 0;
+      overflow: visible;
+      transition: min-width 0.2s ease;
+    }
+
+    .viewport-scrolls > .content {
+      min-height: auto !important;
+      padding: 1rem 1.5rem 6rem 1.5rem !important;
+      padding-bottom: 6rem !important;
+    }
+
+    @media (min-width: 576px) {
+      .viewport-scrolls > .content {
+        padding-bottom: 4rem !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app-root">
+
+    <!-- Top Navbar / Title Bar -->
+    <nav class="navbar navbar-top navbar-expand d-flex align-items-center" id="navbarDefault">
+      <div class="collapse navbar-collapse justify-content-between align-items-center w-100">
+
+        <!-- Left: Logo and Sidebar Toggle -->
+        <div class="navbar-logo">
+          <button class="btn navbar-toggler navbar-toggler-humburger-icon hover-bg-transparent" type="button"
+            data-bs-toggle="collapse" data-bs-target="#navbarVerticalCollapse"
+            aria-controls="navbarVerticalCollapse" aria-expanded="false" aria-label="Toggle Navigation">
+            <span class="navbar-toggle-icon"><span class="toggle-line"></span></span>
+          </button>
+          <a class="navbar-brand me-1 me-sm-3" href="/app/index.html">
+            <div class="d-flex align-items-center">
+              <img src="../assets/img/algo-logo.png" alt="AlgoOrange" width="27" />
+              <h5 class="logo-text ms-2 d-none d-sm-block">AlgoOrange</h5>
+            </div>
+          </a>
+        </div>
+
+        <!-- Center: Search Box -->
+        <div class="search-box navbar-top-search-box d-none d-lg-block" style="width:25rem;">
+          <form class="position-relative" data-bs-toggle="search" data-bs-display="static">
+            <input class="form-control search-input fuzzy-search rounded-pill form-control-sm" type="search"
+              placeholder="Search..." aria-label="Search" />
+            <span class="fas fa-search search-box-icon"></span>
+          </form>
+        </div>
+
+        <!-- Right: Action Icons and User Menu -->
+        <ul class="navbar-nav navbar-nav-icons flex-row">
+          <!-- Theme Toggle -->
+          <li class="nav-item">
+            <div class="theme-control-toggle fa-icon-wait px-2">
+              <input class="form-check-input ms-0 theme-control-toggle-input" type="checkbox"
+                data-theme-control="phoenixTheme" value="dark" id="themeControlToggle" />
+              <label class="mb-0 theme-control-toggle-label theme-control-toggle-light" for="themeControlToggle"
+                data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Switch theme"
+                style="height:32px;width:32px;"><span class="icon" data-feather="moon"></span></label>
+              <label class="mb-0 theme-control-toggle-label theme-control-toggle-dark" for="themeControlToggle"
+                data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Switch theme"
+                style="height:32px;width:32px;"><span class="icon" data-feather="sun"></span></label>
+            </div>
+          </li>
+
+          <!-- Reload Cameras Button -->
+          <li class="nav-item">
+            <button class="btn btn-link nav-link p-2" id="reload-cameras-btn"
+              data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Reload cameras"
+              style="height:32px;width:32px;" type="button">
+              <span class="icon" data-feather="refresh-cw"></span>
+            </button>
+          </li>
+
+          <!-- Mobile Search Icon -->
+          <li class="nav-item d-lg-none">
+            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#searchBoxModal">
+              <span data-feather="search" style="height:19px;width:19px;margin-bottom:2px;"></span>
+            </a>
+          </li>
+
+          <!-- Notifications Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link position-relative" id="vision-notif-bell" href="#"
+              style="min-width:2.25rem" role="button"
+              data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+              data-bs-auto-close="outside">
+              <span class="d-block" style="height:20px;width:20px;">
+                <span data-feather="bell" style="height:20px;width:20px;"></span>
+              </span>
+              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                id="vision-notif-badge">0</span>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end notification-dropdown-menu py-0 shadow border navbar-dropdown-caret"
+              id="navbarDropdownNotfication" aria-labelledby="navbarDropdownNotfication">
+              <div class="card position-relative border-0">
+                <div class="card-header p-2">
+                  <div class="d-flex justify-content-between">
+                    <h5 class="text-body-emphasis mb-0">Notifications</h5>
+                    <button class="btn btn-link p-0 fs-9 fw-normal" type="button" id="vision-notif-mark-read">
+                      Mark all as read
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body p-0">
+                  <div class="scrollbar-overlay" style="height:27rem;" id="vision-notif-list">
+                    <div class="px-3 py-3 text-body-tertiary fs-9" id="vision-notif-empty">No notifications yet.</div>
+                  </div>
+                </div>
+                <div class="card-footer p-0 border-top border-translucent border-0">
+                  <div class="my-2 text-center fw-bold fs-10 text-body-tertiary text-opactity-85">
+                    <a class="fw-bolder" href="/app/pages/settings/notifications.html">Notification history</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <!-- Nine Dots Menu -->
+          <li class="nav-item dropdown">
+            <a class="nav-link" id="navbarDropdownNindeDots" href="#" role="button"
+              data-bs-toggle="dropdown" aria-haspopup="true" data-bs-auto-close="outside" aria-expanded="false">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="2" cy="2" r="2" fill="currentColor"></circle>
+                <circle cx="2" cy="8" r="2" fill="currentColor"></circle>
+                <circle cx="2" cy="14" r="2" fill="currentColor"></circle>
+                <circle cx="8" cy="8" r="2" fill="currentColor"></circle>
+                <circle cx="8" cy="14" r="2" fill="currentColor"></circle>
+                <circle cx="14" cy="8" r="2" fill="currentColor"></circle>
+                <circle cx="14" cy="14" r="2" fill="currentColor"></circle>
+                <circle cx="8" cy="2" r="2" fill="currentColor"></circle>
+                <circle cx="14" cy="2" r="2" fill="currentColor"></circle>
+              </svg>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end navbar-dropdown-caret py-0 dropdown-nine-dots shadow border"
+              aria-labelledby="navbarDropdownNindeDots">
+              <div class="card bg-body-emphasis position-relative border-0">
+                <div class="card-body pt-3 px-3 pb-0 overflow-auto scrollbar" style="height:20rem;">
+                  <div class="row text-center align-items-center gx-0 gy-0">
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3" href="#!">
+                      <img src="../assets/img/nav-icons/behance.webp" alt="" width="30" />
+                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Behance</p></a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3" href="#!">
+                      <img src="../assets/img/nav-icons/google-cloud.webp" alt="" width="30" />
+                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Cloud</p></a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3" href="#!">
+                      <img src="../assets/img/nav-icons/slack.webp" alt="" width="30" />
+                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Slack</p></a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3" href="#!">
+                      <img src="../assets/img/nav-icons/gitlab.webp" alt="" width="30" />
+                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Gitlab</p></a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3" href="#!">
+                      <img src="../assets/img/nav-icons/bitbucket.webp" alt="" width="30" />
+                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">BitBucket</p></a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3" href="#!">
+                      <img src="../assets/img/nav-icons/google-drive.webp" alt="" width="30" />
+                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Drive</p></a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3" href="#!">
+                      <img src="../assets/img/nav-icons/trello.webp" alt="" width="30" />
+                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Trello</p></a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3" href="#!">
+                      <img src="../assets/img/nav-icons/figma.webp" alt="" width="20" />
+                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Figma</p></a></div>
+                    <div class="col-4"><a class="d-block bg-body-secondary-hover p-2 rounded-3 text-center text-decoration-none mb-3" href="#!">
+                      <img src="../assets/img/nav-icons/twitter.webp" alt="" width="30" />
+                      <p class="mb-0 text-body-emphasis text-truncate fs-10 mt-1 pt-1">Twitter</p></a></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <!-- User Profile Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link lh-1 pe-0" id="navbarDropdownUser" href="#!" role="button"
+              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-haspopup="true" aria-expanded="false">
+              <div class="avatar avatar-l">
+                <img class="rounded-circle" src="../assets/img/team/40x40/57.webp" alt="" id="user-avatar-small" />
+              </div>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end navbar-dropdown-caret py-0 dropdown-profile shadow border"
+              aria-labelledby="navbarDropdownUser">
+              <div class="card position-relative border-0">
+                <div class="card-body p-0">
+                  <div class="text-center pt-4 pb-3">
+                    <div class="avatar avatar-xl">
+                      <img class="rounded-circle" src="../assets/img/team/72x72/57.webp" alt="" id="user-avatar-large" />
+                    </div>
+                    <h6 class="mt-2 text-body-emphasis" id="user-name">Guest User</h6>
+                    <p class="text-body-tertiary fs-9 mb-0" id="user-email">Not logged in</p>
+                  </div>
+                  <div class="mb-3 mx-3">
+                    <input class="form-control form-control-sm" id="statusUpdateInput" type="text"
+                      placeholder="Update your status" />
+                  </div>
+                </div>
+                <div class="overflow-auto scrollbar" style="height:10rem;">
+                  <ul class="nav d-flex flex-column mb-2 pb-1">
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                      <span class="me-2 text-body align-bottom" data-feather="user"></span><span>Profile</span></a></li>
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                      <span class="me-2 text-body align-bottom" data-feather="pie-chart"></span>Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="/app/pages/settings/general.html">
+                      <span class="me-2 text-body align-bottom" data-feather="settings"></span>Settings &amp; Privacy</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                      <span class="me-2 text-body align-bottom" data-feather="help-circle"></span>Help Center</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                      <span class="me-2 text-body align-bottom" data-feather="globe"></span>Language</a></li>
+                  </ul>
+                </div>
+                <div class="card-footer p-0 border-top border-translucent">
+                  <ul class="nav d-flex flex-column my-3">
+                    <li class="nav-item"><a class="nav-link px-3 d-block" href="#!">
+                      <span class="me-2 text-body align-bottom" data-feather="user-plus"></span>Add another account</a></li>
+                  </ul>
+                  <hr />
+                  <div class="px-3">
+                    <a class="btn btn-phoenix-secondary d-flex flex-center w-100" href="#!" id="logout-btn">
+                      <span class="me-2" data-feather="log-out"></span>Sign out</a>
+                  </div>
+                  <div class="my-2 text-center fw-bold fs-10 text-body-quaternary">
+                    <a class="text-body-quaternary me-1" href="#!">Privacy policy</a>&bull;
+                    <a class="text-body-quaternary mx-1" href="#!">Terms</a>&bull;
+                    <a class="text-body-quaternary ms-1" href="#!">Cookies</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- Main Content Area: Sidebar + Viewport -->
+    <main class="main" id="top">
+      <!-- Sidebar is injected here by sidebar.js -->
+      <div id="sidebar-host">
+        <nav class="navbar navbar-vertical navbar-expand-lg">
+          <div class="collapse navbar-collapse" id="navbarVerticalCollapse">
+            <div class="navbar-vertical-content">
+              <ul class="navbar-nav flex-column" id="navbarVerticalNav">
+                <!-- filled by sidebar.js -->
+              </ul>
+            </div>
+          </div>
+          <div class="navbar-vertical-footer">
+            <button class="btn navbar-vertical-toggle border-0 fw-semibold w-100 white-space-nowrap d-flex align-items-center">
+              <span class="uil uil-left-arrow-to-left fs-8"></span>
+              <span class="uil uil-arrow-from-right fs-8"></span>
+              <span class="navbar-vertical-footer-text ms-2">Collapsed View</span>
+            </button>
+          </div>
+        </nav>
+      </div>
+
+      <!-- Scrollable page content area -->
+      <div class="viewport-scrolls scrollbar">
+        <!-- Page fragments are injected here by router.js -->
+      </div>
+    </main>
+
+    <!-- Create Camera Modal (lives in shell so it persists across SPA navigations) -->
+    <div class="modal fade" id="vision-create-camera-modal"
+         tabindex="-1" aria-labelledby="cc-modal-label" aria-hidden="true"
+         data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header pb-2">
+            <h5 class="modal-title" id="cc-modal-label">Create Camera</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1">Camera Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" id="cc-name"
+                     placeholder="e.g. Front Gate" maxlength="200" autocomplete="off">
+              <div class="text-danger d-none mt-1" style="font-size:.72rem" id="cc-name-error"></div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1">Stream URL <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" id="cc-stream-url"
+                     placeholder="rtsp://... or https://..." maxlength="2048" autocomplete="off">
+              <div class="form-text small">RTSP, HTTP, or WebRTC stream URL.</div>
+              <div class="text-danger d-none mt-1" style="font-size:.72rem" id="cc-stream-url-error"></div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1 text-body-secondary">Location (optional)</label>
+              <div class="row g-2">
+                <div class="col-6">
+                  <input type="text" class="form-control form-control-sm" id="cc-location-area"
+                         placeholder="Area (e.g. Parking Lot)" maxlength="100" autocomplete="off">
+                </div>
+                <div class="col-6">
+                  <input type="text" class="form-control form-control-sm" id="cc-location-zone"
+                         placeholder="Zone (e.g. North)" maxlength="100" autocomplete="off">
+                </div>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1 text-body-secondary">Tags (optional)</label>
+              <input type="text" class="form-control form-control-sm" id="cc-tags"
+                     placeholder="outdoor, gate, entrance (comma-separated)" maxlength="500" autocomplete="off">
+            </div>
+            <div id="cc-error-alert" class="alert alert-danger d-none mt-3 mb-0 py-2 px-3 small" role="alert">
+              <span id="cc-error-msg"></span>
+              <button type="button" class="btn-close btn-sm float-end" id="cc-error-dismiss"
+                style="font-size:.65rem" aria-label="Dismiss"></button>
+            </div>
+          </div>
+          <div class="modal-footer py-2 border-top">
+            <button type="button" class="btn btn-phoenix-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-success btn-sm" id="cc-create-btn">
+              <span class="fas fa-check me-1"></span>
+              <span id="cc-create-text">Create Camera</span>
+              <span class="spinner-border spinner-border-sm d-none ms-1" id="cc-create-spinner"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chatbot Container -->
+    <div id="chatbot-container"></div>
+
+  </div><!-- /#app-root -->
+
+  <!-- jQuery (required by notification system and Phoenix UI) -->
+  <script src="../vendors/jquery/jquery.min.js"></script>
+
+  <!-- Vendor Scripts -->
+  <script src="../vendors/popper/popper.min.js"></script>
+  <script src="../vendors/bootstrap/bootstrap.min.js"></script>
+  <script src="../vendors/anchorjs/anchor.min.js"></script>
+  <script src="../vendors/is/is.min.js"></script>
+  <script src="../vendors/fontawesome/all.min.js"></script>
+  <script src="../vendors/lodash/lodash.min.js"></script>
+  <script src="../vendors/list.js/list.min.js"></script>
+  <script src="../vendors/feather-icons/feather.min.js"></script>
+  <script src="../vendors/dayjs/dayjs.min.js"></script>
+  <script src="../vendors/leaflet/leaflet.js"></script>
+  <script src="../vendors/leaflet.markercluster/leaflet.markercluster.js"></script>
+  <script src="../vendors/leaflet.tilelayer.colorfilter/leaflet-tilelayer-colorfilter.min.js"></script>
+  <script src="../assets/js/phoenix.js"></script>
+  <script>
+    // Re-initialise theme-control checkboxes after each SPA navigation,
+    // because phoenix.js runs initialDomSetup once at boot before any page loads.
+    window.addEventListener('vision:spa:navigated', function () {
+      var getItemFromStore = window.phoenix && window.phoenix.utils && window.phoenix.utils.getItemFromStore;
+      if (!getItemFromStore) return;
+      document.querySelectorAll('[data-theme-control]').forEach(function (el) {
+        var key = el.getAttribute('data-theme-control');
+        var val = getItemFromStore(key);
+        if (el.type === 'checkbox') {
+          el.checked = !!val;
+        } else if (el.type === 'radio') {
+          el.checked = (el.value === String(val));
+        }
+      });
+    });
+  </script>
+  <script src="../vendors/echarts/echarts.min.js"></script>
+  <script src="../assets/js/dashboards/ecommerce-dashboard.js"></script>
+
+  <!-- Shared widget scripts (window globals) -->
+  <script src="./utils/events-board-widget.js"></script>
+
+  <!-- Notification System (window globals, load in order) -->
+  <script src="./notifications/constants.js"></script>
+  <script src="./notifications/normalizer.js"></script>
+  <script src="./notifications/ui.js"></script>
+  <script type="module" src="./notifications/popup.js"></script>
+  <script type="module" src="./notifications/hub.js"></script>
+
+  <!-- App core services -->
+  <script type="module">
+    import { initSidebar } from './layout/sidebar/sidebar.js';
+    import { initRouter, navigate } from './core/router.js';
+    import { initAuthGuard, isAuthenticated } from './core/auth.js';
+
+    async function loadChatbot() {
+      const container = document.getElementById('chatbot-container');
+      if (!container) return;
+      try {
+        const res = await fetch('/app/layout/chatbot/chatbot.html', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`chatbot.html fetch failed: ${res.status}`);
+        container.innerHTML = await res.text();
+        // Dynamically import chatbot.js AFTER the HTML is in the DOM so initAll() finds its elements
+        await import('./layout/chatbot/chatbot.js');
+      } catch (e) {
+        console.error('[chatbot load]', e);
+      }
+    }
+
+    async function boot() {
+      await initSidebar();
+      initRouter();
+      await initAuthGuard();
+
+      // Navigate to last visited page (e.g. after RTL reload) or default to dashboard
+      if (isAuthenticated()) {
+        const lastPage = sessionStorage.getItem('spa:page') || '/app/pages/dashboard/dashboard.html';
+        await navigate(lastPage, { push: false })
+          .catch(err => console.error('[boot] navigate failed:', err));
+      }
+
+      // Load chatbot after main UI is ready
+      loadChatbot();
+    }
+
+    boot().catch(err => console.error('[app boot]', err));
+  </script>
+
+</body>
+</html>

@@ -343,7 +343,7 @@ export function bindCreateAgentModal(onAgentCreated) {
     var camSel = el('ca-camera');
     if (!camSel) return;
     camSel.innerHTML = '<option value="">— Loading cameras… —</option>';
-    apiRequest('/api/v1/cameras/list')
+    apiRequest('/api/v1/cameras')
       .then(function (cameras) {
         camerasLoaded = true;
         if (!Array.isArray(cameras) || cameras.length === 0) {
@@ -543,7 +543,7 @@ export function bindCreateAgentModal(onAgentCreated) {
 
     var body = buildRequestBody();
 
-    apiRequest('/api/v1/agents/create', {
+    apiRequest('/api/v1/agents', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)

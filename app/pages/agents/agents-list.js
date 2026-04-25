@@ -77,19 +77,19 @@ function apiRequest(path, opts) {
 }
 
 function listAgents() {
-  return apiRequest('/api/v1/agents/list');
+  return apiRequest('/api/v1/agents');
 }
 
 function stopAgent(agentId) {
-  return apiRequest('/api/v1/agents/stop/' + encodeURIComponent(agentId), { method: 'POST' });
+  return apiRequest('/api/v1/agents/' + encodeURIComponent(agentId) + '/stop', { method: 'POST' });
 }
 
 function pauseAgent(agentId) {
-  return apiRequest('/api/v1/agents/pause/' + encodeURIComponent(agentId), { method: 'POST' });
+  return apiRequest('/api/v1/agents/' + encodeURIComponent(agentId) + '/pause', { method: 'POST' });
 }
 
 function resumeAgent(agentId) {
-  return apiRequest('/api/v1/agents/resume/' + encodeURIComponent(agentId), { method: 'POST' });
+  return apiRequest('/api/v1/agents/' + encodeURIComponent(agentId) + '/resume', { method: 'POST' });
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +175,8 @@ function buildDetailUrl(agentId) {
 
 function applyFiltersFromUrl() {
   try {
-    var params   = new URLSearchParams(window.location.search);
+    var _su = window.history.state && window.history.state.url ? window.history.state.url : window.location.href;
+    var params   = new URLSearchParams(new URL(_su, window.location.origin).search);
     var camera   = params.get('camera')   || '';
     var ruleType = params.get('ruleType') || '';
     var st       = params.get('status')   || '';
@@ -430,6 +431,30 @@ var cachedAgents = [];
 var searchBound  = false;
 var filtersBound = false;
 
+function setAgentsLoading(isLoading) {
+  var grid = document.getElementById('vision-agents-board-grid');
+  if (grid) grid.setAttribute('data-loading', isLoading ? 'true' : 'false');
+}
+
+function renderAgentsSkeleton() {
+  var grid = document.getElementById('vision-agents-board-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="col-12"><div class="vision-agents-skeleton-grid" id="vision-agents-skeleton-grid">' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '<div class="vision-agents-skeleton-card"></div>' +
+    '</div></div>';
+}
+
 function populateFilterOptions(agents) {
   var cameraEl = document.getElementById('vision-filter-camera');
   var ruleEl   = document.getElementById('vision-filter-rule-type');
@@ -507,19 +532,22 @@ function bindFilters() {
 function loadAgents() {
   var grid = document.getElementById('vision-agents-board-grid');
   if (!grid) return;
-  grid.innerHTML = '<div class="col-12"><p class="text-body-tertiary mb-0">Loading…</p></div>';
+  setAgentsLoading(true);
+  renderAgentsSkeleton();
   listAgents()
     .then(function (agents) {
       cachedAgents = Array.isArray(agents) ? agents : [];
       populateFilterOptions(cachedAgents);
       applyFiltersFromUrl();
       renderAgents(cachedAgents, getFilterState());
+      setAgentsLoading(false);
     })
     .catch(function (err) {
       cachedAgents = [];
       var el = document.getElementById('vision-agents-count');
       if (el) el.textContent = '0';
       if (grid) grid.innerHTML = '<div class="col-12"><p class="text-danger mb-0">' + escapeHtml(err.message || 'Failed to load agents') + '</p></div>';
+      setAgentsLoading(false);
     });
 }
 
@@ -543,6 +571,7 @@ function bindSearchOnce() {
 function boot() {
   var grid = document.getElementById('vision-agents-board-grid');
   if (!grid) return;
+  setAgentsLoading(true);
   searchBound  = false;
   filtersBound = false;
   bindSearchOnce();
