@@ -52,7 +52,7 @@ import { api } from '../../core/api.js';
                     }
 
                     // DOM element references — re-queried on every init() so SPA navigation works
-                    let titleEl, headerEl, idBadge, videoEl, containerEl, shellEl;
+                    let titleEl, headerEl, idBadge, videoEl, containerEl, shellEl, statusReasonEl;
                     let statusDot, statusText, overlayBadge, streamTypeIcon;
                     let switchToCameraBtn, overlayCanvas, agentFramesEl;
                     let btnSidebar, listEl, searchEl;
@@ -64,10 +64,11 @@ import { api } from '../../core/api.js';
                         headerEl          = document.getElementById('camera-header-name');
                         idBadge           = document.getElementById('camera-id-badge');
                         videoEl           = document.getElementById('camera-video');
-                        containerEl       = videoEl?.closest('.position-relative');
+                        containerEl       = videoEl?.closest('.visionai-video-stage');
                         shellEl           = document.getElementById('camera-detail-shell');
                         statusDot         = document.getElementById('camera-status-dot');
                         statusText        = document.getElementById('camera-status-text');
+                        statusReasonEl    = document.getElementById('camera-status-reason');
                         overlayBadge      = document.getElementById('camera-overlay-badge');
                         streamTypeIcon    = document.getElementById('stream-type-icon');
                         switchToCameraBtn = document.getElementById('switch-to-camera-btn');
@@ -90,11 +91,48 @@ import { api } from '../../core/api.js';
 
                     // Initialize camera with async camera ID retrieval
                     async function init() {
+                        console.log('[CameraDetail] init() called');
+
+                        // Re-register cleanup hook every time — the router nulls it out after calling it,
+                        // so without this the WebSocket stays open after the first navigation away.
+                        window.__visionaiPageCleanup = () => {
+                            // Disconnect lazy-load observer so it doesn't fire after navigation
+                            if (_widgetObserver) { _widgetObserver.disconnect(); _widgetObserver = null; }
+                            try {
+                                if (livePlayer && typeof livePlayer.destroy === 'function') {
+                                    livePlayer.destroy();
+                                }
+                            } catch {
+                                // ignore
+                            }
+                            livePlayer = null;
+                            try { overlayWs?.close?.(); } catch {}
+                            overlayWs = null;
+                        };
+
+                        // Reset module-level state so re-navigation starts clean
+                        if (livePlayer && typeof livePlayer.destroy === 'function') {
+                            try { livePlayer.destroy(); } catch {}
+                        }
+                        livePlayer = null;
+                        cameraData = null;
+                        currentCameraId = null;
+                        selectedAgentId = null;
+                        try { overlayWs?.close?.(); } catch {}
+                        overlayWs = null;
+                        overlayLastFrameIndex = null;
+                        overlayLastTimestamp = null;
+                        if (overlayStalenessCheckInterval) {
+                            clearInterval(overlayStalenessCheckInterval);
+                            overlayStalenessCheckInterval = null;
+                        }
+
                         // Re-query DOM every time — the SPA router replaces page content on navigation
                         queryDomRefs();
                         bindUiEvents();
 
                         const camId = await getCameraId();
+                        console.log('[CameraDetail] getCameraId() returned:', camId);
 
                         if (!camId) {
                             console.error('No camera ID provided. URL:', window.location.href);
@@ -140,34 +178,99 @@ import { api } from '../../core/api.js';
                      * Shared onState handler for fMP4 player (live and agent processed stream).
                      * Reused so we don't duplicate status/UI logic.
                      */
+                    function setStreamStatus(dotState, label) {
+                        if (statusDot) {
+                            statusDot.classList.remove('is-live', 'is-error', 'is-loading', 'text-warning', 'text-success', 'text-danger');
+                            if (dotState) statusDot.classList.add(dotState);
+                        }
+                        if (statusText) {
+                            statusText.textContent = label;
+                        }
+                    }
+
+                    function setStatusReason(message) {
+                        if (!statusReasonEl) return;
+                        const text = String(message || '').trim();
+                        if (!text) {
+                            statusReasonEl.textContent = '';
+                            statusReasonEl.classList.add('d-none');
+                            return;
+                        }
+                        statusReasonEl.textContent = text;
+                        statusReasonEl.classList.remove('d-none');
+                    }
+
                     function createFmp4PlayerOnStateHandler() {
+                        // Track whether the stream has produced its first frame.
+                        // If it hasn't after CONNECT_TIMEOUT_MS from ws-open, treat
+                        // the camera as offline rather than leaving the badge stuck on
+                        // "Starting…" forever.
+                        const CONNECT_TIMEOUT_MS = 12000;
+                        let connectTimeoutId = null;
+                        let streamStarted = false;
+
+                        function clearConnectTimeout() {
+                            if (connectTimeoutId) { clearTimeout(connectTimeoutId); connectTimeoutId = null; }
+                        }
+
                         return (ev) => {
                             if (!ev || !ev.state) return;
+                            console.log(`[CameraDetail] player state: ${ev.state}`, ev);
                             if (ev.state === 'connecting') {
-                                statusText.textContent = 'Connecting...';
+                                setStreamStatus('is-loading', 'Connecting…');
+                                return;
+                            }
+                            if (ev.state === 'mse-ready') {
+                                try {
+                                    if (videoEl && videoEl.paused) videoEl.play().catch((e) => console.warn('[CameraDetail] video.play() on mse-ready rejected:', e));
+                                } catch (e) {}
                                 return;
                             }
                             if (ev.state === 'ws-open') {
-                                statusText.textContent = 'Starting...';
+                                setStreamStatus('is-loading', 'Starting…');
+                                // Arm timeout: if first-append never fires, camera is offline
+                                clearConnectTimeout();
+                                connectTimeoutId = setTimeout(() => {
+                                    if (!streamStarted) {
+                                        console.warn('[CameraDetail] Stream timeout — camera appears offline');
+                                        setStreamStatus('is-error', 'Offline');
+                                        setStatusReason(cameraData?.status_reason || 'Camera is offline or unreachable.');
+                                    }
+                                }, CONNECT_TIMEOUT_MS);
                                 return;
                             }
                             if (ev.state === 'first-append') {
-                                statusDot?.classList.remove('text-warning');
-                                statusDot?.classList.add('text-success');
-                                statusText.textContent = 'Live';
+                                clearConnectTimeout();
+                                streamStarted = true;
+                                setStreamStatus('is-live', 'Live');
+                                setStatusReason('');
                                 try {
-                                    if (videoEl) videoEl.play().catch(function() {});
+                                    if (videoEl) videoEl.play().catch((e) => console.warn('[CameraDetail] video.play() rejected:', e));
                                 } catch (e) {}
                                 return;
                             }
                             if (ev.state === 'stalled') {
-                                statusText.textContent = 'Stalled...';
+                                // Only show "Stalled" if the stream never produced a
+                                // frame — once live, a stall event means a temporary
+                                // gap in WebSocket data (e.g. low-motion scene). The
+                                // video is still playing so keep the Live badge.
+                                if (!streamStarted) {
+                                    setStreamStatus('is-loading', 'Stalled…');
+                                }
                                 return;
                             }
-                            if (ev.state === 'append-error' || ev.state === 'error') {
-                                statusDot?.classList.remove('text-success');
-                                statusDot?.classList.add('text-warning');
-                                statusText.textContent = 'Stream error';
+                            if (ev.state === 'error') {
+                                clearConnectTimeout();
+                                console.error('[CameraDetail] stream error:', ev.error);
+                                setStreamStatus('is-error', 'Offline');
+                                setStatusReason(cameraData?.status_reason || 'Camera is offline or unreachable.');
+                                return;
+                            }
+                            if (ev.state === 'append-error') {
+                                clearConnectTimeout();
+                                console.error('[CameraDetail] append error (codec mismatch?):', ev.error);
+                                setStreamStatus('is-error', 'Stream error');
+                                setStatusReason(cameraData?.status_reason || 'Stream error while loading camera.');
                                 return;
                             }
                         };
@@ -231,29 +334,16 @@ import { api } from '../../core/api.js';
                         };
                     }
 
-                    // Register SPA cleanup hook so navigating away closes WS + MSE resources.
-                    window.__visionaiPageCleanup = () => {
-                        try {
-                            if (livePlayer && typeof livePlayer.destroy === 'function') {
-                                livePlayer.destroy();
-                            }
-                        } catch {
-                            // ignore
-                        }
-                        livePlayer = null;
-                        try { overlayWs?.close?.(); } catch {}
-                        overlayWs = null;
-                    };
-
-                    function loadScriptOnce(src) {
+                    function loadScriptOnce(src, attrName = 'data-visionai') {
                         return new Promise((resolve, reject) => {
-                            if (document.querySelector('script[data-visionai="true"][src="' + src + '"]')) return resolve();
+                            if (document.querySelector(`script[${attrName}="true"][src="${src}"]`)) return resolve();
+                            // Also check the shared wsfmp4 key used by dashboard
+                            if (attrName === 'data-wsfmp4' && document.querySelector(`script[data-wsfmp4="true"][src="${src}"]`)) return resolve();
                             const s = document.createElement('script');
                             s.src = src;
-                            s.defer = true;
                             s.onload = resolve;
                             s.onerror = reject;
-                            s.setAttribute('data-visionai', 'true');
+                            s.setAttribute(attrName, 'true');
                             document.head.appendChild(s);
                         });
                     }
@@ -270,7 +360,7 @@ import { api } from '../../core/api.js';
                             // Ensure WS fMP4 player helper is loaded
                             if (!window.createWsFmp4Player) {
                                 try {
-                                    await loadScriptOnce('/app/utils/ws-fmp4-player.js');
+                                    await loadScriptOnce('/app/utils/ws-fmp4-player.js', 'data-wsfmp4');
                                 } catch (e) {
                                     // keep retrying
                                 }
@@ -304,14 +394,30 @@ import { api } from '../../core/api.js';
                             try {
                                 cameraData = await api.getCamera(camId);
                                 titleEl.textContent = cameraData.name || camId;
-                                headerEl.textContent = cameraData.name || camId;
-                    idBadge.textContent = camId;
+                                if (headerEl) headerEl.textContent = cameraData.name || camId;
+                                idBadge.textContent = camId;
+
+                                // Show last-known status immediately so the badge
+                                // never stays on "Connecting…" for an offline camera.
+                                const knownStatus = (cameraData.status || 'unknown').toLowerCase();
+                                if (knownStatus === 'offline') {
+                                    setStreamStatus('is-error', 'Offline');
+                                    setStatusReason(cameraData.status_reason || 'Camera is offline.');
+                                } else if (knownStatus === 'reconnecting' || knownStatus === 'error') {
+                                    setStreamStatus('is-loading', 'Reconnecting…');
+                                    setStatusReason(cameraData.status_reason || 'Trying to reconnect camera stream.');
+                                } else if (knownStatus === 'live') {
+                                    setStreamStatus('is-loading', 'Connecting…');
+                                    setStatusReason('');
+                                } else {
+                                    setStatusReason('');
+                                }
                             } catch (error) {
                                 console.warn('Error fetching camera data:', error);
-                                // Fallback if API not available
                                 titleEl.textContent = camId;
-                                headerEl.textContent = camId;
+                                if (headerEl) headerEl.textContent = camId;
                                 idBadge.textContent = camId;
+                                setStatusReason('');
                             }
 
                             // Initialize live player (WS fMP4 -> MSE)
@@ -320,47 +426,50 @@ import { api } from '../../core/api.js';
                             // Load agents list for this camera
                             await loadAgentsForCamera();
 
-                            // Mount Events & Agents widgets (filtered by this camera only)
-                            mountCameraWidgets(camId);
+                            // Load workflows for this camera (separate section)
+                            bindWorkflowTabs();
+                            await loadWorkflowsForCamera();
+
+                            // Mount Events & Agents widgets lazily — only when the section scrolls into view
+                            lazyMountCameraWidgets(camId);
                         } catch (error) {
                             console.error('Error initializing camera:', error);
-                            statusDot?.classList.remove('text-success');
-                            statusDot?.classList.add('text-warning');
-                            statusText.textContent = 'Error: ' + (error.message || 'Failed to load');
+                            setStreamStatus('is-error', 'Error: ' + (error.message || 'Failed to load'));
                         }
                     }
 
                     async function initLivePlayer() {
                         // Use the stored camera ID
                         const camId = currentCameraId;
+                        console.log(`[CameraDetail] initLivePlayer() — camId="${camId}"`);
+
                         if (!camId) {
-                            console.error('Camera ID not available for live player');
+                            console.error('[CameraDetail] initLivePlayer: camera ID not available');
                             return;
                         }
-                        
+
                         if (!api || !api.isAuthenticated || !api.isAuthenticated()) {
-                            console.error('Not authenticated');
-                            statusText.textContent = 'Please login';
-                            statusDot?.classList.add('text-warning');
+                            console.error('[CameraDetail] initLivePlayer: not authenticated');
+                            setStreamStatus('is-error', 'Please login');
                             return;
                         }
 
                         if (!window.createWsFmp4Player) {
-                            console.error('WS fMP4 player not loaded');
-                            statusText.textContent = 'Player missing';
-                            statusDot?.classList.add('text-warning');
+                            console.error('[CameraDetail] initLivePlayer: createWsFmp4Player not loaded');
+                            setStreamStatus('is-error', 'Player missing');
                             return;
                         }
-                        
+
                         // Ensure video element is ready
                         if (!videoEl) {
-                            console.error('Video element not found');
+                            console.error('[CameraDetail] initLivePlayer: #camera-video element not found in DOM');
                             statusText.textContent = 'Video element not found';
                             return;
                         }
 
                         // Destroy existing player if any
                         if (livePlayer && typeof livePlayer.destroy === 'function') {
+                            console.log('[CameraDetail] Destroying existing live player before reinit');
                             livePlayer.destroy();
                             livePlayer = null;
                         }
@@ -369,22 +478,21 @@ import { api } from '../../core/api.js';
                         try {
                             // Camera stream from vision backend (always on)
                             wsUrl = api.getLiveWsURL(camId);
+                            console.log(`[CameraDetail] Live stream WS URL: ${wsUrl}`);
                         } catch (e) {
-                            statusText.textContent = 'Auth error';
-                            statusDot?.classList.add('text-warning');
+                            console.error('[CameraDetail] initLivePlayer: failed to get WS URL:', e);
+                            setStreamStatus('is-error', 'Auth error');
                             return;
                         }
 
                         const mimeCodec = api.getLiveMimeCodec();
 
-                        statusText.textContent = 'Connecting...';
-                        statusDot?.classList.remove('text-success');
-                        statusDot?.classList.add('text-warning');
+                        setStreamStatus('is-loading', 'Connecting…');
 
                         // Base header (overlay will adjust badge text)
-                        headerEl.textContent = cameraData?.name || camId || 'Live Camera';
+                        if (headerEl) headerEl.textContent = cameraData?.name || camId || 'Live Camera';
                         if (streamTypeIcon) {
-                            streamTypeIcon.setAttribute('class', 'fa-solid fa-video text-primary me-2');
+                            streamTypeIcon.setAttribute('class', 'fa-solid fa-video fs-9 text-primary');
                         }
                         if (overlayBadge) {
                             overlayBadge.innerHTML = '<span class="fa-solid fa-eye me-1"></span>Live preview';
@@ -901,9 +1009,7 @@ import { api } from '../../core/api.js';
                             livePlayer = null;
                         }
 
-                        statusText.textContent = 'Connecting...';
-                        statusDot?.classList.remove('text-success');
-                        statusDot?.classList.add('text-warning');
+                        setStreamStatus('is-loading', 'Connecting…');
 
                         livePlayer = createAgentFramePlayer({
                             imgEl: agentFramesEl,
@@ -912,19 +1018,15 @@ import { api } from '../../core/api.js';
                             onState: (ev) => {
                                 if (!ev || !ev.state) return;
                                 if (ev.state === 'connecting') {
-                                    statusText.textContent = 'Connecting...';
+                                    setStreamStatus('is-loading', 'Connecting…');
                                     return;
                                 }
                                 if (ev.state === 'ws-open' || ev.state === 'first-append') {
-                                    statusDot?.classList.remove('text-warning');
-                                    statusDot?.classList.add('text-success');
-                                    statusText.textContent = 'Live';
+                                    setStreamStatus('is-live', 'Live');
                                     return;
                                 }
                                 if (ev.state === 'error' || ev.state === 'closed') {
-                                    statusDot?.classList.remove('text-success');
-                                    statusDot?.classList.add('text-warning');
-                                    statusText.textContent = ev.state === 'closed' ? 'Disconnected' : 'Stream error';
+                                    setStreamStatus('is-error', ev.state === 'closed' ? 'Disconnected' : 'Stream error');
                                 }
                             }
                         });
@@ -948,11 +1050,12 @@ import { api } from '../../core/api.js';
                         // Update active agent highlight in list
                         document.querySelectorAll('.agent-item').forEach(item => {
                             item.classList.remove('active');
+                            item.querySelector('.cd-agent-card')?.classList.remove('is-active');
                         });
-                        const agentItem = document.querySelector(`[data-agent-id="${agentId}"]`);
-                        if (agentItem) {
-                            agentItem.classList.add('active');
-                        }
+                        document.querySelectorAll(`[data-agent-id="${agentId}"]`).forEach(el => {
+                            el.closest('.agent-item')?.classList.add('active');
+                            el.classList.add('is-active');
+                        });
 
                         // Keep camera stream running; only switch overlay WS
                         await openOverlayWsForAgent(agentId, agentName);
@@ -961,7 +1064,10 @@ import { api } from '../../core/api.js';
                     // Function to switch back to camera (raw live) stream
                     async function switchToCameraStream() {
                         console.log('Switching to camera stream');
-                        document.querySelectorAll('.agent-item').forEach(item => item.classList.remove('active'));
+                        document.querySelectorAll('.agent-item').forEach(item => {
+                            item.classList.remove('active');
+                            item.querySelector('.cd-agent-card')?.classList.remove('is-active');
+                        });
                         closeOverlayWs();
                         clearOverlayCanvas();
                         selectedAgentId = null;
@@ -973,11 +1079,6 @@ import { api } from '../../core/api.js';
                         }
                         await initLivePlayer();
                     }
-
-                    // Add click handler for switch to camera button
-                    switchToCameraBtn?.addEventListener('click', () => {
-                        switchToCameraStream();
-                    });
 
                     // Reload button - reloads current stream (camera or agent processed)
                     document.getElementById('camera-reload')?.addEventListener('click', async () => {
@@ -1192,67 +1293,319 @@ import { api } from '../../core/api.js';
                     }
 
                     function renderAgentList(agents) {
-                        if (!listEl) return;
+                        // Also keep the hidden legacy #agent-list populated for applyFilter compatibility
+                        if (listEl) listEl.innerHTML = '';
 
-                        // Clear existing
-                        listEl.innerHTML = '';
+                        const sectionIds = { active: 'list-active', scheduled: 'list-scheduled', completed: 'list-completed' };
+                        const countIds   = { active: 'count-active', scheduled: 'count-scheduled', completed: 'count-completed' };
+                        const sections   = {};
+                        const counts     = { active: 0, scheduled: 0, completed: 0 };
+
+                        Object.entries(sectionIds).forEach(([key, id]) => { sections[key] = document.getElementById(id); });
+
+                        // Clear skeletons
+                        Object.values(sections).forEach(el => { if (el) el.innerHTML = ''; });
 
                         if (!agents || !Array.isArray(agents) || agents.length === 0) {
-                            const li = document.createElement('li');
-                            li.className = 'nav-item';
-                            li.innerHTML = '<div class="text-body-tertiary fs-9 p-3">No agents assigned to this camera.</div>';
-                            listEl.appendChild(li);
+                            Object.entries(sections).forEach(([key, el]) => {
+                                if (!el) return;
+                                const li = document.createElement('li');
+                                li.innerHTML = `<div class="cd-empty"><span class="cd-empty-icon fa-solid fa-robot"></span>No ${key === 'active' ? 'active' : key === 'scheduled' ? 'waiting' : 'inactive'} agents</div>`;
+                                el.appendChild(li);
+                                const countEl = document.getElementById(countIds[key]);
+                                if (countEl) countEl.textContent = '0';
+                            });
                             return;
                         }
 
-                        const avatarPool = [
-                            '../assets/img/team/20.webp',
-                            '../assets/img/team/25.webp',
-                            '../assets/img/team/29.webp',
-                            '../assets/img/team/30.webp'
-                        ];
-
-                        agents.forEach((agent, idx) => {
+                        // Bucket by status
+                        const buckets = { active: [], scheduled: [], completed: [] };
+                        agents.forEach(agent => {
                             const uiStatus = mapAgentStatus(agent?.status);
-                            const name = escapeHtml(agent?.name || 'Agent');
-                            const timeLabel = escapeHtml(formatTimeLabel(agent));
-                            const message = escapeHtml(buildAgentMessage(agent));
-                            const agentId = agent?.id || '';
-
-                            const avatar = avatarPool[idx % avatarPool.length];
-                            const onlineClass = uiStatus === 'active' ? 'status-online' : '';
-
-                            const li = document.createElement('li');
-                            li.className = `nav-item agent-item ${uiStatus}`;
-                            li.setAttribute('data-agent-status', uiStatus);
-                            li.setAttribute('data-agent-id', agentId);
-
-                            li.innerHTML = `
-                                <a class="nav-link d-flex align-items-center justify-content-center p-2 agent-link" href="#!" role="button" data-agent-id="${agentId}">
-                                    <div class="avatar avatar-xl ${onlineClass} position-relative me-2 me-sm-0 me-xl-2">
-                                        <img class="rounded-circle border border-2 border-light-subtle" src="${avatar}" alt="Agent" />
-                                    </div>
-                                    <div class="flex-1 d-sm-none d-xl-block">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <h5 class="text-body fw-normal name text-nowrap mb-0">${name}</h5>
-                                            <p class="fs-10 text-body-tertiary text-opacity-85 mb-0 text-nowrap">${timeLabel}</p>
-                                        </div>
-                                        <div class="d-flex justify-content-between">
-                                            <p class="fs-9 mb-0 line-clamp-1 text-body-tertiary text-opacity-85 message">${message}</p>
-                                        </div>
-                                    </div>
-                                </a>
-                            `;
-
-                            // Add click handler to switch to agent stream
-                            const linkEl = li.querySelector('.agent-link');
-                            linkEl.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                switchToAgentStream(agentId, name);
-                            });
-
-                            listEl.appendChild(li);
+                            const bucket = buckets[uiStatus] ?? buckets.completed;
+                            bucket.push(agent);
                         });
+
+                        Object.entries(buckets).forEach(([bucketKey, list]) => {
+                            const el = sections[bucketKey];
+                            const countEl = document.getElementById(countIds[bucketKey]);
+                            if (countEl) countEl.textContent = String(list.length);
+
+                            if (!el) return;
+
+                            if (list.length === 0) {
+                                const li = document.createElement('li');
+                                li.innerHTML = `<div class="cd-empty"><span class="cd-empty-icon fa-solid fa-robot"></span>No ${bucketKey === 'active' ? 'active' : bucketKey === 'scheduled' ? 'waiting' : 'inactive'} agents</div>`;
+                                el.appendChild(li);
+                                return;
+                            }
+
+                            list.forEach(agent => {
+                                const uiStatus = bucketKey;
+                                const name = escapeHtml(agent?.name || 'Agent');
+                                const timeLabel = escapeHtml(formatTimeLabel(agent));
+                                const message = escapeHtml(buildAgentMessage(agent));
+                                const agentId = agent?.id || '';
+
+                                const statusClass = uiStatus === 'active' ? 'cd-agent-status--active'
+                                    : uiStatus === 'scheduled' ? 'cd-agent-status--waiting'
+                                    : 'cd-agent-status--inactive';
+                                const statusLabel = uiStatus === 'active' ? 'Active'
+                                    : uiStatus === 'scheduled' ? 'Waiting' : 'Inactive';
+                                const iconMod = uiStatus === 'active' ? 'cd-agent-icon--active' : '';
+
+                                const li = document.createElement('li');
+                                li.className = `agent-item ${uiStatus}`;
+                                li.setAttribute('data-agent-status', uiStatus);
+                                li.setAttribute('data-agent-id', agentId);
+
+                                li.innerHTML = `
+                                    <div class="cd-agent-card" role="button" data-agent-id="${agentId}">
+                                        <div class="cd-agent-icon ${iconMod}">
+                                            <span class="fa-solid fa-robot"></span>
+                                        </div>
+                                        <div class="cd-agent-info">
+                                            <div class="cd-agent-name name">${name}</div>
+                                            <div class="cd-agent-meta message">${message || timeLabel}</div>
+                                        </div>
+                                        <span class="cd-agent-status ${statusClass}">${statusLabel}</span>
+                                    </div>`;
+
+                                const card = li.querySelector('.cd-agent-card');
+                                if (uiStatus === 'active') {
+                                    card.addEventListener('click', () => switchToAgentStream(agentId, name));
+                                } else {
+                                    card.style.cursor = 'default';
+                                    card.style.opacity = '0.6';
+                                    card.setAttribute('title', uiStatus === 'scheduled' ? 'Agent is waiting — live view not available' : 'Agent is inactive — live view not available');
+                                }
+
+                                el.appendChild(li);
+
+                                // Also add to hidden legacy list for applyFilter
+                                if (listEl) {
+                                    const legacyLi = li.cloneNode(true);
+                                    if (uiStatus === 'active') {
+                                        legacyLi.querySelector('.cd-agent-card')?.addEventListener('click', () => switchToAgentStream(agentId, name));
+                                    }
+                                    listEl.appendChild(legacyLi);
+                                }
+                            });
+                        });
+                    }
+
+                    function mapWorkflowStatus(status) {
+                        const s = String(status || '').toLowerCase();
+                        if (s === 'running') return 'active';
+                        if (s === 'scheduled' || s === 'pending') return 'scheduled';
+                        return 'completed';
+                    }
+
+                    function renderWorkflowList(workflows) {
+                        const sectionIds = { active: 'wf-list-active', scheduled: 'wf-list-scheduled', completed: 'wf-list-completed' };
+                        const countIds   = { active: 'wf-count-active', scheduled: 'wf-count-scheduled', completed: 'wf-count-completed' };
+                        const sections   = {};
+                        const counts     = { active: 0, scheduled: 0, completed: 0 };
+
+                        Object.entries(sectionIds).forEach(([key, id]) => { sections[key] = document.getElementById(id); });
+                        Object.values(sections).forEach(el => { if (el) el.innerHTML = ''; });
+
+                        const section = document.getElementById('cd-workflow-section');
+
+                        if (!workflows || !Array.isArray(workflows) || workflows.length === 0) {
+                            if (section) section.style.display = 'none';
+                            return;
+                        }
+
+                        if (section) section.style.display = '';
+
+                        const buckets = { active: [], scheduled: [], completed: [] };
+                        workflows.forEach(wf => {
+                            const uiStatus = mapWorkflowStatus(wf?.status);
+                            (buckets[uiStatus] ?? buckets.completed).push(wf);
+                        });
+
+                        Object.entries(buckets).forEach(([bucketKey, list]) => {
+                            const el = sections[bucketKey];
+                            const countEl = document.getElementById(countIds[bucketKey]);
+                            if (countEl) countEl.textContent = String(list.length);
+
+                            if (!el) return;
+
+                            if (list.length === 0) {
+                                const li = document.createElement('li');
+                                li.innerHTML = `<div class="cd-empty"><span class="cd-empty-icon fa-solid fa-diagram-project"></span>No ${bucketKey === 'active' ? 'active' : bucketKey === 'scheduled' ? 'waiting' : 'inactive'} workflows</div>`;
+                                el.appendChild(li);
+                                return;
+                            }
+
+                            list.forEach(wf => {
+                                const uiStatus = bucketKey;
+                                const name = escapeHtml(wf?.name || 'Workflow');
+                                const desc = escapeHtml(wf?.description || '');
+                                const wfId = wf?.id || '';
+
+                                const statusClass = uiStatus === 'active' ? 'cd-agent-status--active'
+                                    : uiStatus === 'scheduled' ? 'cd-agent-status--waiting'
+                                    : 'cd-agent-status--inactive';
+                                const statusLabel = uiStatus === 'active' ? 'Active'
+                                    : uiStatus === 'scheduled' ? 'Waiting' : 'Inactive';
+                                const iconMod = uiStatus === 'active' ? 'cd-agent-icon--active' : '';
+
+                                const li = document.createElement('li');
+                                li.className = `agent-item ${uiStatus}`;
+                                li.setAttribute('data-wf-id', wfId);
+
+                                li.innerHTML = `
+                                    <div class="cd-agent-card" role="button" data-wf-id="${wfId}">
+                                        <div class="cd-agent-icon ${iconMod}">
+                                            <span class="fa-solid fa-diagram-project"></span>
+                                        </div>
+                                        <div class="cd-agent-info">
+                                            <div class="cd-agent-name name">${name}</div>
+                                            <div class="cd-agent-meta message">${desc || '—'}</div>
+                                        </div>
+                                        <span class="cd-agent-status ${statusClass}">${statusLabel}</span>
+                                    </div>`;
+
+                                const card = li.querySelector('.cd-agent-card');
+                                if (uiStatus === 'active') {
+                                    // Find the first active agent in this workflow to stream
+                                    card.addEventListener('click', () => switchToWorkflowStream(wf));
+                                } else {
+                                    card.style.cursor = 'default';
+                                    card.style.opacity = '0.6';
+                                    card.setAttribute('title', uiStatus === 'scheduled' ? 'Workflow is waiting — live view not available' : 'Workflow is inactive — live view not available');
+                                }
+
+                                el.appendChild(li);
+                            });
+                        });
+                    }
+
+                    async function switchToWorkflowStream(wf) {
+                        if (!wf) return;
+                        // Use the first running agent in the workflow for the live stream
+                        const runningAgent = Array.isArray(wf.agents)
+                            ? wf.agents.find(a => {
+                                const s = String(a?.status || '').toLowerCase();
+                                return s === 'monitoring' || s === 'running';
+                              })
+                            : null;
+
+                        if (runningAgent) {
+                            await switchToAgentStream(runningAgent.id, wf.name || 'Workflow');
+                        } else {
+                            // Fall back: use agent from wf.agents if available, first one
+                            const firstAgent = Array.isArray(wf.agents) ? wf.agents[0] : null;
+                            if (firstAgent) {
+                                await switchToAgentStream(firstAgent.id, wf.name || 'Workflow');
+                            }
+                        }
+                    }
+
+                    function bindWorkflowTabs() {
+                        document.querySelectorAll('.cd-wf-tab').forEach(tab => {
+                            tab.addEventListener('click', () => {
+                                const key = tab.getAttribute('data-cd-wf-tab');
+                                document.querySelectorAll('.cd-wf-tab').forEach(t => t.classList.remove('active'));
+                                tab.classList.add('active');
+                                ['wf-list-active', 'wf-list-scheduled', 'wf-list-completed'].forEach(id => {
+                                    const el = document.getElementById(id);
+                                    if (!el) return;
+                                    const match = (key === 'active' && id === 'wf-list-active') ||
+                                                  (key === 'scheduled' && id === 'wf-list-scheduled') ||
+                                                  (key === 'completed' && id === 'wf-list-completed');
+                                    el.classList.toggle('d-none', !match);
+                                });
+                            });
+                        });
+                    }
+
+                    async function loadWorkflowsForCamera() {
+                        const camId = currentCameraId;
+                        if (!camId) return;
+
+                        ['wf-list-active', 'wf-list-scheduled', 'wf-list-completed'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.innerHTML = `
+                                <li class="cd-agent-skeleton"><div class="cd-skel-icon"></div><div class="cd-skel-lines"><div class="cd-skel-l1"></div><div class="cd-skel-l2"></div></div></li>`;
+                        });
+
+                        if (!api || !api.isAuthenticated || !api.isAuthenticated()) return;
+
+                        try {
+                            // Fetch all workflows and get status for each
+                            const workflows = await api.listWorkflowsByCamera(camId);
+
+                            // Fetch live status for each workflow
+                            const withStatus = await Promise.all(
+                                (Array.isArray(workflows) ? workflows : []).map(async wf => {
+                                    try {
+                                        const statusData = await api.get(`/api/v1/workflows/${encodeURIComponent(wf.id)}/status`);
+                                        return { ...wf, status: statusData?.status || wf.status, agents: statusData?.agents || [] };
+                                    } catch {
+                                        return { ...wf, agents: [] };
+                                    }
+                                })
+                            );
+
+                            renderWorkflowList(withStatus);
+                        } catch (e) {
+                            console.error('Failed to load workflows:', e);
+                            ['wf-list-active', 'wf-list-scheduled', 'wf-list-completed'].forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) el.innerHTML = '<li><div class="cd-empty"><span class="fa-solid fa-triangle-exclamation cd-empty-icon"></span>Failed to load workflows</div></li>';
+                            });
+                        }
+                    }
+
+                    let _widgetObserver = null;
+
+                    function lazyMountCameraWidgets(camId) {
+                        if (!camId) return;
+
+                        // Disconnect any previous observer (handles re-navigation to same page)
+                        if (_widgetObserver) { _widgetObserver.disconnect(); _widgetObserver = null; }
+
+                        // Destroy stale instances from a previous camera visit
+                        if (eventsWidgetInstance) { try { eventsWidgetInstance.destroy(); } catch (e) {} eventsWidgetInstance = null; }
+                        if (agentsWidgetInstance) { try { agentsWidgetInstance.destroy(); } catch (e) {} agentsWidgetInstance = null; }
+
+                        const section = document.getElementById('vision-camera-events-agents-section');
+                        if (!section) return;
+
+                        // Show skeleton placeholders so the section doesn't look empty before scroll
+                        section.innerHTML = `
+                            <div class="row g-4">
+                                <div class="col-12 col-lg-6">
+                                    <div id="vision-camera-events-widget" class="vision-widget-container">
+                                        <div class="cd-widget-skeleton p-3">
+                                            <div class="cd-skel-l1 mb-2" style="width:40%;height:14px;border-radius:6px;background:var(--phoenix-border-color,#e2e8f0);animation:cd-pulse 1.4s ease-in-out infinite;"></div>
+                                            <div class="cd-skel-l2 mb-2" style="width:100%;height:10px;border-radius:6px;background:var(--phoenix-border-color,#e2e8f0);animation:cd-pulse 1.4s ease-in-out infinite .15s;"></div>
+                                            <div class="cd-skel-l2" style="width:75%;height:10px;border-radius:6px;background:var(--phoenix-border-color,#e2e8f0);animation:cd-pulse 1.4s ease-in-out infinite .3s;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-6">
+                                    <div id="vision-camera-agents-widget" class="vision-widget-container">
+                                        <div class="cd-widget-skeleton p-3">
+                                            <div class="cd-skel-l1 mb-2" style="width:40%;height:14px;border-radius:6px;background:var(--phoenix-border-color,#e2e8f0);animation:cd-pulse 1.4s ease-in-out infinite;"></div>
+                                            <div class="cd-skel-l2 mb-2" style="width:100%;height:10px;border-radius:6px;background:var(--phoenix-border-color,#e2e8f0);animation:cd-pulse 1.4s ease-in-out infinite .15s;"></div>
+                                            <div class="cd-skel-l2" style="width:75%;height:10px;border-radius:6px;background:var(--phoenix-border-color,#e2e8f0);animation:cd-pulse 1.4s ease-in-out infinite .3s;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>`;
+
+                        _widgetObserver = new IntersectionObserver((entries, obs) => {
+                            if (!entries[0].isIntersecting) return;
+                            obs.disconnect();
+                            _widgetObserver = null;
+                            mountCameraWidgets(camId);
+                        }, { rootMargin: '120px' }); // start loading 120px before the section reaches viewport
+
+                        _widgetObserver.observe(section);
                     }
 
                     function mountCameraWidgets(camId) {
@@ -1261,17 +1614,29 @@ import { api } from '../../core/api.js';
                         const agentsContainer = document.getElementById('vision-camera-agents-widget');
                         if (!eventsContainer || !agentsContainer) return;
 
-                        // Destroy previous instances
-                        if (eventsWidgetInstance) {
-                            try { eventsWidgetInstance.destroy(); } catch (e) {}
-                            eventsWidgetInstance = null;
-                        }
-                        if (agentsWidgetInstance) {
-                            try { agentsWidgetInstance.destroy(); } catch (e) {}
-                            agentsWidgetInstance = null;
-                        }
-
-                        if (typeof window.VisionEventsBoardWidget !== 'undefined' && window.VisionEventsBoardWidget.mount) {
+                        // Load agents first, then events after agents resolve (staggered to avoid
+                        // two simultaneous heavy requests hitting the backend at the same time)
+                        if (typeof window.VisionAgentsBoardWidget !== 'undefined' && window.VisionAgentsBoardWidget.mount) {
+                            agentsWidgetInstance = window.VisionAgentsBoardWidget.mount(agentsContainer, {
+                                cameraId: camId,
+                                showFilters: true,
+                                compact: false
+                            });
+                            const agentsReady = agentsWidgetInstance && typeof agentsWidgetInstance.refresh === 'function'
+                                ? agentsWidgetInstance.refresh()
+                                : Promise.resolve();
+                            agentsReady.finally(function () {
+                                if (typeof window.VisionEventsBoardWidget !== 'undefined' && window.VisionEventsBoardWidget.mount) {
+                                    eventsWidgetInstance = window.VisionEventsBoardWidget.mount(eventsContainer, {
+                                        cameraId: camId,
+                                        dateRange: 'all',
+                                        severityFilter: 'all',
+                                        compact: true,
+                                        showFilters: true
+                                    });
+                                }
+                            });
+                        } else if (typeof window.VisionEventsBoardWidget !== 'undefined' && window.VisionEventsBoardWidget.mount) {
                             eventsWidgetInstance = window.VisionEventsBoardWidget.mount(eventsContainer, {
                                 cameraId: camId,
                                 dateRange: 'all',
@@ -1280,55 +1645,77 @@ import { api } from '../../core/api.js';
                                 showFilters: true
                             });
                         }
-                        if (typeof window.VisionAgentsBoardWidget !== 'undefined' && window.VisionAgentsBoardWidget.mount) {
-                            agentsWidgetInstance = window.VisionAgentsBoardWidget.mount(agentsContainer, {
-                                cameraId: camId,
-                                showFilters: true,
-                                compact: false
-                            });
-                        }
                     }
 
                     async function loadAgentsForCamera() {
                         const camId = currentCameraId;
-                        if (!camId || !listEl) return;
+                        if (!camId) return;
 
-                        listEl.innerHTML = '<li class="nav-item"><div class="text-body-tertiary fs-9 p-3">Loading agents...</div></li>';
+                        // Show skeletons while loading
+                        ['list-active', 'list-scheduled', 'list-completed'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.innerHTML = `
+                                <li class="cd-agent-skeleton"><div class="cd-skel-icon"></div><div class="cd-skel-lines"><div class="cd-skel-l1"></div><div class="cd-skel-l2"></div></div></li>
+                                <li class="cd-agent-skeleton"><div class="cd-skel-icon"></div><div class="cd-skel-lines"><div class="cd-skel-l1"></div><div class="cd-skel-l2"></div></div></li>`;
+                        });
 
                         if (!api || !api.isAuthenticated || !api.isAuthenticated()) {
-                            listEl.innerHTML = '<li class="nav-item"><div class="text-body-tertiary fs-9 p-3">Login required.</div></li>';
+                            ['list-active', 'list-scheduled', 'list-completed'].forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) el.innerHTML = '<li><div class="cd-empty"><span class="fa-solid fa-lock cd-empty-icon"></span>Login required</div></li>';
+                            });
                             return;
                         }
 
                         try {
-                            const agents = await api.listAgentsByCamera(camId);
-                            // Keep latest agents for timeline grouping (active agents -> groups)
-                            lastAgentsForCamera = Array.isArray(agents) ? agents : [];
+                            const allAgents = await api.listAgentsByCamera(camId);
+                            const agents = (Array.isArray(allAgents) ? allAgents : []).filter(a => a.agent_source !== 'workflow');
+                            lastAgentsForCamera = agents;
                             renderAgentList(agents);
                             applyFilter();
-                            // If timeline already exists, resync groups
                             syncTimelineGroupsFromAgents(lastAgentsForCamera);
                         } catch (e) {
                             console.error('Failed to load agents:', e);
-                            listEl.innerHTML = '<li class="nav-item"><div class="text-danger fs-9 p-3">Failed to load agents.</div></li>';
+                            ['list-active', 'list-scheduled', 'list-completed'].forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) el.innerHTML = '<li><div class="cd-empty"><span class="fa-solid fa-triangle-exclamation cd-empty-icon"></span>Failed to load agents</div></li>';
+                            });
                         }
                     }
 
                     function applyFilter() {
                         const q = (searchEl?.value || '').trim().toLowerCase();
-                        listEl?.querySelectorAll('.agent-item').forEach((li) => {
-                            const status = li.getAttribute('data-agent-status');
+                        if (!q) {
+                            // No search — show all sections normally
+                            document.querySelectorAll('#list-active .agent-item, #list-scheduled .agent-item, #list-completed .agent-item').forEach(li => { li.style.display = ''; });
+                            return;
+                        }
+                        // Search: show any match across all sections
+                        document.querySelectorAll('#list-active .agent-item, #list-scheduled .agent-item, #list-completed .agent-item').forEach((li) => {
                             const name = li.querySelector('.name')?.textContent?.toLowerCase() || '';
-                            const msg = li.querySelector('.message')?.textContent?.toLowerCase() || '';
+                            const msg  = li.querySelector('.message')?.textContent?.toLowerCase() || '';
+                            li.style.display = (name.includes(q) || msg.includes(q)) ? '' : 'none';
+                        });
+                    }
 
-                            const matchesStatus = status === activeFilter;
-                            const matchesText = !q || name.includes(q) || msg.includes(q);
-
-                            li.style.display = (matchesStatus && matchesText) ? '' : 'none';
+                    function bindSectionToggles() {
+                        document.querySelectorAll('[data-section-toggle]').forEach(btn => {
+                            btn.addEventListener('click', () => {
+                                const key = btn.getAttribute('data-section-toggle');
+                                const listEl = document.getElementById(`list-${key}`);
+                                const expanded = btn.getAttribute('aria-expanded') === 'true';
+                                btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                                if (listEl) listEl.classList.toggle('cd-section__list--collapsed', expanded);
+                            });
                         });
                     }
 
                     function bindUiEvents() {
+                        // Switch back to raw camera stream (bound here so it works after SPA re-navigation)
+                        switchToCameraBtn?.addEventListener('click', () => {
+                            switchToCameraStream();
+                        });
+
                         // Sidebar toggle
                         if (shellEl) {
                             const saved = localStorage.getItem(SIDEBAR_KEY) === 'true';
@@ -1339,18 +1726,29 @@ import { api } from '../../core/api.js';
                             setSidebarCollapsed(!collapsed);
                         });
 
-                        // Agent filter tabs + search
-                        document.querySelectorAll('[data-agent-filter]').forEach((tab) => {
-                            tab.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                document.querySelectorAll('[data-agent-filter]').forEach(t => t.classList.remove('active'));
+                        // Tab switching: show only the selected section
+                        document.querySelectorAll('.cd-tab').forEach(tab => {
+                            tab.addEventListener('click', () => {
+                                const key = tab.getAttribute('data-cd-tab');
+                                document.querySelectorAll('.cd-tab').forEach(t => t.classList.remove('active'));
                                 tab.classList.add('active');
-                                activeFilter = tab.getAttribute('data-agent-filter') || 'active';
+                                ['list-active', 'list-scheduled', 'list-completed'].forEach(id => {
+                                    const el = document.getElementById(id);
+                                    if (!el) return;
+                                    const match = (key === 'active' && id === 'list-active') ||
+                                                  (key === 'scheduled' && id === 'list-scheduled') ||
+                                                  (key === 'completed' && id === 'list-completed');
+                                    el.classList.toggle('d-none', !match);
+                                });
                                 applyFilter();
                             });
                         });
+
+                        // Collapsible section headers
+                        bindSectionToggles();
+
+                        // Search filter
                         searchEl?.addEventListener('input', applyFilter);
-                        applyFilter();
                     }
 
                     // Agents are loaded from initCamera() once camera id is known.
@@ -1367,6 +1765,8 @@ import { api } from '../../core/api.js';
                         document.head.appendChild(link);
                     }
 
+                    function pad2(n) { return String(n).padStart(2, '0'); }
+                    function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
                     function fmtHHmm(d) { return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
                     function getDayBounds() {
                         const start = new Date();
@@ -1795,19 +2195,22 @@ import { api } from '../../core/api.js';
                         }
                     }
 
-                    // Initialize after a short delay to ensure all dependencies are loaded
-                    setTimeout(() => {
-                        init().then(() => {
-                            initCctvTimeline();
-                        });
-                    }, 500);
+                    // Boot is called by the SPA router via the exported boot() function below.
+                    // We do NOT self-init here — avoids double-init and stale-state bugs on re-navigation.
+                    console.log('[CameraDetail] IIFE executed — waiting for boot() call from router');
 
-                    window.addEventListener('vision:spa:navigated', function () {
-                        if (document.getElementById('camera-detail-shell')) {
-                            setTimeout(() => {
-                                init().then(() => { initCctvTimeline(); });
-                            }, 500);
-                        }
-                    });
+                    // Expose boot so the SPA router can call it on every navigation to this page.
+                    window.__cameraDetailBoot = async function () {
+                        console.log('[CameraDetail] boot() called by router');
+                        await init();
+                        await initCctvTimeline();
+                    };
                 })();
+
+export async function boot() {
+    console.log('[CameraDetail] ES module boot() called');
+    if (typeof window.__cameraDetailBoot === 'function') {
+        await window.__cameraDetailBoot();
+    }
+}
             

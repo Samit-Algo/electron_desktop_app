@@ -1,34 +1,43 @@
 <link rel="stylesheet" href="workflow-editor.css">
 
 <div id="page-content">
-
     <!-- Top Bar -->
-    <nav class="navbar navbar-expand-lg py-2 px-4 border-bottom" style="height: 60px; background: var(--wf-sidebar-bg); border-color: var(--wf-canvas-border) !important;">
+    <nav class="navbar navbar-expand-lg py-2 px-4 border-bottom wf-topbar">
       <div class="container-fluid p-0">
-        <div class="d-flex align-items-center gap-2">
-          <div class="input-group" style="min-width: 200px;">
-            <span class="input-group-text bg-transparent border-secondary text-muted" style="border-color: var(--wf-canvas-border) !important;">
-              <i class="fa-solid fa-search small"></i>
-            </span>
-            <span class="form-control bg-transparent text-secondary" style="border-color: var(--wf-canvas-border) !important; font-size: 14px;">Search</span>
-          </div>
-          <div class="input-group" style="min-width: 250px;">
-            <span class="input-group-text bg-transparent border-secondary text-muted" style="border-color: var(--wf-canvas-border) !important;">
+        <div class="d-flex align-items-center gap-2 wf-topbar-left">
+          <button class="btn btn-outline-secondary d-flex align-items-center justify-content-center wf-topbar-btn wf-topbar-back-btn" id="btn-workflow-back" type="button" title="Back" aria-label="Back">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div class="input-group wf-topbar-name-group">
+            <span class="input-group-text bg-transparent border-secondary text-muted wf-topbar-name-icon">
               <i class="fa-solid fa-pen small"></i>
             </span>
-            <input type="text" id="workflow-name-input" class="form-control bg-transparent" style="border-color: var(--wf-canvas-border) !important; font-size: 14px; color: var(--wf-designer-color);" placeholder="Watch Dog Name">
+            <input type="text" id="workflow-name-input" class="form-control bg-transparent wf-topbar-name-input" placeholder="Watch Dog Name">
           </div>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" id="btn-run-workflow">
+        <div class="d-flex align-items-center gap-2 wf-topbar-actions">
+          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-run-workflow">
             <i class="fa-solid fa-play"></i>
             <span>Run Watch Dog</span>
           </button>
-          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" id="btn-export">
+          <!-- Stop / Pause / Resume — shown dynamically by JS after Run -->
+          <button class="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-stop-workflow" style="display:none;" title="Stop all agents">
+            <i class="fa-solid fa-stop"></i>
+            <span>Stop</span>
+          </button>
+          <button class="btn btn-outline-warning btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-pause-workflow" style="display:none;" title="Pause all agents">
+            <i class="fa-solid fa-pause"></i>
+            <span>Pause</span>
+          </button>
+          <button class="btn btn-outline-info btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-resume-workflow" style="display:none;" title="Resume paused agents">
+            <i class="fa-solid fa-circle-play"></i>
+            <span>Resume</span>
+          </button>
+          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-export">
             <i class="fa-solid fa-download"></i>
             <span>Export</span>
           </button>
-          <button class="btn btn-primary btn-sm d-flex align-items-center gap-2" id="btn-save" style="background-color: #6366f1; border-color: #6366f1;">
+          <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 wf-topbar-btn wf-topbar-btn--primary" id="btn-save">
             <i class="fa-solid fa-floppy-disk"></i>
             <span>Save</span>
           </button>
@@ -40,205 +49,266 @@
     <!-- Main Content -->
     <div class="workflow-designer">
       <!-- Sidebar with collapsible sections -->
-      <div class="d-flex flex-column overflow-hidden border-end" style="width: 200px; background: var(--wf-sidebar-bg); border-color: var(--wf-canvas-border) !important;">
-        <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom" style="border-color: var(--wf-canvas-border) !important; min-height: 44px;">
-          <i class="fa-solid fa-layer-group text-muted" style="font-size: 14px; width: 16px; text-align: center;"></i>
-          <span class="fw-semibold" style="color: var(--wf-designer-color); font-size: 13px; line-height: 1.2;">Components</span>
+      <div id="wf-components-sidebar" class="wf-components-sidebar d-flex flex-column overflow-hidden border-end">
+        <div class="wf-components-sidebar-header d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+          <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-layer-group text-muted" style="font-size: 14px; width: 16px; text-align: center;"></i>
+            <span class="fw-semibold" style="color: var(--wf-designer-color); font-size: 13px; line-height: 1.2;">Components</span>
+          </div>
+          <button type="button" id="wf-components-toggle" class="btn btn-sm wf-components-toggle-btn" title="Collapse Components" aria-label="Collapse Components">
+            <i class="fa-solid fa-chevron-up"></i>
+          </button>
         </div>
 
-        <div class="flex-grow-1 overflow-auto py-2">
-          <!-- Input/Output Section -->
+        <div id="wf-components-sidebar-body" class="wf-components-sidebar-body d-flex flex-column flex-grow-1">
+          <!-- Sidebar search -->
+          <div class="px-3 py-2 border-bottom" style="border-color: var(--wf-canvas-border) !important;">
+            <input type="text" id="wf-sidebar-search" class="form-control form-control-sm bg-transparent" placeholder="Filter nodes…" autocomplete="off" style="border-color: var(--wf-canvas-border); color: var(--wf-designer-color); font-size: 12px;">
+          </div>
+
+          <div class="flex-grow-1 overflow-auto py-2" id="wf-sidebar-node-list">
+          <!-- Flow Control Section -->
           <div class="wf-section expanded mb-1" data-section="io">
             <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
               <div class="d-flex align-items-center gap-2">
                 <i class="fa-solid fa-right-left text-muted small" style="width: 20px; text-align: center;"></i>
-                <span class="fw-medium small" style="color: var(--wf-designer-color);">Input / Output</span>
+                <span class="fw-medium small" style="color: var(--wf-designer-color);">Flow Control</span>
               </div>
               <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
             </div>
-            <div class="wf-section-content ps-5 pe-3 py-1">
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="start" data-category="start" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-circle-play text-muted"></i>
-                <span>Start</span>
+            <div class="wf-section-content ps-4 pe-3 py-1">
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="start" data-category="start" data-node-hint="Schedule: always, daily, weekly or once. Supports patrol mode." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-circle-play" style="color:#22c55e;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>Start</span>
+                  <span class="wf-node-sub">Schedule &amp; run mode</span>
+                </div>
               </div>
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="end" data-category="end" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-flag-checkered text-muted"></i>
-                <span>End</span>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="camera" data-category="activity" data-node-hint="Select one or more cameras to feed into agents." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-video text-muted" style="width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>Camera</span>
+                  <span class="wf-node-sub">Video source</span>
+                </div>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="end" data-category="end" data-node-hint="Terminal node. Not needed for always-on schedules." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-flag-checkered text-muted" style="width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>End</span>
+                  <span class="wf-node-sub">Workflow exit</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Agents Section -->
-          <div class="wf-section mb-1" data-section="agents">
+          <!-- Detection Agents Section -->
+          <div class="wf-section expanded mb-1" data-section="agents">
             <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
               <div class="d-flex align-items-center gap-2">
                 <i class="fa-solid fa-robot text-muted small" style="width: 20px; text-align: center;"></i>
-                <span class="fw-medium small" style="color: var(--wf-designer-color);">Agents</span>
+                <span class="fw-medium small" style="color: var(--wf-designer-color);">Detection Agents</span>
               </div>
               <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
             </div>
-            <div class="wf-section-content ps-5 pe-3 py-1">
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="class_detection_agent" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-eye text-muted"></i>
-                <span>Object Detection Agent</span>
+            <div class="wf-section-content ps-4 pe-3 py-1">
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="class_detection_agent" data-category="activity" data-node-hint="Full-frame YOLO detection: person, car, fire, weapon, face." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-eye" style="color:#6366f1;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>Object Detection</span>
+                  <span class="wf-node-sub">Full-frame YOLO</span>
+                </div>
               </div>
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="class_detection_zone_agent" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-draw-polygon text-muted"></i>
-                <span>Object Detection Agent with Zone</span>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="class_detection_zone_agent" data-category="activity" data-node-hint="Zone-based detection with polygon or ROI boundary. Restricted zone, wall climb, machine idle." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-draw-polygon" style="color:#a78bfa;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>Zone Detection</span>
+                  <span class="wf-node-sub">Polygon / ROI zone</span>
+                </div>
               </div>
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="object_count_agent" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-list-ol text-muted"></i>
-                <span>Object Count Agent</span>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="object_count_agent" data-category="activity" data-node-hint="Line-crossing counter for footfall, vehicles, conveyor boxes." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-list-ol" style="color:#38bdf8;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>Object Counter</span>
+                  <span class="wf-node-sub">Line-crossing count</span>
+                </div>
               </div>
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="person_behaviour_agent" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-person-falling text-muted"></i>
-                <span>Person Behaviour Agent</span>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="person_behaviour_agent" data-category="activity" data-node-hint="Pose-based fall and sleep detection via YOLOv8 pose model." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-person-falling" style="color:#fb923c;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>Person Behaviour</span>
+                  <span class="wf-node-sub">Fall / sleep detection</span>
+                </div>
               </div>
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="report" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-file-lines text-muted"></i>
-                <span>Report Node</span>
-              </div>
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="vlm_agent" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-brain text-muted"></i>
-                <span>VLM Confirmation Agent</span>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="vlm_agent" data-category="activity" data-node-hint="AI vision-language model confirms or rejects detections. Reduces false positives." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-brain" style="color:#e879f9;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>VLM Confirmation</span>
+                  <span class="wf-node-sub">GPT-4o / Claude / Gemini</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Models Section -->
-          <div class="wf-section mb-1" data-section="models">
+          <!-- Alerts &amp; Actions Section -->
+          <div class="wf-section expanded mb-1" data-section="alerts">
             <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
               <div class="d-flex align-items-center gap-2">
-                <i class="fa-solid fa-camera text-muted small" style="width: 20px; text-align: center;"></i>
-                <span class="fw-medium small" style="color: var(--wf-designer-color);">Camera</span>
+                <i class="fa-solid fa-bell text-muted small" style="width: 20px; text-align: center;"></i>
+                <span class="fw-medium small" style="color: var(--wf-designer-color);">Alerts &amp; Actions</span>
               </div>
               <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
             </div>
-            <div class="wf-section-content ps-5 pe-3 py-1">
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="camera" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-video text-muted"></i>
-                <span>Camera</span>
+            <div class="wf-section-content ps-4 pe-3 py-1">
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="notification" data-category="activity" data-node-hint="Send email, SMS or webhook alert with dynamic placeholders like {{camera_name}}." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-envelope" style="color:#34d399;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>Notification</span>
+                  <span class="wf-node-sub">Email / SMS / Webhook</span>
+                </div>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="alarm_notification" data-category="activity" data-node-hint="High-priority alarm with sound, vibration and escalation levels: warning, critical, emergency." style="color: #f87171;">
+                <i class="fa-solid fa-bell-exclamation" style="color:#ef4444;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>Alarm</span>
+                  <span class="wf-node-sub">Warning / critical / emergency</span>
+                </div>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="iot_action" data-category="activity" data-node-hint="Trigger connected IoT devices (e.g. door locks, lights, buzzers) on detection." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-plug-circle-bolt" style="color:#fbbf24;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>IoT Action</span>
+                  <span class="wf-node-sub">Device trigger</span>
+                </div>
+              </div>
+              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="report" data-category="activity" data-node-hint="Scheduled digest report: events, counting, agents, cameras, system. Send via email." style="color: var(--wf-designer-color);">
+                <i class="fa-solid fa-file-lines" style="color:#60a5fa;width:14px;text-align:center;"></i>
+                <div class="d-flex flex-column lh-1">
+                  <span>Report</span>
+                  <span class="wf-node-sub">Scheduled digest</span>
+                </div>
               </div>
             </div>
           </div>
-
-          <!-- Helpers Section -->
-          <div class="wf-section mb-1" data-section="helpers">
-            <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
-              <div class="d-flex align-items-center gap-2">
-                <i class="fa-solid fa-wrench text-muted small" style="width: 20px; text-align: center;"></i>
-                <span class="fw-medium small" style="color: var(--wf-designer-color);">Helpers</span>
-              </div>
-              <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
-            </div>
-            <div class="wf-section-content ps-5 pe-3 py-1">
-              <div class="wf-section-item d-flex align-items-center gap-2 p-2 rounded cursor-grab mb-1 small" draggable="true" data-node-key="notification" data-category="activity" style="color: var(--wf-designer-color);">
-                <i class="fa-solid fa-envelope text-muted"></i>
-                <span>Notification</span>
-              </div>
-            </div>
           </div>
-        </div>
 
-        <div class="p-3 border-top" style="border-color: var(--wf-canvas-border) !important;">
-          <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 wf-new-component-btn" onclick="alert('Custom component creation coming soon!')" style="border-style: dashed; color: var(--lf-icon-color);">
-            <i class="fa-solid fa-plus"></i>
-            <span>New Custom Component</span>
-          </button>
+          <div class="p-3 border-top" style="border-color: var(--wf-canvas-border) !important;">
+            <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 wf-new-component-btn" onclick="alert('Custom component creation coming soon!')" style="border-style: dashed; color: var(--lf-icon-color);">
+              <i class="fa-solid fa-plus"></i>
+              <span>New Custom Component</span>
+            </button>
+          </div>
         </div>
       </div>
+      <div id="wf-components-resizer" class="wf-components-resizer" role="separator" aria-orientation="vertical" aria-label="Resize Components Sidebar"></div>
 
       <!-- Canvas with floating toolbar + AI chat dock -->
       <div class="wf-canvas wf-canvas-column position-relative overflow-hidden flex-grow-1" style="background: var(--wf-canvas-bg);">
-        <div class="wf-floating-toolbar position-absolute d-flex gap-2 p-2 rounded-3 shadow" style="top: 20px; inset-inline-end: 20px; z-index: 10; background: var(--lf-card-bg); border: 1px solid var(--wf-canvas-border);">
-          <button type="button" id="btn-zoom-in" class="btn btn-sm" title="Zoom In" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-          <button type="button" id="btn-zoom-out" class="btn btn-sm" title="Zoom Out" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-          <button type="button" id="btn-zoom-reset" class="btn btn-sm" title="Reset Zoom" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-expand"></i></button>
-          <button type="button" id="btn-clear" class="btn btn-sm" title="Clear Canvas" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-trash"></i></button>
-          <button type="button" id="btn-new" class="btn btn-sm" title="New Watch Dog" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-dog" aria-hidden="true"></i></button>
-          <button type="button" id="btn-import" class="btn btn-sm" title="Import JSON" style="background: transparent; color: var(--lf-icon-color); border: none;"><i class="fa-solid fa-file-import"></i></button>
+        <div class="wf-floating-toolbar position-absolute d-flex">
+          <button type="button" id="btn-exec-log-toggle" class="btn btn-sm wf-toolbar-btn" title="Toggle Execution Log"><i class="fa-solid fa-terminal"></i></button>
+          <div class="wf-toolbar-sep"></div>
+          <button type="button" id="btn-zoom-in" class="btn btn-sm wf-toolbar-btn" title="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+          <button type="button" id="btn-zoom-out" class="btn btn-sm wf-toolbar-btn" title="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+          <button type="button" id="btn-zoom-reset" class="btn btn-sm wf-toolbar-btn" title="Enter Fullscreen"><i class="fa-solid fa-expand"></i></button>
+          <button type="button" id="btn-clear" class="btn btn-sm wf-toolbar-btn" title="Clear Canvas"><i class="fa-solid fa-trash"></i></button>
+          <button type="button" id="btn-new" class="btn btn-sm wf-toolbar-btn" title="New Watch Dog"><i class="fa-solid fa-dog" aria-hidden="true"></i></button>
+          <button type="button" id="btn-import" class="btn btn-sm wf-toolbar-btn" title="Import JSON"><i class="fa-solid fa-file-import"></i></button>
         </div>
         <div id="drawflow"></div>
 
-        <div class="wf-ai-canvas-float" aria-hidden="false">
-          <div id="wf-ai-assistant-panel" class="wf-ai-assistant-panel" hidden>
-            <div class="wf-ai-assistant-panel__glow" aria-hidden="true"></div>
-            <div class="wf-ai-assistant-panel__inner">
-              <div class="wf-ai-assistant-panel__head">
-                <div class="wf-ai-assistant-panel__avatar" aria-hidden="true"><i class="fa-solid fa-robot"></i></div>
-                <div class="dropdown wf-ai-user-msg-dropdown">
-                  <button type="button" class="wf-ai-user-msg-dropdown-btn dropdown-toggle" id="wf-ai-user-msg-dropdown-btn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" aria-haspopup="true" title="Your prompts (newest first)">
-                    <span id="wf-ai-user-msg-snippet" class="wf-ai-user-msg-dropdown__label">Your message</span>
-                  </button>
-                  <ul class="dropdown-menu dropdown-menu-start wf-ai-user-msg-dropdown-menu shadow-sm" id="wf-ai-user-msg-history" aria-labelledby="wf-ai-user-msg-dropdown-btn"></ul>
-                </div>
-              </div>
-              <div id="wf-ai-assistant-status" class="wf-ai-assistant-panel__status" hidden>
-                <span class="wf-ai-assist-spin" aria-hidden="true"></span>
-                <span id="wf-ai-assistant-status-text">Researching…</span>
-              </div>
-              <span id="wf-ai-clarification-badge" class="wf-ai-clarification-badge" hidden>Needs a bit more detail</span>
-              <div id="wf-ai-assistant-messages" class="wf-ai-assistant-messages"></div>
-              <details class="wf-ai-agent-log" id="wf-ai-agent-log">
-                <summary>Agent log</summary>
-                <pre id="wf-ai-agent-log-body" class="wf-ai-agent-log__body"></pre>
-              </details>
-              <div id="wf-ai-router-reason" class="wf-ai-router-reason" hidden></div>
-            </div>
-          </div>
-        </div>
-
+        <!-- Right-side chat panel: fixed right edge, left edge is resizable -->
         <div class="wf-ai-chat" role="region" aria-label="AI assistant">
+          <!-- Drag handle on the LEFT edge to expand/shrink width -->
+          <div id="wf-ai-chat-resizer" class="wf-ai-chat-resizer" role="separator" aria-orientation="vertical" aria-label="Resize chat panel"></div>
           <div class="wf-ai-chat-inner" id="wf-ai-chat-inner">
-            <label class="visually-hidden" for="wf-ai-chat-input">Describe changes or new workflow</label>
-            <textarea id="wf-ai-chat-input" class="wf-ai-chat-input" rows="2" placeholder="What would you like to change or create? (Enter to send, Shift+Enter for new line)" autocomplete="off"></textarea>
-            <div id="wf-ai-chat-loading" class="wf-ai-chat-loading" aria-hidden="true" hidden>
-              <div class="wf-ai-chat-loading__spinner" aria-hidden="true"></div>
-              <span class="wf-ai-chat-loading__text">Contacting workflow agent…</span>
-            </div>
-            <div class="wf-ai-chat-toolbar d-flex align-items-center justify-content-between flex-wrap">
-              <div class="d-flex align-items-center gap-1">
-                <span id="wf-ai-chat-mode" class="badge rounded-pill border border-secondary text-secondary fw-normal" style="font-size:10px;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="">AI: —</span>
-                <button type="button" id="wf-ai-chat-new-thread" class="wf-ai-chat-icon-btn" title="New thread — new session, clears refine memory" aria-label="New conversation thread">
+            <!-- Header -->
+            <div class="wf-ai-chat-header">
+              <div class="wf-ai-assistant-panel__avatar" aria-hidden="true"><i class="fa-solid fa-robot"></i></div>
+              <span class="fw-semibold wf-ai-chat-title">Workflow Assistant</span>
+              <div class="ms-auto d-flex align-items-center gap-1">
+                <button type="button" id="wf-ai-chat-new-thread" class="wf-ai-chat-icon-btn" title="New thread" aria-label="New conversation thread">
                   <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>
                 </button>
-                <button type="button" class="wf-ai-chat-icon-btn" title="Add" aria-label="Add attachment">
-                  <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                </button>
-                <button type="button" class="wf-ai-chat-icon-btn" title="Templates" aria-label="Templates or files">
-                  <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+                <button type="button" id="wf-ai-chat-close" class="wf-ai-chat-icon-btn" title="Close chat" aria-label="Close chat">
+                  <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                 </button>
               </div>
-              <div class="d-flex align-items-center gap-2">
-                <button type="button" class="wf-ai-chat-icon-btn" title="AI" aria-label="AI options">
-                  <i class="fa-solid fa-brain" aria-hidden="true"></i>
-                </button>
-                <div class="dropdown">
-                  <button type="button" class="wf-ai-chat-model-btn border-0" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" id="wf-ai-chat-model-toggle">
-                    <span class="wf-ai-chat-model-label">3.0 Flash</span>
-                  </button>
-                  <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="wf-ai-chat-model-toggle">
-                    <li><button type="button" class="dropdown-item wf-ai-chat-model-option" data-model="3.0 Flash">3.0 Flash</button></li>
-                    <li><button type="button" class="dropdown-item wf-ai-chat-model-option" data-model="3.0 Pro">3.0 Pro</button></li>
-                    <li><button type="button" class="dropdown-item wf-ai-chat-model-option" data-model="2.5 Fast">2.5 Fast</button></li>
-                  </ul>
+            </div>
+
+            <!-- hidden status elements kept for JS compatibility but not shown -->
+            <div id="wf-ai-assistant-status" hidden></div>
+            <span id="wf-ai-assistant-status-text" hidden></span>
+            <span id="wf-ai-clarification-badge" class="wf-ai-clarification-badge" hidden>Needs a bit more detail</span>
+
+            <!-- Messages scroll area: user right / AI left -->
+            <div id="wf-ai-assistant-messages" class="wf-ai-assistant-messages"></div>
+
+            <!-- Agent log (collapsed by default) -->
+            <details class="wf-ai-agent-log" id="wf-ai-agent-log">
+              <summary>Agent log</summary>
+              <pre id="wf-ai-agent-log-body" class="wf-ai-agent-log__body"></pre>
+            </details>
+            <div id="wf-ai-router-reason" class="wf-ai-router-reason" hidden></div>
+
+            <!-- Composer -->
+            <div class="wf-ai-composer">
+              <div id="wf-ai-chat-loading" class="wf-ai-chat-loading" aria-hidden="true" hidden>
+                <div class="wf-ai-chat-loading__spinner" aria-hidden="true"></div>
+                <span class="wf-ai-chat-loading__text">Thinking…</span>
+              </div>
+              <div class="wf-ai-input-box">
+                <label class="visually-hidden" for="wf-ai-chat-input">Describe changes or new workflow</label>
+                <textarea id="wf-ai-chat-input" class="wf-ai-chat-input" rows="1" placeholder="What would you like to change or create?" autocomplete="off"></textarea>
+                <div class="wf-ai-chat-toolbar">
+                  <div class="d-flex align-items-center gap-1">
+                    <span id="wf-ai-chat-mode" class="badge rounded-pill border border-secondary text-secondary fw-normal" style="font-size:10px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="">AI: —</span>
+                    <div class="dropdown">
+                      <button type="button" class="wf-ai-chat-model-btn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" id="wf-ai-chat-model-toggle">
+                        <span class="wf-ai-chat-model-label">3.0 Flash</span>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="wf-ai-chat-model-toggle">
+                        <li><button type="button" class="dropdown-item wf-ai-chat-model-option" data-model="3.0 Flash">3.0 Flash</button></li>
+                        <li><button type="button" class="dropdown-item wf-ai-chat-model-option" data-model="3.0 Pro">3.0 Pro</button></li>
+                        <li><button type="button" class="dropdown-item wf-ai-chat-model-option" data-model="2.5 Fast">2.5 Fast</button></li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <button type="button" id="wf-ai-chat-voice" class="wf-ai-chat-voice-btn" title="Voice assistant" aria-label="Voice assistant">
+                      <span class="wf-ai-chat-voice-waves" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                    </button>
+                    <button type="button" id="wf-ai-chat-send" class="wf-ai-chat-send" title="Send" aria-label="Send message" hidden>
+                      <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+                    </button>
+                  </div>
                 </div>
-                <button type="button" id="wf-ai-chat-voice" class="wf-ai-chat-voice-btn" title="Voice assistant — speak to send" aria-label="Voice assistant — speak to convert to text and send">
-                  <span class="wf-ai-chat-voice-waves" aria-hidden="true">
-                    <i></i><i></i><i></i><i></i>
-                  </span>
-                </button>
-                <button type="button" id="wf-ai-chat-send" class="wf-ai-chat-send" title="Send" aria-label="Send message" hidden>
-                  <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
-                </button>
               </div>
             </div>
           </div>
         </div>
+
+        <!-- Launcher button — bottom-right corner of canvas, hidden when panel open -->
+        <button type="button" id="wf-ai-chat-launcher" class="wf-ai-chat-launcher" aria-label="Open workflow chat" title="Open workflow chat">
+          <i class="fa-solid fa-message"></i>
+        </button>
+      </div>
+      <!-- Execution Log Panel — spans all columns at the bottom of the grid -->
+      <!-- drag the top handle to resize; width follows sidebar + canvas layout -->
+      <div id="wf-exec-log-panel" class="wf-exec-log-panel">
+        <div class="wf-exec-log-resize-handle" id="wf-exec-log-resize-handle" title="Drag to resize"></div>
+        <div class="wf-exec-log-header">
+          <i class="fa-solid fa-terminal" style="color:#38bdf8;font-size:12px;"></i>
+          <span style="color:#94a3b8;font-weight:600;font-size:12px;">Execution Log</span>
+          <span id="wf-exec-log-status" style="color:#475569;font-size:11px;margin-left:4px;"></span>
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <button id="wf-exec-log-clear" class="btn btn-sm wf-exec-log-btn" title="Clear log">Clear</button>
+            <button id="wf-exec-log-close" class="btn btn-sm wf-exec-log-btn" title="Close">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+        <div id="wf-exec-log-body" class="wf-exec-log-body"></div>
       </div>
     </div>
-
-        
 
     <!-- Zone drawing modal for Agent node (when rule requires zone) -->
     <div class="modal fade" id="wf-zone-modal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">

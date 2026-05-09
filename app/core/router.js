@@ -85,6 +85,8 @@ function ensureCompanionAssets(root, pageUrl) {
   let url;
   try { url = new URL(pageUrl, window.location.href); } catch { return; }
   if (!url.pathname.endsWith('.html')) return;
+  // Skip the SPA shell itself — it has no companion index.js / index.css
+  if (url.pathname === '/app/index.html' || url.pathname === '/app/') return;
 
   const cssHref = new URL(url.pathname.replace(/\.html$/, '.css'), url.origin).href;
   const jsSrc = new URL(url.pathname.replace(/\.html$/, '.js'), url.origin).href;
@@ -230,6 +232,15 @@ function reInitDynamicUi(root = document) {
   }
 }
 
+// Body classes that page scripts add and must be removed on every navigation.
+// If a page's own cleanup hook fails or never runs, these would otherwise
+// survive SPA navigation and break scroll / layout on all subsequent pages.
+const BODY_CLASSES_TO_STRIP = [
+  'chat-page-no-scroll',   // chat.js — sets viewport-scrolls overflow:hidden
+  'wf-ai-chat-open',       // workflow-editor.js — added when chat panel opens
+  'chatbot-resizing',      // chatbot resize drag state
+];
+
 async function loadPage(url, { push = true } = {}) {
   try {
     if (typeof window.__visionaiPageCleanup === 'function') window.__visionaiPageCleanup();
@@ -237,6 +248,18 @@ async function loadPage(url, { push = true } = {}) {
     console.warn('Page cleanup error:', e);
   } finally {
     window.__visionaiPageCleanup = null;
+  }
+
+  // Always strip page-scoped body classes regardless of whether cleanup ran.
+  BODY_CLASSES_TO_STRIP.forEach(cls => document.body.classList.remove(cls));
+
+  // Always reset viewport inline overflow in case a page (e.g. workflow-editor)
+  // set it with !important and cleanup didn't run cleanly.
+  const viewportEarly = document.querySelector('.viewport-scrolls');
+  if (viewportEarly) {
+    viewportEarly.style.removeProperty('overflow');
+    viewportEarly.style.removeProperty('display');
+    viewportEarly.style.removeProperty('flex-direction');
   }
 
   const res = await fetch(url, { cache: 'no-cache' });
@@ -304,7 +327,9 @@ function bindGlobalReloadButton() {
   btn.addEventListener('click', e => {
     e.preventDefault();
     e.stopPropagation();
-    loadPage(window.location.href, { push: false }).catch(err => console.error('SPA reload error:', err));
+    const currentPage = (history.state && history.state.url) || sessionStorage.getItem('spa:page');
+    if (!currentPage) return;
+    loadPage(currentPage, { push: false }).catch(err => console.error('SPA reload error:', err));
   });
 }
 

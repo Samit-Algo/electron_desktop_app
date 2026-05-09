@@ -44,7 +44,7 @@ function loadCameras() {
   }
 
   api.listCameras()
-    .then(cameras => {
+    .then(async cameras => {
       const list = Array.isArray(cameras) ? cameras : [];
       if (countEl) countEl.textContent = String(list.length);
       if (list.length === 0) {
@@ -52,26 +52,95 @@ function loadCameras() {
         setCamerasLoading(false);
         return;
       }
+
+      // Fetch previews for all cameras in parallel (non-blocking — failures are safe)
+      const previews = await Promise.allSettled(
+        list.map(cam => api.getCameraPreview(cam.id).catch(() => null))
+      );
+      const previewMap = new Map();
+      previews.forEach((result, i) => {
+        if (result.status === 'fulfilled' && result.value) {
+          previewMap.set(list[i].id, result.value);
+        }
+      });
+
       grid.innerHTML = list.map(cam => {
-        const name = escapeHtml(cam.name || cam.id || 'Unnamed');
-        const idText = escapeHtml(cam.id || '');
-        const href = `/app/pages/cameras/camera-detail.html?camera=${encodeURIComponent(cam.id || '')}`;
+        const name    = escapeHtml(cam.name || cam.id || 'Unnamed');
+        const idText  = escapeHtml(cam.id || '');
+        const href    = `/app/pages/cameras/camera-detail.html?camera=${encodeURIComponent(cam.id || '')}`;
+        const preview = previewMap.get(cam.id);
+        const reason  = escapeHtml(cam.status_reason || '');
+
+        // Status badge
+        const normalizeStatus = (s) => {
+          const v = String(s || '').toLowerCase();
+          return v === 'error' ? 'reconnecting' : v;
+        };
+        const status = normalizeStatus(preview?.status || cam.status || 'unknown');
+        let statusClass = 'badge-phoenix-secondary';
+        let statusLabel = 'Unknown';
+        let statusDot   = '';
+        if (status === 'live') {
+          statusClass = 'badge-phoenix-success';
+          statusLabel = 'Live Preview';
+          statusDot   = '<span class="dashboard-live-dot me-1"></span>';
+        } else if (status === 'offline') {
+          statusClass = 'badge-phoenix-danger';
+          statusLabel = 'Offline';
+        } else if (status === 'reconnecting') {
+          statusClass = 'badge-phoenix-warning';
+          statusLabel = 'Reconnecting';
+        }
+
+        // Snapshot image (inline base64 so no extra request)
+        const hasImage = !!(preview?.frame_base64);
+        const imgStyle = hasImage ? '' : 'display:none;';
+        const imgSrc   = hasImage ? `data:image/jpeg;base64,${preview.frame_base64}` : '';
+
+        // Placeholder icon when no image
+        const placeholderStyle = hasImage ? 'display:none;' : '';
+
         return `<div class="min-w-0">
-          <div class="btn-reveal-trigger position-relative rounded-2 overflow-hidden vision-camera-tile-card p-3" style="width:100%;height:170px;min-width:0;">
-            <div class="w-100 h-100 position-absolute top-0 start-0 bg-body-secondary"></div>
-            <div class="w-100 h-100 position-absolute top-0 start-0" style="background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,0.55) 100%);"></div>
-            <div class="position-relative h-100 d-flex flex-column justify-content-between">
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="badge badge-phoenix badge-phoenix-success fs-10" data-bs-theme="light">Camera</span>
+          <div class="btn-reveal-trigger position-relative rounded-2 overflow-hidden vision-camera-tile-card" style="width:100%;height:170px;min-width:0;">
+
+            <!-- Dark fallback background -->
+            <div class="w-100 h-100 position-absolute top-0 start-0" style="background:#111;"></div>
+
+            <!-- Snapshot image fills the card like an event card -->
+            <img
+              class="w-100 h-100 position-absolute top-0 start-0"
+              style="object-fit:cover;${imgStyle}"
+              src="${imgSrc}"
+              alt=""
+            />
+
+            <!-- Placeholder (no image) -->
+            <div
+              class="w-100 h-100 position-absolute top-0 start-0 d-flex flex-column align-items-center justify-content-center gap-1"
+              style="color:#555;${placeholderStyle}"
+            >
+              <span class="fa-solid fa-video-slash" style="font-size:1.4rem;"></span>
+              <span class="fs-10">${reason || (status === 'offline' ? 'Camera offline' : status === 'reconnecting' ? 'Reconnecting…' : 'No preview')}</span>
+            </div>
+
+            <!-- Gradient overlay for text readability -->
+            <div class="w-100 h-100 position-absolute top-0 start-0" style="background:linear-gradient(180deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0) 40%,rgba(0,0,0,0) 55%,rgba(0,0,0,0.65) 100%);"></div>
+
+            <!-- Content layer -->
+            <div class="position-relative h-100 d-flex flex-column justify-content-between p-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <span class="badge badge-phoenix ${statusClass} fs-10" data-bs-theme="light" title="${reason}">${statusDot}${statusLabel}</span>
               </div>
               <div class="min-w-0">
                 <h4 class="text-white fw-bold line-clamp-2 mb-1">${name}</h4>
-                <div class="d-flex align-items-center mt-2 min-w-0">
+                <div class="d-flex align-items-center min-w-0">
                   <span class="fa-solid fa-video text-white text-opacity-75 me-2 fs-10 flex-shrink-0"></span>
                   <span class="text-white text-opacity-75 fs-9 text-truncate">${idText || '—'}</span>
                 </div>
+                ${reason ? `<div class="text-white text-opacity-75 fs-10 text-truncate mt-1" title="${reason}">${reason}</div>` : ''}
               </div>
             </div>
+
             <a class="stretched-link" href="${href}" data-vision-camera-id="${escapeHtml(cam.id || '')}" aria-label="Open camera: ${name}"></a>
           </div>
         </div>`;

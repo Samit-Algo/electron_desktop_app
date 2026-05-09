@@ -1,9 +1,8 @@
 import { navigate } from '../../core/router.js';
 import { api } from '../../core/api.js';
-(function () {
-  'use strict';
+import { toast } from '../../core/toast.js';
 
-  const DRAWFLOW_SRC = 'https://cdn.jsdelivr.net/npm/drawflow@0.0.47/dist/drawflow.min.js';
+const DRAWFLOW_SRC = 'https://cdn.jsdelivr.net/npm/drawflow@0.0.47/dist/drawflow.min.js';
 
   function ensureDrawflow() {
     return new Promise((resolve, reject) => {
@@ -57,22 +56,30 @@ import { api } from '../../core/api.js';
     return localStorage.getItem('visionai_token') || '';
   }
 
-  const API_BASE = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'https://api.samitweb.xyz';
+  const API_BASE = (typeof window !== 'undefined' && window.VISION_API_BASE) ? window.VISION_API_BASE : 'http://127.0.0.1:8000';
   const WORKFLOW_CHAT_API_BASE = API_BASE;
+let wfEditorInitInFlight = false;
 
   async function initWorkflowEditor() {
+    const container = document.getElementById('drawflow');
+    if (!container) return;
+    if (wfEditorInitInFlight) return;
+    wfEditorInitInFlight = true;
     try {
       await ensureDrawflow();
     } catch (e) {
+      wfEditorInitInFlight = false;
       console.error('Drawflow failed to load', e);
-      alert('Watch Dog editor engine failed to load. Please check your network connection.');
+      toast.error('Watch Dog editor engine failed to load. Please check your network connection.');
       return;
     }
 
-    const container = document.getElementById('drawflow');
     const _wsu = window.history.state && window.history.state.url ? window.history.state.url : window.location.href;
     const urlParams = new URLSearchParams(new URL(_wsu, window.location.origin).search);
-    const editWorkflowId = urlParams.get('workflow_id');
+    // These are mutable — after each save that creates a new ID we update them
+    // so the next save (e.g. Run button) deactivates the correct workflow and
+    // never accidentally deactivates a workflow it just created.
+    let editWorkflowId = urlParams.get('workflow_id');
     const workflowName = urlParams.get('name') || '';
     const workflowOwner = urlParams.get('owner') || '';
     const workflowDescription = urlParams.get('description') || '';
@@ -89,19 +96,112 @@ import { api } from '../../core/api.js';
     const exportBtn = document.getElementById('btn-export');
     const newBtn = document.getElementById('btn-new');
     const saveBtn = document.getElementById('btn-save');
+    const backBtn = document.getElementById('btn-workflow-back');
     const importBtn = document.getElementById('btn-import');
     const importFile = document.getElementById('file-import');
+    const componentsSidebar = document.getElementById('wf-components-sidebar');
+    const componentsSidebarBody = document.getElementById('wf-components-sidebar-body');
+    const componentsResizer = document.getElementById('wf-components-resizer');
+    const componentsToggleBtn = document.getElementById('wf-components-toggle');
+    const designerRootEl = document.querySelector('.workflow-designer');
+    const COMPONENTS_WIDTH_MIN = 180;
+    const COMPONENTS_WIDTH_MAX = 360;
+    const COMPONENTS_WIDTH_STORAGE_KEY = 'visionai.workflow.componentsSidebarWidth.v1';
+
+    if (backBtn) {
+      backBtn.addEventListener('click', () => navigateTo('workflow-list.html'));
+    }
+
+    function clampSidebarWidth(v) {
+      return Math.max(COMPONENTS_WIDTH_MIN, Math.min(COMPONENTS_WIDTH_MAX, v));
+    }
+
+    function setComponentsSidebarWidth(px) {
+      const clamped = clampSidebarWidth(px);
+      if (designerRootEl) {
+        designerRootEl.style.setProperty('--wf-components-sidebar-width', clamped + 'px');
+      }
+      try { localStorage.setItem(COMPONENTS_WIDTH_STORAGE_KEY, String(clamped)); } catch (_) {}
+    }
+
+    function updateComponentsToggleButtonState() {
+      if (!componentsSidebar || !componentsToggleBtn || !designerRootEl) return;
+      const icon = componentsToggleBtn.querySelector('i');
+      const collapsed = designerRootEl.classList.contains('wf-components-collapsed');
+      if (icon) icon.className = collapsed ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up';
+      componentsToggleBtn.title = collapsed ? 'Expand Components' : 'Collapse Components';
+      componentsToggleBtn.setAttribute('aria-label', componentsToggleBtn.title);
+      componentsToggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+
+    function toggleComponentsSidebar() {
+      if (!componentsSidebar || !componentsSidebarBody || !designerRootEl) return;
+      const nextCollapsed = !designerRootEl.classList.contains('wf-components-collapsed');
+      designerRootEl.classList.toggle('wf-components-collapsed', nextCollapsed);
+      componentsSidebar.classList.toggle('is-collapsed', nextCollapsed);
+      updateComponentsToggleButtonState();
+    }
+
+    if (componentsToggleBtn) componentsToggleBtn.addEventListener('click', toggleComponentsSidebar);
+    updateComponentsToggleButtonState();
+
+    try {
+      const stored = parseInt(localStorage.getItem(COMPONENTS_WIDTH_STORAGE_KEY) || '', 10);
+      if (Number.isFinite(stored)) setComponentsSidebarWidth(stored);
+    } catch (_) {}
+
+    if (componentsResizer && designerRootEl) {
+      let isResizing = false;
+      let startX = 0;
+      let startWidth = 0;
+
+      function stopResize() {
+        if (!isResizing) return;
+        isResizing = false;
+        componentsResizer.classList.remove('is-dragging');
+        document.body.style.userSelect = '';
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+      }
+
+      function onPointerMove(e) {
+        if (!isResizing) return;
+        const next = startWidth + (e.clientX - startX);
+        setComponentsSidebarWidth(next);
+      }
+
+      function onPointerUp() {
+        stopResize();
+      }
+
+      componentsResizer.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return;
+        if (designerRootEl && designerRootEl.classList.contains('wf-components-collapsed')) return;
+        const rootStyles = getComputedStyle(designerRootEl);
+        const current = parseInt(rootStyles.getPropertyValue('--wf-components-sidebar-width'), 10) || 220;
+        isResizing = true;
+        startX = e.clientX;
+        startWidth = current;
+        componentsResizer.classList.add('is-dragging');
+        document.body.style.userSelect = 'none';
+        componentsResizer.setPointerCapture?.(e.pointerId);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+      });
+    }
 
     const NODE_COMPATIBILITY = {
       start: ['camera'],
       camera: ['class_detection_agent', 'class_detection_zone_agent', 'object_count_agent', 'person_behaviour_agent', 'vlm_agent'],
-      class_detection_agent: ['notification', 'report', 'vlm_agent'],
-      class_detection_zone_agent: ['notification', 'report', 'vlm_agent'],
-      object_count_agent: ['notification', 'report', 'vlm_agent'],
-      person_behaviour_agent: ['notification', 'report', 'vlm_agent'],
-      vlm_agent: ['notification', 'report', 'end'],
+      class_detection_agent: ['notification', 'alarm_notification', 'iot_action', 'report', 'vlm_agent'],
+      class_detection_zone_agent: ['notification', 'alarm_notification', 'iot_action', 'report', 'vlm_agent'],
+      object_count_agent: ['notification', 'alarm_notification', 'iot_action', 'report', 'vlm_agent'],
+      person_behaviour_agent: ['notification', 'alarm_notification', 'iot_action', 'report', 'vlm_agent'],
+      vlm_agent: ['notification', 'alarm_notification', 'iot_action', 'report', 'end'],
       notification: ['end', 'report'],
-      report: ['end', 'notification'],
+      alarm_notification: ['end', 'report'],
+      iot_action: ['end', 'report'],
+      report: ['end', 'notification', 'alarm_notification'],
       end: []
     };
 
@@ -226,12 +326,45 @@ import { api } from '../../core/api.js';
         outputs: 1,
         icon: 'fa-envelope',
         fields: [
-          { key: 'label', type: 'text', label: 'Node label', default: 'Notification' },
-          { key: 'channel', type: 'select', label: 'Primary channel', options: ['Email', 'SMS', 'Webhook'], default: 'Email' },
-          { key: 'recipients', type: 'text', label: 'Recipient(s)', placeholder: 'Email addresses or phone numbers, comma-separated' },
-          { key: 'subject', type: 'text', label: 'Subject / title', placeholder: 'Short, descriptive subject line' },
-          { key: 'body', type: 'textarea', label: 'Message body', placeholder: 'Rich free-text body. You can use placeholders like {{camera_name}} or {{class_name}}.' },
-          { key: 'importance', type: 'select', label: 'Importance', options: ['Low', 'Normal', 'High'], default: 'Normal' }
+          { key: 'label',      type: 'text',   label: 'Node label', default: 'Notification' },
+          // Channels that actually exist in the backend:
+          //   email       → sends to the recipient email addresses below
+          //   in_app      → WebSocket popup in the browser dashboard (no recipients needed)
+          //   mobile_push → FCM push to the user's registered mobile devices (no recipients needed)
+          // All three can be enabled at once — tick the ones you want.
+          { key: 'channel_email',       type: 'checkbox', label: 'Email',         default: true  },
+          { key: 'channel_in_app',      type: 'checkbox', label: 'In-App (dashboard popup)', default: true  },
+          { key: 'channel_mobile_push', type: 'checkbox', label: 'Mobile Push (FCM)',  default: false },
+          // Recipients are only needed when Email is ticked
+          { key: 'recipients', type: 'text', label: 'Email recipients', placeholder: 'comma-separated, e.g. ops@company.com, mgr@company.com', showIf: { field: 'channel_email', value: true } },
+          { key: 'subject',    type: 'text', label: 'Subject',  placeholder: 'e.g. Motion detected on {{camera_name}}' },
+          { key: 'message',    type: 'textarea', label: 'Message body', placeholder: 'Alert details. Use {{camera_name}}, {{class_name}}, {{timestamp}} as placeholders.' }
+        ]
+      },
+      alarm_notification: {
+        name: 'alarm_notification',
+        label: 'Alarm Notification',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-bell-exclamation',
+        fields: [
+          { key: 'label',       type: 'text',     label: 'Node label',   default: 'Alarm' },
+          { key: 'alarm_level', type: 'readonly',  label: 'Alarm level',  value: 'critical' },
+          { key: 'sound',       type: 'readonly',  label: 'Alert sound',  value: 'siren' },
+          { key: 'vibration',   type: 'readonly',  label: 'Vibration',    value: 'on' }
+        ]
+      },
+      iot_action: {
+        name: 'iot_action',
+        label: 'IoT Action',
+        category: 'activity',
+        inputs: 1,
+        outputs: 1,
+        icon: 'fa-plug-circle-bolt',
+        fields: [
+          { key: 'label', type: 'text', label: 'Node label', default: 'IoT Action' },
+          { key: 'devices', type: 'iot_devices', label: 'Devices' }
         ]
       },
       // ── UPDATED REPORT NODE ────────────────────────────────────────────────
@@ -337,6 +470,8 @@ import { api } from '../../core/api.js';
         bodyContent = renderCameraSections(data, nodeId);
       } else if (def.name === 'start') {
         bodyContent = renderStartSections(data, nodeId);
+      } else if (def.name === 'iot_action') {
+        bodyContent = renderIoTActionSections(data, nodeId);
       }
 
       return `
@@ -589,8 +724,271 @@ import { api } from '../../core/api.js';
             </div>
           </div>
         </div>
+        <div class="camera-preview-panel" data-node-id="${nodeId || ''}">
+          <div class="camera-preview-inner camera-preview--empty">
+            <i class="fa-solid fa-camera camera-preview-icon"></i>
+            <span class="camera-preview-hint">Select a camera to preview</span>
+          </div>
+        </div>
       `;
     }
+
+    async function fetchAndShowCameraPreview(nodeId, cameraId) {
+      const panel = document.querySelector(`.camera-preview-panel[data-node-id="${nodeId}"]`);
+      if (!panel) return;
+
+      if (!cameraId) {
+        panel.innerHTML = `
+          <div class="camera-preview-inner camera-preview--empty">
+            <i class="fa-solid fa-camera camera-preview-icon"></i>
+            <span class="camera-preview-hint">Select a camera to preview</span>
+          </div>`;
+        return;
+      }
+
+      panel.innerHTML = `
+        <div class="camera-preview-inner camera-preview--loading">
+          <div class="camera-preview-spinner"></div>
+          <span class="camera-preview-hint">Loading preview…</span>
+        </div>`;
+
+      try {
+        const result = await api.getCameraPreview(cameraId);
+        const status = (result && result.status) ? result.status.toLowerCase() : 'unknown';
+        const frame = result && result.frame_base64;
+        const tsRaw = result && result.timestamp;
+        let tsDate = null;
+        if (tsRaw) {
+          const asNum = Number(tsRaw);
+          tsDate = isNaN(asNum) ? new Date(tsRaw) : new Date(asNum * 1000);
+          if (isNaN(tsDate.getTime())) tsDate = null;
+        }
+        const ts = tsDate ? tsDate.toLocaleTimeString() : null;
+
+        if (frame) {
+          const isOnline = status === 'online' || status === 'active' || status === 'streaming';
+          panel.innerHTML = `
+            <div class="camera-preview-inner camera-preview--live">
+              <div class="camera-preview-img-wrap">
+                <img class="camera-preview-img" src="data:image/jpeg;base64,${frame}" alt="Camera preview" draggable="false" />
+                <div class="camera-preview-badge camera-preview-badge--${isOnline ? 'online' : 'offline'}">
+                  <span class="camera-preview-dot"></span>
+                  ${isOnline ? 'Live' : status.charAt(0).toUpperCase() + status.slice(1)}
+                </div>
+                ${ts ? `<div class="camera-preview-ts">${ts}</div>` : ''}
+              </div>
+            </div>`;
+        } else {
+          const isOffline = status === 'offline' || status === 'disconnected' || status === 'error';
+          panel.innerHTML = `
+            <div class="camera-preview-inner camera-preview--offline">
+              <i class="fa-solid fa-video-slash camera-preview-icon camera-preview-icon--offline"></i>
+              <span class="camera-preview-status camera-preview-status--${isOffline ? 'offline' : 'warn'}">
+                <span class="camera-preview-dot camera-preview-dot--${isOffline ? 'offline' : 'warn'}"></span>
+                ${status.charAt(0).toUpperCase() + status.slice(1)}
+              </span>
+              <span class="camera-preview-hint">No frame available</span>
+            </div>`;
+        }
+      } catch (err) {
+        panel.innerHTML = `
+          <div class="camera-preview-inner camera-preview--offline">
+            <i class="fa-solid fa-triangle-exclamation camera-preview-icon camera-preview-icon--offline"></i>
+            <span class="camera-preview-status camera-preview-status--offline">
+              <span class="camera-preview-dot camera-preview-dot--offline"></span>
+              Offline
+            </span>
+            <span class="camera-preview-hint">Could not reach camera</span>
+          </div>`;
+      }
+    }
+
+    function renderIoTActionSections(data, nodeId) {
+      const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
+      const label = data.label || 'IoT Action';
+      const devices = Array.isArray(data.devices) ? data.devices : [];
+
+      // Build a placeholder row per already-saved device (filled in by populateIoTDeviceRows later)
+      const savedRows = devices.map((d, i) => `
+        <div class="iot-device-row mb-2 p-2 rounded position-relative" style="background: var(--lf-input-bg); border: 1px solid var(--wf-canvas-border);" data-row-index="${i}">
+          <button type="button" class="btn btn-sm btn-outline-danger iot-remove-row-btn position-absolute" data-row="${i}" data-node-id="${nodeId || ''}" style="top:4px;right:4px;padding:1px 5px;font-size:10px;line-height:1.2;" title="Remove">×</button>
+          <div class="lf-field-label mb-1" style="font-size:9px;">Device</div>
+          <select class="lf-node-input w-100 form-select form-select-sm iot-device-select mb-2"
+                  data-field="device_id" data-row="${i}" data-node-id="${nodeId || ''}"
+                  data-current-value="${safe(d.device_id)}">
+            <option value="">Loading devices…</option>
+          </select>
+          <div class="lf-field-label mb-1" style="font-size:9px;">Device action</div>
+          <select class="lf-node-input w-100 form-select form-select-sm iot-command-select mb-2" data-field="command" data-row="${i}" data-node-id="${nodeId || ''}">
+            <option value="ON" ${d.command !== 'OFF' ? 'selected' : ''}>ON</option>
+            <option value="OFF" ${d.command === 'OFF' ? 'selected' : ''}>OFF</option>
+          </select>
+          <div class="lf-field-label mb-1" style="font-size:9px;">Auto-reset time (seconds, 0 = none)</div>
+          <input type="number" class="lf-node-input w-100 form-control form-control-sm iot-reset-input" data-field="auto_reset_seconds" data-row="${i}" data-node-id="${nodeId || ''}" placeholder="0" value="${safe(d.auto_reset_seconds ?? 0)}" min="0" />
+        </div>
+      `).join('');
+
+      return `
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1">Node label</div>
+              <div class="lf-input-wrapper">
+                <input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="label" data-node-id="${nodeId || ''}" value="${safe(label)}" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator cyan"></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="mb-1">
+              <div class="lf-field-label mb-1 d-flex justify-content-between align-items-center">
+                <span>Devices</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary iot-add-device-btn" data-node-id="${nodeId || ''}" style="padding: 1px 6px; font-size: 11px;">+ Add</button>
+              </div>
+              <div class="iot-device-list" data-node-id="${nodeId || ''}">
+                ${savedRows || '<div class="text-muted small py-1">No devices added yet.</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-2">
+          <span class="lf-section-indicator purple"></span>
+          <div class="flex-grow-1 min-w-0 small text-muted" style="font-size:10px; padding-top: 2px;">
+            Ch = relay channel &nbsp;|&nbsp; Reset(s) = auto-OFF delay (0 = none)
+          </div>
+        </div>
+      `;
+    }
+
+    async function fetchIoTDeviceList() {
+      try {
+        const res = await fetch('/api/v1/workflows/iot-devices', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}` }
+        });
+        if (!res.ok) return [];
+        const json = await res.json();
+        return json.devices || [];
+      } catch (e) {
+        console.warn('[IoTAction] Could not fetch devices:', e);
+        return [];
+      }
+    }
+
+    async function populateIoTDeviceRows(nodeId) {
+      const devices = await fetchIoTDeviceList();
+      const nodeEl = document.getElementById('node-' + nodeId);
+      if (!nodeEl) return;
+
+      nodeEl.querySelectorAll('.iot-device-select').forEach(select => {
+        const currentValue = select.getAttribute('data-current-value') || '';
+        select.innerHTML = '<option value="">Select device…</option>';
+        if (devices.length === 0) {
+          select.innerHTML = '<option value="">No devices registered</option>';
+          return;
+        }
+        devices.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.device_id;
+          opt.textContent = `${d.name || d.device_id} (${d.type})`;
+          if (currentValue === d.device_id) opt.selected = true;
+          select.appendChild(opt);
+        });
+      });
+    }
+
+    function addIoTDeviceRow(nodeId) {
+      const listEl = document.querySelector(`.iot-device-list[data-node-id="${nodeId}"]`);
+      if (!listEl) return;
+
+      // Remove "no devices" placeholder if present
+      const placeholder = listEl.querySelector('.text-muted');
+      if (placeholder) placeholder.remove();
+
+      const rowIndex = listEl.querySelectorAll('.iot-device-row').length;
+      const rowHtml = `
+        <div class="iot-device-row mb-2 p-2 rounded position-relative" style="background: var(--lf-input-bg); border: 1px solid var(--wf-canvas-border);" data-row-index="${rowIndex}">
+          <button type="button" class="btn btn-sm btn-outline-danger iot-remove-row-btn position-absolute" data-row="${rowIndex}" data-node-id="${nodeId}" style="top:4px;right:4px;padding:1px 5px;font-size:10px;line-height:1.2;" title="Remove">×</button>
+          <div class="lf-field-label mb-1" style="font-size:9px;">Device</div>
+          <select class="lf-node-input w-100 form-select form-select-sm iot-device-select mb-2"
+                  data-field="device_id" data-row="${rowIndex}" data-node-id="${nodeId}"
+                  data-current-value="">
+            <option value="">Loading devices…</option>
+          </select>
+          <div class="lf-field-label mb-1" style="font-size:9px;">Device action</div>
+          <select class="lf-node-input w-100 form-select form-select-sm iot-command-select mb-2" data-field="command" data-row="${rowIndex}" data-node-id="${nodeId}">
+            <option value="ON" selected>ON</option>
+            <option value="OFF">OFF</option>
+          </select>
+          <div class="lf-field-label mb-1" style="font-size:9px;">Auto-reset time (seconds, 0 = none)</div>
+          <input type="number" class="lf-node-input w-100 form-control form-control-sm iot-reset-input" data-field="auto_reset_seconds" data-row="${rowIndex}" data-node-id="${nodeId}" placeholder="0" value="0" min="0" />
+        </div>
+      `;
+      listEl.insertAdjacentHTML('beforeend', rowHtml);
+
+      // Populate the new row's device select
+      fetchIoTDeviceList().then(devices => {
+        const newSelect = listEl.querySelector(`.iot-device-row[data-row-index="${rowIndex}"] .iot-device-select`);
+        if (!newSelect) return;
+        newSelect.innerHTML = '<option value="">Select device…</option>';
+        devices.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.device_id;
+          opt.textContent = `${d.name || d.device_id} (${d.type})`;
+          newSelect.appendChild(opt);
+        });
+      });
+
+      syncIoTDevicesField(nodeId);
+    }
+
+    function syncIoTDevicesField(nodeId) {
+      // Read all device rows from the DOM and write back to Drawflow node data
+      const nodeEl = document.getElementById('node-' + nodeId);
+      if (!nodeEl) return;
+      const rows = nodeEl.querySelectorAll('.iot-device-row');
+      const devices = [];
+      rows.forEach(row => {
+        const deviceId = row.querySelector('.iot-device-select')?.value || '';
+        if (!deviceId) return;
+        devices.push({
+          device_id:          deviceId,
+          command:            row.querySelector('.iot-command-select')?.value || 'ON',
+          auto_reset_seconds: parseInt(row.querySelector('.iot-reset-input')?.value || '0', 10),
+        });
+      });
+      if (editor && editor.drawflow.drawflow.Home.data[nodeId]) {
+        editor.drawflow.drawflow.Home.data[nodeId].data.devices = devices;
+      }
+    }
+
+    // Delegate click/change events for IoT device rows
+    function _iotClickHandler(e) {
+      // Add device button
+      const addBtn = e.target.closest('.iot-add-device-btn');
+      if (addBtn) { addIoTDeviceRow(addBtn.dataset.nodeId); return; }
+
+      // Remove row button
+      const removeBtn = e.target.closest('.iot-remove-row-btn');
+      if (removeBtn) {
+        const row = removeBtn.closest('.iot-device-row');
+        const nId = removeBtn.dataset.nodeId;
+        if (row) { row.remove(); syncIoTDevicesField(nId); }
+        return;
+      }
+    }
+    document.addEventListener('click', _iotClickHandler);
+
+    function _iotChangeHandler(e) {
+      const el = e.target;
+      if (el.matches('.iot-device-select, .iot-command-select, .iot-reset-input')) {
+        const nId = el.dataset.nodeId;
+        if (nId) syncIoTDevicesField(nId);
+      }
+    }
+    document.addEventListener('change', _iotChangeHandler, true);
 
     function renderStartSections(data, nodeId) {
       const safe = (v) => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
@@ -626,7 +1024,8 @@ import { api } from '../../core/api.js';
       const cameras = await fetchCameraList();
       document.querySelectorAll('.camera-select').forEach(select => {
         const nodeId = select.getAttribute('data-node-id');
-        const node = editor && editor.getNodeFromId && editor.getNodeFromId(nodeId);
+        let node = null;
+        try { node = editor && nodeId && editor.getNodeFromId(nodeId); } catch (_) {};
         const currentValue = (node && node.data && node.data.camera_ids != null) ? String(node.data.camera_ids).split(',')[0].trim() : (select.getAttribute('data-current-value') || '').split(',')[0].trim();
         select.innerHTML = '';
         if (cameras.length === 0) {
@@ -647,6 +1046,15 @@ import { api } from '../../core/api.js';
             select.appendChild(option);
           });
         }
+        // Load preview for any pre-selected camera (saved workflow)
+        if (nodeId && currentValue) fetchAndShowCameraPreview(nodeId, currentValue);
+      });
+    }
+
+    function populateAllIoTDeviceRows() {
+      const data = editor?.drawflow?.drawflow?.Home?.data || {};
+      Object.keys(data).forEach(nodeId => {
+        if (data[nodeId]?.name === 'iot_action') populateIoTDeviceRows(nodeId);
       });
     }
 
@@ -680,17 +1088,44 @@ import { api } from '../../core/api.js';
           break;
         case 'camera_select':
           return '';
+        case 'iot_devices':
+          return '';
         case 'textarea':
           inputHtml = `<textarea class="lf-node-input w-100 form-control form-control-sm" data-field="${field.key}" placeholder="${placeholder}">${safe(value)}</textarea>`;
           break;
+        case 'readonly':
+          inputHtml = `<input type="text" class="lf-readonly-input w-100 form-control form-control-sm" value="${safe(field.value || value)}" disabled />`;
+          break;
+        case 'checkbox': {
+          // value can be boolean true/false or string "true"/"false" (from saved JSON)
+          const isChecked = (value === true || value === 'true')
+            ? 'checked'
+            : (value === false || value === 'false' ? '' : (field.default ? 'checked' : ''));
+          // Checkbox renders inline with its label — no separate label div needed
+          inputHtml = `
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input lf-node-input" type="checkbox" role="switch"
+                     data-field="${field.key}" id="wf-chk-${field.key}-${safe(value)}"
+                     ${isChecked} />
+              <label class="form-check-label small" for="wf-chk-${field.key}-${safe(value)}"
+                     style="color:var(--lf-label-color);">${field.label || field.key}</label>
+            </div>`;
+          // Checkbox has its own label — skip the outer label div
+          return `
+            <div class="d-flex align-items-start gap-2" style="padding:2px 0;">
+              <span class="lf-section-indicator ${indicatorColor}"></span>
+              <div class="flex-grow-1 min-w-0 pt-1">${inputHtml}</div>
+            </div>`;
+        }
         default:
           inputHtml = `<input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="${field.key}" placeholder="${placeholder}" value="${safe(value)}" />`;
       }
 
-      // showIf: conditional visibility support
-      const hasShowIf = field.showIf && field.showIf.field && field.showIf.value;
+      // showIf: conditional visibility — supports string and boolean match values
+      const hasShowIf = field.showIf && field.showIf.field;
+      const showIfVal  = hasShowIf ? String(field.showIf.value) : '';
       const showIfAttrs = hasShowIf
-        ? `data-show-if-field="${field.showIf.field}" data-show-if-value="${field.showIf.value}"`
+        ? `data-show-if-field="${field.showIf.field}" data-show-if-value="${showIfVal}"`
         : '';
       // Start hidden if showIf is defined; applyShowIfRules() will reveal if matched
       const hiddenStyle = hasShowIf ? 'display:none;' : '';
@@ -717,7 +1152,7 @@ import { api } from '../../core/api.js';
     // Listens for changes on any .lf-node-input select/input.
     // When the changed field matches a sibling's data-show-if-field, that
     // sibling is shown or hidden depending on whether values match.
-    document.addEventListener('change', function(e) {
+    function _showIfChangeHandler(e) {
       const input = e.target;
       if (!input.matches('.lf-node-input')) return;
 
@@ -728,13 +1163,22 @@ import { api } from '../../core/api.js';
       const nodeEl = input.closest('.drawflow-node');
       if (!nodeEl) return;
 
-      // Show/hide any conditional field wrappers that depend on this field
+      // Show/hide any conditional field wrappers that depend on this field.
+      // For checkboxes the trigger value is "true"/"false" based on .checked.
+      const triggerValue = input.type === 'checkbox' ? String(input.checked) : changedValue;
       nodeEl.querySelectorAll('[data-show-if-field]').forEach(wrapper => {
         if (wrapper.dataset.showIfField === changedFieldKey) {
-          wrapper.style.display = (changedValue === wrapper.dataset.showIfValue) ? '' : 'none';
+          wrapper.style.display = (triggerValue === wrapper.dataset.showIfValue) ? '' : 'none';
         }
       });
-    });
+
+      // Camera preview: refresh when camera selection changes
+      if (changedFieldKey === 'camera_ids') {
+        const nodeId = input.dataset.nodeId;
+        if (nodeId) fetchAndShowCameraPreview(nodeId, changedValue);
+      }
+    }
+    document.addEventListener('change', _showIfChangeHandler);
 
     // ── applyShowIfRules ─────────────────────────────────────────────────────
     // Call this after node HTML is inserted into the DOM (new node drop or
@@ -744,8 +1188,9 @@ import { api } from '../../core/api.js';
       if (!nodeEl) return;
       nodeEl.querySelectorAll('.lf-node-input').forEach(input => {
         const fieldKey = input.dataset.field;
-        const value    = input.value;
         if (!fieldKey) return;
+        // Use checked state for checkboxes so boolean showIf works correctly
+        const value = input.type === 'checkbox' ? String(input.checked) : input.value;
         nodeEl.querySelectorAll('[data-show-if-field="' + fieldKey + '"]').forEach(wrapper => {
           wrapper.style.display = (value === wrapper.dataset.showIfValue) ? '' : 'none';
         });
@@ -1027,10 +1472,42 @@ import { api } from '../../core/api.js';
     let dragNodeKey = null;
     let selectedNodeForConnection = null;
 
+    // ── Node hint tooltip (body-level div, escapes sidebar overflow:hidden) ──
+    const _tt = document.createElement('div');
+    _tt.id = 'wf-node-tooltip';
+    document.body.appendChild(_tt);
+    let _ttTimer = null;
+
+    function showNodeTooltip(el, hint) {
+      clearTimeout(_ttTimer);
+      _tt.textContent = hint;
+      _tt.classList.remove('visible');
+      const rect = el.getBoundingClientRect();
+      // Position to the right of the sidebar item; flip left if no room
+      const gap = 10;
+      let left = rect.right + gap;
+      const ttWidth = 220;
+      if (left + ttWidth > window.innerWidth - 8) {
+        left = rect.left - ttWidth - gap;
+      }
+      let top = rect.top + rect.height / 2;
+      _tt.style.left = Math.max(8, left) + 'px';
+      _tt.style.top = top + 'px';
+      _tt.style.transform = 'translateY(-50%)';
+      // Small delay before showing so fast mouse passes don't flash
+      _ttTimer = setTimeout(function () { _tt.classList.add('visible'); }, 180);
+    }
+
+    function hideNodeTooltip() {
+      clearTimeout(_ttTimer);
+      _tt.classList.remove('visible');
+    }
+
     document.querySelectorAll('.wf-section-item[draggable="true"]').forEach(el => {
       el.addEventListener('dragstart', ev => {
         dragNodeKey = el.getAttribute('data-node-key');
         ev.dataTransfer.setData('node', dragNodeKey);
+        hideNodeTooltip();
       });
       el.addEventListener('click', () => {
         const nodeKey = el.getAttribute('data-node-key');
@@ -1042,6 +1519,20 @@ import { api } from '../../core/api.js';
           updateNodeCompatibility(nodeKey);
         }
       });
+      const hint = el.getAttribute('data-node-hint');
+      if (hint) {
+        el.addEventListener('mouseenter', function () { showNodeTooltip(el, hint); });
+        el.addEventListener('mouseleave', hideNodeTooltip);
+        el.addEventListener('mousemove', function (e) {
+          // Keep tooltip near cursor vertically when hovering
+          let left = e.clientX + 14;
+          const ttWidth = 220;
+          if (left + ttWidth > window.innerWidth - 8) left = e.clientX - ttWidth - 14;
+          _tt.style.left = Math.max(8, left) + 'px';
+          _tt.style.top = e.clientY + 'px';
+          _tt.style.transform = 'translateY(-50%)';
+        });
+      }
     });
 
     function hasStartNode() {
@@ -1057,6 +1548,30 @@ import { api } from '../../core/api.js';
       editor.addNode('start', def.inputs, def.outputs, 40, 120, 'start', data, html);
     }
 
+    // ── Sidebar search filter ─────────────────────────────────────────────────
+    const sidebarSearch = document.getElementById('wf-sidebar-search');
+    if (sidebarSearch) {
+      sidebarSearch.addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        document.querySelectorAll('#wf-sidebar-node-list .wf-section-item[data-node-key]').forEach(function (el) {
+          if (!q) {
+            el.removeAttribute('data-hidden');
+            return;
+          }
+          const key = (el.getAttribute('data-node-key') || '').toLowerCase();
+          const label = (el.textContent || '').toLowerCase();
+          const hint = (el.getAttribute('data-node-hint') || '').toLowerCase();
+          const match = key.includes(q) || label.includes(q) || hint.includes(q);
+          el.setAttribute('data-hidden', match ? 'false' : 'true');
+        });
+        // Hide empty section headers
+        document.querySelectorAll('#wf-sidebar-node-list .wf-section').forEach(function (sec) {
+          const visible = sec.querySelectorAll('.wf-section-item:not([data-hidden="true"])').length > 0;
+          sec.style.display = visible ? '' : 'none';
+        });
+      });
+    }
+
     container.addEventListener('dragover', ev => ev.preventDefault());
 
     container.addEventListener('drop', ev => {
@@ -1065,13 +1580,31 @@ import { api } from '../../core/api.js';
       if (!key || !NODE_DEFINITIONS[key]) return;
       // Prevent adding multiple Start Nodes
       if (key === 'start' && hasStartNode()) {
-        alert('A Start Node already exists. Only one Start Node is allowed per workflow.');
+        toast.warning('A Start Node already exists. Only one Start Node is allowed per workflow.');
         return;
       }
       const def = NODE_DEFINITIONS[key];
-      const position = container.getBoundingClientRect();
-      const posX = (ev.clientX - position.left) / editor.zoom;
-      const posY = (ev.clientY - position.top) / editor.zoom;
+
+      // --- Accurate drop-position calculation ---
+      // Use Drawflow's transformed precanvas as coordinate source. This keeps
+      // drop placement accurate under pan/zoom and any parent layout offsets.
+      const zoom = editor.zoom != null ? editor.zoom : 1;
+      let posX;
+      let posY;
+      if (editor.precanvas) {
+        const preRect = editor.precanvas.getBoundingClientRect();
+        posX = (ev.clientX - preRect.left) / zoom;
+        posY = (ev.clientY - preRect.top) / zoom;
+      } else {
+        const canvasRect = container.getBoundingClientRect();
+        const relX = ev.clientX - canvasRect.left;
+        const relY = ev.clientY - canvasRect.top;
+        const canvasX = editor.canvas_x != null ? editor.canvas_x : 0;
+        const canvasY = editor.canvas_y != null ? editor.canvas_y : 0;
+        posX = (relX - canvasX) / zoom;
+        posY = (relY - canvasY) / zoom;
+      }
+
       const data = initialDataFor(def);
       const html = createNodeContentHtml(def, data);
       editor.addNode(key, def.inputs, def.outputs, posX, posY, key, data, html);
@@ -1136,12 +1669,18 @@ import { api } from '../../core/api.js';
             const node = editor.getNodeFromId(nodeId);
             const day = target.getAttribute('data-day');
             if (fieldKey === 'active_days' && day && node && node.data) {
+              // Special case: active_days uses comma-separated string
               const current = (node.data.active_days || '').split(',').map(s => s.trim()).filter(Boolean);
               const set = new Set(current);
               if (target.checked) set.add(day); else set.delete(day);
               value = Array.from(set).join(',');
               node.data.active_days = value;
               if (editor.drawflow.drawflow.Home.data[nodeId]) editor.drawflow.drawflow.Home.data[nodeId].data.active_days = value;
+            } else if (node && node.data) {
+              // General checkbox: save as boolean true/false
+              const boolVal = target.checked;
+              node.data[fieldKey] = boolVal;
+              if (editor.drawflow.drawflow.Home.data[nodeId]) editor.drawflow.drawflow.Home.data[nodeId].data[fieldKey] = boolVal;
             }
             return;
           }
@@ -1230,7 +1769,11 @@ import { api } from '../../core/api.js';
       });
     }
 
-    // Regenerate node HTML after import to reflect saved data values
+    // Regenerate node HTML after import to reflect saved data values.
+    // Drawflow's import() inserts raw HTML directly (bypasses our addNode override),
+    // so nodes rendered during import have nodeId='' placeholders — this pass fixes them.
+    // We do NOT strip data-input-handlers here; setupAllNodeInputHandlers is called
+    // after this and its guard prevents duplicate handler attachment.
     function refreshAllNodeHtml() {
       const data = editor?.drawflow?.drawflow?.Home?.data || {};
       Object.keys(data).forEach(nodeId => {
@@ -1240,15 +1783,18 @@ import { api } from '../../core/api.js';
         if (!nodeDef) return;
         const nodeElement = document.getElementById(`node-${nodeId}`);
         if (!nodeElement) return;
-        // Regenerate HTML with saved data
+        // Regenerate HTML with the real nodeId so data-node-id attrs are correct
         const updatedHtml = createNodeContentHtml(nodeDef, node.data || {}, nodeId);
         const contentNode = nodeElement.querySelector('.drawflow_content_node');
         if (contentNode) {
           contentNode.innerHTML = updatedHtml;
-          // Update stored HTML in drawflow data
           node.html = updatedHtml;
         }
-        // Reset the input handlers flag so it gets re-initialized
+        // Add category class if missing
+        if (!nodeElement.classList.contains(`node-cat-${nodeDef.category}`)) {
+          nodeElement.classList.add(`node-cat-${nodeDef.category}`);
+        }
+        // Remove handler guard so setupAllNodeInputHandlers re-attaches on the fresh HTML
         nodeElement.removeAttribute('data-input-handlers');
       });
     }
@@ -1275,6 +1821,14 @@ import { api } from '../../core/api.js';
         };
         attemptPopulate();
       }
+      if (name === 'iot_action') {
+        const attemptIoT = (attempt = 1) => {
+          const listEl = document.querySelector(`.iot-device-list[data-node-id="${nodeId}"]`);
+          if (listEl) populateIoTDeviceRows(nodeId);
+          else if (attempt < 10) setTimeout(() => attemptIoT(attempt + 1), 100);
+        };
+        attemptIoT();
+      }
       return nodeId;
     };
 
@@ -1290,7 +1844,11 @@ import { api } from '../../core/api.js';
       resetPortsVisibility();
       const isValid = validateConnection(connection.output_id, connection.input_id);
       if (!isValid) {
+        // Remove the connection first, then show the alert in a microtask so
+        // Drawflow finishes its DOM update before the blocking alert freezes the
+        // browser — this also ensures ports are fully reset before the alert.
         editor.removeSingleConnection(connection.output_id, connection.input_id, connection.output_class, connection.input_class);
+        resetPortsVisibility(); // re-apply after removeSingleConnection
         const sourceNode = editor.getNodeFromId(connection.output_id);
         const targetNode = editor.getNodeFromId(connection.input_id);
         const sourceDef = NODE_DEFINITIONS[sourceNode.name];
@@ -1298,7 +1856,7 @@ import { api } from '../../core/api.js';
         var msg = sourceNode.name === 'notification' && targetNode.name === 'end'
           ? 'When the Start node schedule is set to "Always", the Notification node does not connect to End. Change the schedule to Daily, Weekly, or Once to add an End node.'
           : `Invalid connection: "${sourceDef.label}" cannot connect to "${targetDef.label}". Please check the node compatibility rules.`;
-        alert(msg);
+        setTimeout(function () { toast.warning(msg); }, 0);
       } else {
         updateNotificationNodesForSchedule();
       }
@@ -1499,15 +2057,11 @@ import { api } from '../../core/api.js';
       var errorMsgEl = document.getElementById('wf-zone-error-msg');
       if (loadingEl) loadingEl.classList.remove('d-none');
       if (errorEl) errorEl.classList.add('d-none');
-      var token = getAuthToken();
-      var headers = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = 'Bearer ' + token;
-      fetch(API_BASE + '/api/v1/cameras/' + encodeURIComponent(cameraId) + '/snapshot', { method: 'GET', headers })
-        .then(r => r.json())
+      api.getCameraPreview(cameraId)
         .then(function (data) {
           if (loadingEl) loadingEl.classList.add('d-none');
           var b64 = data && data.frame_base64;
-          if (!b64) throw new Error('No frame');
+          if (!b64) throw new Error('No frame available — camera may be offline');
           var img = new Image();
           img.onload = function () {
             var canvas = document.getElementById('wf-zone-canvas');
@@ -1527,7 +2081,7 @@ import { api } from '../../core/api.js';
 
     function openZoneModal(nodeId, zoneType, editIndex) {
       var cameraId = getConnectedCameraId(nodeId);
-      if (!cameraId) { alert('Connect this Agent node to a Camera node first, and set the camera in that node.'); return; }
+      if (!cameraId) { toast.warning('Connect this Agent node to a Camera node first, and set the camera in that node.'); return; }
       zoneForNodeId = nodeId;
       zoneEditIndex = (typeof editIndex === 'number') ? editIndex : null;
       var ruleMeta = RULE_META.find(function (r) {
@@ -1623,7 +2177,29 @@ import { api } from '../../core/api.js';
 
     zoomInBtn.addEventListener('click', () => editor.zoom_in());
     zoomOutBtn.addEventListener('click', () => editor.zoom_out());
-    zoomResetBtn.addEventListener('click', () => editor.zoom_reset());
+
+    function isAppSidebarHidden() {
+      return !!mainShell && mainShell.classList.contains('wf-hide-app-sidebar');
+    }
+
+    function updateFullscreenButtonState() {
+      const icon = zoomResetBtn ? zoomResetBtn.querySelector('i') : null;
+      const isFullscreen = isAppSidebarHidden();
+      if (!zoomResetBtn || !icon) return;
+      icon.className = isFullscreen ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+      zoomResetBtn.title = isFullscreen ? 'Show Main Sidebar' : 'Hide Main Sidebar';
+      zoomResetBtn.setAttribute('aria-label', zoomResetBtn.title);
+    }
+
+    async function toggleEditorFullscreen() {
+      if (!mainShell) return;
+      mainShell.classList.toggle('wf-hide-app-sidebar');
+      updateFullscreenButtonState();
+    }
+
+    const mainShell = document.querySelector('main.main');
+    zoomResetBtn.addEventListener('click', toggleEditorFullscreen);
+    updateFullscreenButtonState();
 
     container.addEventListener('wheel', function (e) {
       e.preventDefault();
@@ -1645,81 +2221,1021 @@ import { api } from '../../core/api.js';
 
     newBtn.addEventListener('click', () => { editor.clear(); addDefaultStartNode(); });
 
+    // Prevent double-save races (save button spam, run triggering save while save is in flight)
+    let _isSaving = false;
+
     async function saveWorkflowToBackend() {
+      if (_isSaving) return null;
       if (hasUnusedEndNode()) {
-        alert('Cannot save: the Start node schedule is set to "Always" but an End node is still connected. Remove the End node (or change the schedule to Daily, Weekly, or Once) and try again.');
+        toast.warning('Cannot save: the Start node schedule is set to "Always" but an End node is still connected. Remove the End node (or change the schedule to Daily, Weekly, or Once) and try again.');
         return null;
       }
-      const exportedFlow = editor.export();
-      prepareWorkflowData(exportedFlow);
-      const bindEvent = getBindEvent(exportedFlow) || "Unbound";
-      const nameInput = document.getElementById('workflow-name-input');
-      const currentName = nameInput ? nameInput.value.trim() : '';
-      const payload = {
-        name: currentName || workflowName || 'Unnamed Workflow',
-        description: window.currentWorkflowDescription || workflowDescription || '',
-        drawflow_data: exportedFlow,
-        bind_to_event: bindEvent,
-      };
-      
-      const token = getAuthToken();
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      
-      // When editing: deactivate old workflow first, then create new one
-      if (isEditMode && editWorkflowId) {
-        // Step 1: Deactivate the existing workflow
-        const deactivateRes = await fetch(`${API_BASE}/api/v1/workflows/${editWorkflowId}`, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({ is_active: false })
-        });
-        if (deactivateRes.status === 401) { alert('Session expired. Please login again.'); return null; }
-        if (!deactivateRes.ok) {
-          const err = await deactivateRes.json();
-          alert('Failed to deactivate old Watch Dog: ' + (err.detail || 'Unknown error'));
-          return null;
+      _isSaving = true;
+      try {
+        const exportedFlow = editor.export();
+        prepareWorkflowData(exportedFlow);
+        const bindEvent = getBindEvent(exportedFlow) || "Unbound";
+        const nameInput = document.getElementById('workflow-name-input');
+        const currentName = nameInput ? nameInput.value.trim() : '';
+        const payload = {
+          name: currentName || workflowName || 'Unnamed Workflow',
+          description: window.currentWorkflowDescription || workflowDescription || '',
+          drawflow_data: exportedFlow,
+          bind_to_event: bindEvent,
+        };
+
+        const token = getAuthToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        let res, result;
+
+        if (isEditMode && editWorkflowId) {
+          // ── EDIT MODE: update existing workflow in-place via PUT ─────────────
+          // Never deactivate-then-create — that generates a new ID every save
+          // and breaks the WebSocket / execute connection to the original workflow.
+          console.log('[Save] Updating existing Watch Dog:', editWorkflowId);
+          res = await fetch(`${API_BASE}/api/v1/workflows/${editWorkflowId}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(payload),
+          });
+          if (res.status === 401) { toast.error('Session expired. Please login again.'); return null; }
+          result = await res.json();
+          if (!res.ok) {
+            toast.error('Failed to update Watch Dog: ' + (result.detail || 'Unknown error'));
+            console.error('[Save] Update error:', result);
+            return null;
+          }
+          console.log('[Save] Watch Dog updated:', result);
+        } else {
+          // ── CREATE MODE: first save, POST to create a brand-new workflow ─────
+          if (workflowOwner) payload.created_by_name = workflowOwner;
+          console.log('[Save] Creating new Watch Dog');
+          res = await fetch(`${API_BASE}/api/v1/workflows/`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+          });
+          if (res.status === 401) { toast.error('Session expired. Please login again.'); return null; }
+          result = await res.json();
+          if (!res.ok) {
+            toast.error('Failed to save Watch Dog: ' + (result.detail || 'Unknown error'));
+            console.error('[Save] Create error:', result);
+            return null;
+          }
+          console.log('[Save] Watch Dog created:', result);
+
+          // Switch to edit mode so every subsequent save is a PUT, not another POST
+          if (result.id) {
+            editWorkflowId = result.id;
+            isEditMode = true;
+            try {
+              const newUrl = new URL(window.location.href);
+              newUrl.searchParams.set('workflow_id', result.id);
+              newUrl.searchParams.set('name', result.name || '');
+              window.history.replaceState(window.history.state, '', newUrl.toString());
+            } catch (_) {}
+          }
         }
-        console.log('[Save] Deactivated old Watch Dog:', editWorkflowId);
+
+        return result;
+      } finally {
+        _isSaving = false;
       }
-      
-      // Step 2: Create new Watch Dog (for both new and edit modes)
-      // Add creator name for new Watch Dog
-      if (workflowOwner) {
-        payload.created_by_name = workflowOwner;
-      }
-      
-      const res = await fetch(API_BASE + '/api/v1/workflows/', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      });
-      if (res.status === 401) { alert('Session expired. Please login again.'); return null; }
-      const result = await res.json();
-      if (!res.ok) { alert('Failed to save Watch Dog: ' + (result.detail || 'Unknown error')); console.error('[Save] Backend error:', result); return null; }
-      console.log('[Save] Watch Dog saved:', result);
-      return result;
     }
 
     saveBtn.addEventListener('click', async () => {
+      if (_isSaving) return;
       try {
+        saveBtn.disabled = true;
         const result = await saveWorkflowToBackend();
         if (!result) return;
-        const message = isEditMode 
-          ? `Watch Dog updated successfully! New version created with ID: ${result.id}` 
-          : `Watch Dog created successfully! Watch Dog ID: ${result.id}`;
-        alert(message);
-        // Update URL to the new workflow ID (for edit mode, we now have a new ID)
-        if (result.id) {
-          window.history.replaceState({}, '', `?workflow_id=${result.id}&name=${encodeURIComponent(result.name || '')}`);
-        }
-        setTimeout(() => { navigateTo('workflow-list.html'); }, 1500);
+        toast.success('Watch Dog saved successfully!');
+        // Stay on the editor — no redirect to list
       } catch (err) {
         console.error('[Save] Unexpected error:', err);
-        alert('Error while saving Watch Dog.');
+        toast.error('Error while saving Watch Dog.');
+      } finally {
+        saveBtn.disabled = false;
       }
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // EXECUTION ENGINE — n8n-style real-time node flow
+    // ═══════════════════════════════════════════════════════════════════════
+
+    let _execWs     = null;
+    let _activeWfId = null;   // workflow id currently being run/watched
+    const _seenExecEventUids = new Set();
+
+    // ── Execution log ────────────────────────────────────────────────────────
+    const _LOG_HEIGHT_KEY = 'visionai.workflow.execLogHeight.v1';
+    const _LOG_HEIGHT_MIN = 80;
+    const _LOG_HEIGHT_DEFAULT = 160;
+
+    function _setLogHeight(px) {
+      var h = Math.max(_LOG_HEIGHT_MIN, px);
+      var root = document.querySelector('.workflow-designer') || designerRootEl;
+      if (root) root.style.setProperty('--wf-exec-log-height', h + 'px');
+      try { localStorage.setItem(_LOG_HEIGHT_KEY, String(h)); } catch (_) {}
+    }
+
+    function _isLogOpen() {
+      if (!designerRootEl) return false;
+      var h = parseInt(designerRootEl.style.getPropertyValue('--wf-exec-log-height') || '0', 10);
+      return h > 0;
+    }
+    function _execLogOpen(forceHeight) {
+      // forceHeight lets the Run button always open to at least the default,
+      // ignoring a previously-saved 0 (user closed it last time).
+      var saved = parseInt(localStorage.getItem(_LOG_HEIGHT_KEY) || '', 10);
+      var h = forceHeight
+        ? Math.max(forceHeight, _LOG_HEIGHT_DEFAULT)
+        : (Number.isFinite(saved) && saved > 0 ? saved : _LOG_HEIGHT_DEFAULT);
+      // Re-query the designer root in case the DOM was re-rendered since init
+      var root = document.querySelector('.workflow-designer') || designerRootEl;
+      if (root) root.style.setProperty('--wf-exec-log-height', h + 'px');
+      try { localStorage.setItem(_LOG_HEIGHT_KEY, String(h)); } catch (_) {}
+      var btn = document.getElementById('btn-exec-log-toggle');
+      if (btn) btn.classList.add('is-active');
+    }
+    function _execLogClose() {
+      if (designerRootEl) designerRootEl.style.setProperty('--wf-exec-log-height', '0px');
+      if (_execWs) { try { _execWs.close(); } catch (_) {} _execWs = null; }
+      var btn = document.getElementById('btn-exec-log-toggle');
+      if (btn) btn.classList.remove('is-active');
+    }
+    function _execLogToggle() {
+      if (_isLogOpen()) _execLogClose(); else _execLogOpen();
+    }
+    function _execLogClear() { const b = document.getElementById('wf-exec-log-body'); if (b) b.innerHTML = ''; }
+
+    // Wire toolbar toggle button
+    document.getElementById('btn-exec-log-toggle')?.addEventListener('click', _execLogToggle);
+
+    // Top-drag resize for exec log
+    (function () {
+      var handle = document.getElementById('wf-exec-log-resize-handle');
+      if (!handle || !designerRootEl) return;
+      var dragging = false;
+      function stopDrag() {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('is-dragging');
+        document.body.style.userSelect = '';
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      }
+      function onMove(e) {
+        if (!dragging) return;
+        var panel = document.getElementById('wf-exec-log-panel');
+        if (!panel) return;
+        var rect = panel.getBoundingClientRect();
+        // Height = bottom of panel minus pointer Y
+        var newH = rect.bottom - e.clientY;
+        _setLogHeight(newH);
+      }
+      function onUp() { stopDrag(); }
+      handle.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return;
+        dragging = true;
+        handle.classList.add('is-dragging');
+        document.body.style.userSelect = 'none';
+        handle.setPointerCapture?.(e.pointerId);
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+    })();
+
+    function _escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // ── Structured exec-log append ────────────────────────────────────────────
+    // Renders a row with: timestamp | tag pill | message text | elapsed chip
+    function _execLogAppend(text, type = 'info', opts) {
+      // opts: { tag?: string, tagClass?: string, elapsed?: string, html?: boolean }
+      const body = document.getElementById('wf-exec-log-body');
+      if (!body) return;
+      const colorMap = {
+        info:    '#94a3b8', success: '#22c55e', error:   '#ef4444',
+        warning: '#fbbf24', running: '#38bdf8', paused:  '#fbbf24',
+      };
+      const color = colorMap[type] || colorMap.info;
+      const ts    = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const tag   = opts && opts.tag       ? opts.tag      : '';
+      const tagCls= opts && opts.tagClass  ? opts.tagClass : 'wf-log-tag--system';
+      const elapsed = opts && opts.elapsed ? opts.elapsed  : '';
+      const useHtml = opts && opts.html;
+
+      const line = document.createElement('div');
+      line.className = 'wf-exec-log-line';
+      const msgContent = useHtml ? text : _escHtml(text);
+      line.innerHTML = [
+        `<span class="wf-log-ts">${ts}</span>`,
+        tag ? `<span class="wf-log-tag ${tagCls}">${_escHtml(tag)}</span>` : '',
+        `<span class="wf-log-msg" style="color:${color};">${msgContent}</span>`,
+        elapsed ? `<span class="wf-log-elapsed">${_escHtml(elapsed)}</span>` : '',
+      ].join('');
+      body.appendChild(line);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    // ── Topbar button state ───────────────────────────────────────────────────
+    function _updateTopbarButtons(overallStatus) {
+      const runBtn    = document.getElementById('btn-run-workflow');
+      const stopBtn   = document.getElementById('btn-stop-workflow');
+      const pauseBtn  = document.getElementById('btn-pause-workflow');
+      const resumeBtn = document.getElementById('btn-resume-workflow');
+      const isRunning = overallStatus === 'running';
+      const isPaused  = overallStatus === 'paused';
+      const isDone    = ['inactive','completed','cancelled','stopped','error','unknown'].includes(overallStatus);
+
+      if (runBtn) {
+        runBtn.disabled = !isDone;
+        runBtn.innerHTML = isDone
+          ? '<i class="fa-solid fa-play"></i><span>Run Watch Dog</span>'
+          : '<i class="fa-solid fa-circle-dot"></i><span>Running…</span>';
+      }
+      if (stopBtn)   stopBtn.style.display   = !isDone    ? '' : 'none';
+      if (pauseBtn)  pauseBtn.style.display  = isRunning  ? '' : 'none';
+      if (resumeBtn) resumeBtn.style.display = isPaused   ? '' : 'none';
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // n8n-style LIVE NODE STATUS SYSTEM
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Three visual layers per node:
+    //
+    //   1. STATUS BADGE  (.wf-n8n-badge)
+    //      A small circle in the top-right corner.
+    //      Shows a spinner while running, a ✓ when done, ✗ on error, etc.
+    //      Set by  _setNodeStatus(nodeId, status).
+    //
+    //   2. EVENT FLASH  (.wf-event-flash)
+    //      A brief green glow pulse added when the node processes something
+    //      (detection fired, notification sent).  Auto-removed after 700 ms.
+    //      Triggered by  _flashNodeEvent(nodeId).
+    //
+    //   3. EVENT COUNT BADGE  (.wf-event-count-badge)
+    //      A small pill at the bottom of the node showing "N events".
+    //      Increments every time a detection fires on that agent node.
+    //      Managed by  _incrementNodeEventCount(nodeId).
+    //
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const _NODE_STATUS_BADGE_CLASS   = 'wf-n8n-badge';
+    const _NODE_EVENT_COUNT_CLASS    = 'wf-event-count-badge';
+    const _NODE_ELAPSED_CHIP_CLASS   = 'wf-node-elapsed-chip';
+    const _NODE_ERROR_CALLOUT_CLASS  = 'wf-node-error-callout';
+
+    // Internal counter map: drawflowNodeId → number of detection events seen
+    const _nodeEventCounts = {};
+
+    // Node start-time map for elapsed calculation: drawflowNodeId → Date
+    const _nodeStartTimes = {};
+
+    // ── Helper: get or create the status badge overlay ───────────────────────
+    function _getOrCreateStatusBadge(nodeEl) {
+      let badge = nodeEl.querySelector('.' + _NODE_STATUS_BADGE_CLASS);
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = _NODE_STATUS_BADGE_CLASS;
+        nodeEl.appendChild(badge);
+      }
+      return badge;
+    }
+
+    // ── Helper: get or create the event count badge ──────────────────────────
+    function _getOrCreateEventCountBadge(nodeEl) {
+      let badge = nodeEl.querySelector('.' + _NODE_EVENT_COUNT_CLASS);
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = _NODE_EVENT_COUNT_CLASS;
+        nodeEl.appendChild(badge);
+      }
+      return badge;
+    }
+
+    // ── Helper: get or create elapsed-time chip ───────────────────────────────
+    function _getOrCreateElapsedChip(nodeEl) {
+      let chip = nodeEl.querySelector('.' + _NODE_ELAPSED_CHIP_CLASS);
+      if (!chip) {
+        chip = document.createElement('div');
+        chip.className = _NODE_ELAPSED_CHIP_CLASS;
+        nodeEl.appendChild(chip);
+      }
+      return chip;
+    }
+
+    // ── Helper: inject (or replace) inline error callout inside node card ─────
+    function _setNodeErrorCallout(drawflowNodeId, errorText) {
+      if (!drawflowNodeId || !errorText) return;
+      const nodeEl = document.getElementById('node-' + drawflowNodeId);
+      if (!nodeEl) return;
+      // Remove any existing callout first
+      nodeEl.querySelectorAll('.' + _NODE_ERROR_CALLOUT_CLASS).forEach(el => el.remove());
+      const callout = document.createElement('div');
+      callout.className = _NODE_ERROR_CALLOUT_CLASS;
+      callout.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><span>${_escHtml(errorText)}</span>`;
+      // Append inside the card body if it exists, else inside the node element
+      const cardBody = nodeEl.querySelector('.lf-card-body');
+      (cardBody || nodeEl).appendChild(callout);
+    }
+
+    // ── Canvas-level success / error / stopped banner ─────────────────────────
+    // Shown at top-center of the canvas, auto-dismissed after 8 s (success)
+    // or left until manually closed (error).
+    let _canvasBannerTimer = null;
+
+    function _showCanvasBanner(type, title, sub) {
+      // type: 'success' | 'error' | 'stopped'
+      const canvas = document.getElementById('drawflow');
+      if (!canvas) return;
+
+      // Remove existing banner
+      canvas.querySelectorAll('.wf-canvas-banner').forEach(el => el.remove());
+      if (_canvasBannerTimer) { clearTimeout(_canvasBannerTimer); _canvasBannerTimer = null; }
+
+      const iconMap = { success: 'fa-circle-check', error: 'fa-circle-xmark', stopped: 'fa-stop-circle' };
+      const banner = document.createElement('div');
+      banner.className = `wf-canvas-banner wf-canvas-banner--${type}`;
+      banner.innerHTML = `
+        <i class="fa-solid ${iconMap[type] || 'fa-info-circle'} wf-canvas-banner__icon"></i>
+        <div class="wf-canvas-banner__text">
+          <div class="wf-canvas-banner__title">${_escHtml(title)}</div>
+          ${sub ? `<div class="wf-canvas-banner__sub">${_escHtml(sub)}</div>` : ''}
+        </div>
+        <button class="wf-canvas-banner__close" title="Dismiss"><i class="fa-solid fa-xmark"></i></button>
+      `;
+      banner.querySelector('.wf-canvas-banner__close').addEventListener('click', () => banner.remove());
+      canvas.appendChild(banner);
+
+      // Auto-dismiss success after 8 s; keep error until user closes
+      if (type === 'success' || type === 'stopped') {
+        _canvasBannerTimer = setTimeout(() => banner.remove(), 8000);
+      }
+    }
+
+    function _dismissCanvasBanner() {
+      const canvas = document.getElementById('drawflow');
+      if (canvas) canvas.querySelectorAll('.wf-canvas-banner').forEach(el => el.remove());
+      if (_canvasBannerTimer) { clearTimeout(_canvasBannerTimer); _canvasBannerTimer = null; }
+    }
+
+    // ── Execution progress bar helpers ────────────────────────────────────────
+    function _getOrCreateProgressBar() {
+      const canvas = document.getElementById('drawflow');
+      if (!canvas) return null;
+      let bar = canvas.querySelector('.wf-exec-progress-bar');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.className = 'wf-exec-progress-bar';
+        canvas.appendChild(bar);
+      }
+      return bar;
+    }
+
+    function _progressStart() {
+      const bar = _getOrCreateProgressBar();
+      if (!bar) return;
+      bar.classList.remove('is-done', 'is-error', 'is-indeterminate');
+      bar.style.width = '0%';
+      bar.style.opacity = '1';
+      // Small delay then go indeterminate — feels like real progress
+      setTimeout(() => bar.classList.add('is-indeterminate'), 30);
+    }
+
+    function _progressDone(isError) {
+      const bar = _getOrCreateProgressBar();
+      if (!bar) return;
+      bar.classList.remove('is-indeterminate');
+      bar.classList.add(isError ? 'is-error' : 'is-done');
+      // The CSS transition fades it out; remove from DOM after fade
+      setTimeout(() => bar && bar.remove(), 900);
+    }
+
+    // ── Live-edge management: persistent animated edges while monitoring ───────
+    // _liveEdgeNodeIds: set of drawflowNodeIds whose outgoing edges are "live"
+    const _liveEdgeNodeIds = new Set();
+
+    function _setEdgeLive(drawflowNodeId, live) {
+      if (!drawflowNodeId) return;
+      if (live) {
+        _liveEdgeNodeIds.add(drawflowNodeId);
+        _getEdgesFromNode(drawflowNodeId).forEach(path => path.classList.add('wf-edge--live'));
+      } else {
+        _liveEdgeNodeIds.delete(drawflowNodeId);
+        _getEdgesFromNode(drawflowNodeId).forEach(path => path.classList.remove('wf-edge--live'));
+      }
+    }
+
+    function _clearAllLiveEdges() {
+      document.querySelectorAll('.wf-edge--live').forEach(p => p.classList.remove('wf-edge--live'));
+      _liveEdgeNodeIds.clear();
+    }
+
+    // ── Set the persistent status of a node (running / done / error / etc.) ──
+    function _setNodeStatus(drawflowNodeId, status, opts) {
+      // opts: { errorText?: string }
+      if (!drawflowNodeId) return;
+      const el = document.getElementById('node-' + drawflowNodeId);
+      if (!el) return;
+      const s = (status || '').toLowerCase();
+
+      // Track node start time for elapsed calculation
+      if (s === 'running' || s === 'monitoring') {
+        if (!_nodeStartTimes[drawflowNodeId]) _nodeStartTimes[drawflowNodeId] = Date.now();
+      }
+
+      // Remove all existing state classes before adding the new one
+      el.classList.remove(
+        'wf-node--idle', 'wf-node--running', 'wf-node--done',
+        'wf-node--error', 'wf-node--paused', 'wf-node--stopped'
+      );
+
+      const badge = _getOrCreateStatusBadge(el);
+
+      const statusConfig = {
+        running:    { cls: 'wf-node--running', html: '<span class="wf-badge-spin"></span>', tip: 'Running…'   },
+        completed:  { cls: 'wf-node--done',    html: '<i class="fa-solid fa-check"></i>',  tip: 'Completed'  },
+        error:      { cls: 'wf-node--error',   html: '<i class="fa-solid fa-xmark"></i>',  tip: 'Error'      },
+        paused:     { cls: 'wf-node--paused',  html: '<i class="fa-solid fa-pause"></i>',  tip: 'Paused'     },
+        stopped:    { cls: 'wf-node--stopped', html: '<i class="fa-solid fa-stop"></i>',   tip: 'Stopped'    },
+        cancelled:  { cls: 'wf-node--stopped', html: '<i class="fa-solid fa-stop"></i>',   tip: 'Cancelled'  },
+        monitoring: { cls: 'wf-node--running', html: '<span class="wf-badge-spin"></span>', tip: 'Monitoring' },
+        scheduled:  { cls: 'wf-node--paused',  html: '<i class="fa-solid fa-clock"></i>',  tip: 'Scheduled'  },
+      };
+
+      const cfg = statusConfig[s] || null;
+      if (cfg) {
+        el.classList.add(cfg.cls);
+        badge.innerHTML     = cfg.html;
+        badge.title         = cfg.tip;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+
+      // Show elapsed time chip when a node finishes (completed / error / stopped)
+      if ((s === 'completed' || s === 'error' || s === 'stopped' || s === 'cancelled') && _nodeStartTimes[drawflowNodeId]) {
+        const ms      = Date.now() - _nodeStartTimes[drawflowNodeId];
+        const elapsed = ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+        const chip    = _getOrCreateElapsedChip(el);
+        chip.textContent = elapsed;
+        delete _nodeStartTimes[drawflowNodeId];
+      }
+
+      // Inline error callout inside the card body
+      if (s === 'error' && opts && opts.errorText) {
+        _setNodeErrorCallout(drawflowNodeId, opts.errorText);
+      } else if (s !== 'error') {
+        // Clear any previous error callout when status changes away from error
+        el.querySelectorAll('.' + _NODE_ERROR_CALLOUT_CLASS).forEach(c => c.remove());
+      }
+    }
+
+    // ── Flash a node briefly (used for detection events, notification sends) ─
+    // Adds the CSS flash animation class, then removes it after the animation
+    // finishes.  Does NOT change the node's persistent status.
+    function _flashNodeEvent(drawflowNodeId) {
+      if (!drawflowNodeId) return;
+      const el = document.getElementById('node-' + drawflowNodeId);
+      if (!el) return;
+
+      // Remove and re-add the class so it restarts the animation if it is
+      // already running (rapid back-to-back detections).
+      el.classList.remove('wf-event-flash');
+      // Force a reflow so the browser registers the removal before re-adding
+      void el.offsetWidth;
+      el.classList.add('wf-event-flash');
+      setTimeout(() => el.classList.remove('wf-event-flash'), 700);
+    }
+
+    // ── Increment the event count badge on an agent node ─────────────────────
+    // Called every time a "detection_event" fires on this node.
+    // Shows a small "N events" pill at the bottom of the card.
+    function _incrementNodeEventCount(drawflowNodeId) {
+      if (!drawflowNodeId) return;
+      const el = document.getElementById('node-' + drawflowNodeId);
+      if (!el) return;
+
+      // Update the in-memory counter
+      _nodeEventCounts[drawflowNodeId] = (_nodeEventCounts[drawflowNodeId] || 0) + 1;
+      const count = _nodeEventCounts[drawflowNodeId];
+
+      const badge = _getOrCreateEventCountBadge(el);
+      badge.textContent = count === 1 ? '1 event' : `${count} events`;
+
+      // Animate the bump (CSS handles the scale keyframe)
+      badge.classList.remove('wf-count-bump');
+      void badge.offsetWidth;  // force reflow to restart animation
+      badge.classList.add('wf-count-bump');
+    }
+
+    // ── Reset every node back to its idle (no-status) state ──────────────────
+    function _resetAllNodeStatus() {
+      document.querySelectorAll('.drawflow-node').forEach(el => {
+        el.classList.remove(
+          'wf-node--idle', 'wf-node--running', 'wf-node--done',
+          'wf-node--error', 'wf-node--paused', 'wf-node--stopped', 'wf-event-flash'
+        );
+        const statusBadge = el.querySelector('.' + _NODE_STATUS_BADGE_CLASS);
+        if (statusBadge) statusBadge.style.display = 'none';
+        el.querySelector('.' + _NODE_EVENT_COUNT_CLASS)?.remove();
+        el.querySelector('.' + _NODE_ELAPSED_CHIP_CLASS)?.remove();
+        el.querySelectorAll('.' + _NODE_ERROR_CALLOUT_CLASS).forEach(c => c.remove());
+      });
+      Object.keys(_nodeEventCounts).forEach(k => delete _nodeEventCounts[k]);
+      Object.keys(_nodeStartTimes).forEach(k => delete _nodeStartTimes[k]);
+      // Clear dedup set so re-runs don't silently drop events from previous run
+      _seenExecEventUids.clear();
+      _clearAllEdgeAnimations();
+      _clearAllLiveEdges();
+      _dismissCanvasBanner();
+    }
+
+    // ── Animated edge helpers ─────────────────────────────────────────────────
+    // Drawflow renders connections as:
+    //   <div class="connection node_out_node-1 node_in_node-3">
+    //     <svg><path class="main-path" /></svg>
+    //   </div>
+    // We add .wf-edge--active to the <path> to trigger the flow animation.
+
+    function _getEdgesFromNode(drawflowNodeId) {
+      const paths = [];
+      document.querySelectorAll('.drawflow .connection').forEach(conn => {
+        // conn.className can be SVGAnimatedString on SVG child elements — always
+        // coerce to a plain string before calling .includes()
+        const cls = typeof conn.className === 'string'
+          ? conn.className
+          : (conn.getAttribute('class') || '');
+        if (cls.includes(`node_out_node-${drawflowNodeId}`) || cls.includes(`node_out_node${drawflowNodeId}`)) {
+          const path = conn.querySelector('path.main-path');
+          if (path) paths.push(path);
+        }
+      });
+      return paths;
+    }
+
+    function _animateEdgesFromNode(drawflowNodeId) {
+      _getEdgesFromNode(drawflowNodeId).forEach(path => {
+        path.classList.add('wf-edge--active');
+        setTimeout(() => path.classList.remove('wf-edge--active'), 1400);
+      });
+    }
+
+    function _clearAllEdgeAnimations() {
+      document.querySelectorAll('.wf-edge--active').forEach(p => p.classList.remove('wf-edge--active'));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // LOG LINE BUILDER
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Each event type gets a specific icon prefix and colour so the log
+    // panel reads like a real execution trace (similar to n8n's execution log).
+    //
+    // Icons used:
+    //   ▶  workflow started / node started
+    //   ✓  completed / agent created
+    //   ✗  error
+    //   ●  monitoring / running
+    //   ⏸  paused
+    //   ■  stopped / cancelled
+    //   ⚡  detection fired
+    //   ✉  notification sent
+    //   🔔  alarm triggered   (plain text fallback: [ALARM])
+    //   📄  report sent       (plain text fallback: [REPORT])
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Maps event name → { logType, icon, labelFn }
+    // logType controls the colour in _execLogAppend.
+    // icon    is prepended to the message.
+    // labelFn is a function(msg, nodeType, error, agents, extra) → string
+    //         that builds the final human-readable log line.
+    // _EVENT_LOG_CONFIG maps event name → { logType, tag, tagClass, labelFn, useHtml? }
+    const _EVENT_LOG_CONFIG = {
+
+      // ── Workflow lifecycle ────────────────────────────────────────────────
+      workflow_started: {
+        logType: 'running', tag: 'Workflow', tagClass: 'wf-log-tag--system',
+        labelFn: (msg) => msg || 'Workflow started',
+      },
+      workflow_completed: {
+        logType: 'success', tag: 'Workflow', tagClass: 'wf-log-tag--system',
+        labelFn: (msg) => msg || 'Workflow ready — agents monitoring',
+      },
+      workflow_error: {
+        logType: 'error', tag: 'Error', tagClass: 'wf-log-tag--error',
+        labelFn: (msg, _nt, error) => (msg || 'Workflow error') + (error ? ` — ${error}` : ''),
+      },
+      workflow_stopped: {
+        logType: 'warning', tag: 'Stopped', tagClass: 'wf-log-tag--system',
+        labelFn: (msg) => msg || 'Workflow stopped',
+      },
+      workflow_paused: {
+        logType: 'warning', tag: 'Paused', tagClass: 'wf-log-tag--system',
+        labelFn: (msg) => msg || 'Workflow paused',
+      },
+      workflow_resumed: {
+        logType: 'success', tag: 'Resumed', tagClass: 'wf-log-tag--system',
+        labelFn: (msg) => msg || 'Workflow resumed',
+      },
+
+      // ── Node setup ───────────────────────────────────────────────────────
+      node_started: {
+        logType: 'info',
+        labelFn: (msg, nodeType) => msg || `${_nodeTypeLabel(nodeType) || 'Node'} starting…`,
+        tagFn: (nodeType) => _nodeTypeLabel(nodeType) || null,
+        tagClsFn: (nodeType) => _nodeTypeTagClass(nodeType),
+      },
+      node_completed: {
+        logType: 'success',
+        labelFn: (msg, nodeType) => msg || `${_nodeTypeLabel(nodeType) || 'Node'} configured`,
+        tagFn: (nodeType) => _nodeTypeLabel(nodeType) || null,
+        tagClsFn: (nodeType) => _nodeTypeTagClass(nodeType),
+      },
+      node_error: {
+        logType: 'error', tag: 'Error', tagClass: 'wf-log-tag--error',
+        labelFn: (msg, nodeType, error) => {
+          const base = msg || `${_nodeTypeLabel(nodeType) || 'Node'} error`;
+          return base + (error ? ` — ${error}` : '');
+        },
+      },
+
+      // ── Agent created ────────────────────────────────────────────────────
+      agent_created: {
+        logType: 'success', tag: 'Agent', tagClass: 'wf-log-tag--agent',
+        labelFn: (msg) => msg || 'Agent created',
+      },
+
+      // ── Agent status heartbeat ───────────────────────────────────────────
+      agent_status_changed: {
+        logType: 'info', tag: 'Status', tagClass: 'wf-log-tag--system',
+        useHtml: true,
+        labelFn: (_msg, _nt, _err, agents) => _buildAgentStatusHtml(agents),
+      },
+      status_sync: {
+        logType: 'info', tag: 'Sync', tagClass: 'wf-log-tag--system',
+        useHtml: true,
+        labelFn: (_msg, _nt, _err, agents) => _buildAgentStatusHtml(agents),
+      },
+
+      // ── Runtime events ───────────────────────────────────────────────────
+      detection_event: {
+        logType: 'warning', tag: 'Detection', tagClass: 'wf-log-tag--agent',
+        labelFn: (msg, _nt, _err, _agents, extra) => {
+          const sev = extra && extra.severity ? ` [${extra.severity}]` : '';
+          return (msg || 'Detection fired') + sev;
+        },
+      },
+      notification_triggered: {
+        logType: 'success', tag: 'Notify', tagClass: 'wf-log-tag--notification',
+        labelFn: (msg) => msg || 'Notification sent',
+      },
+      alarm_triggered: {
+        logType: 'error', tag: 'Alarm', tagClass: 'wf-log-tag--alarm',
+        labelFn: (msg) => msg || 'Alarm triggered',
+      },
+      report_generated: {
+        logType: 'success', tag: 'Report', tagClass: 'wf-log-tag--report',
+        labelFn: (msg) => msg || 'Report generated',
+      },
+    };
+
+    // Map node type to log tag CSS class
+    function _nodeTypeTagClass(nodeType) {
+      const m = {
+        camera:                     'wf-log-tag--camera',
+        class_detection_agent:      'wf-log-tag--agent',
+        class_detection_zone_agent: 'wf-log-tag--agent',
+        object_count_agent:         'wf-log-tag--agent',
+        person_behaviour_agent:     'wf-log-tag--agent',
+        vlm_agent:                  'wf-log-tag--agent',
+        notification:               'wf-log-tag--notification',
+        alarm_notification:         'wf-log-tag--alarm',
+        iot_action:                 'wf-log-tag--iot',
+        report:                     'wf-log-tag--report',
+      };
+      return m[nodeType] || 'wf-log-tag--system';
+    }
+
+    // Convert internal node type strings to friendly display labels
+    function _nodeTypeLabel(nodeType) {
+      if (!nodeType || nodeType === '__graph_parse__') return '';
+      const labels = {
+        start:                     'Start',
+        camera:                    'Camera',
+        class_detection_agent:     'Object Detection',
+        class_detection_zone_agent:'Zone Detection',
+        object_count_agent:        'Object Counter',
+        person_behaviour_agent:    'Person Behaviour',
+        vlm_agent:                 'VLM',
+        notification:              'Notification',
+        alarm_notification:        'Alarm',
+        iot_action:                'IoT Action',
+        report:                    'Report',
+        end:                       'End',
+        parse:                     '',   // internal, not shown
+        detection:                 '',   // shown via message content instead
+      };
+      return labels[nodeType] !== undefined ? labels[nodeType] : nodeType;
+    }
+
+    // Build structured HTML rows for agent status heartbeat events
+    function _buildAgentStatusHtml(agents) {
+      if (!agents || agents.length === 0) return 'Agent status update';
+      return agents.map(a => {
+        const s    = a.paused ? 'Paused' : (a.status || 'Unknown');
+        const dotCls = s === 'Monitoring' ? 'wf-log-agent-dot--running'
+                     : s === 'Error'      ? 'wf-log-agent-dot--error'
+                     : s === 'Cancelled'  ? 'wf-log-agent-dot--stopped'
+                     : s === 'Paused'     ? 'wf-log-agent-dot--paused'
+                     : s === 'Completed'  ? 'wf-log-agent-dot--done'
+                     : 'wf-log-agent-dot--stopped';
+        const name = _escHtml(a.name || a.id || 'agent');
+        return `<span class="wf-log-agent-row"><span class="wf-log-agent-dot ${dotCls}"></span>${name}: ${_escHtml(s)}</span>`;
+      }).join('');
+    }
+
+    // Build log line text + structured opts for _execLogAppend
+    // Returns { text, type, opts } where opts = { tag, tagClass, elapsed, html }
+    function _buildLogEntry(event, msg, nodeType, error, agents, extra) {
+      const cfg = _EVENT_LOG_CONFIG[event];
+      if (!cfg) {
+        const label = _nodeTypeLabel(nodeType);
+        return {
+          text: label ? `${label}: ${msg || event}` : (msg || event),
+          type: 'info',
+          opts: { tag: label || null, tagClass: _nodeTypeTagClass(nodeType) },
+        };
+      }
+      const text = cfg.labelFn(msg, nodeType, error, agents, extra);
+      // Resolve tag — some entries use tagFn for dynamic tags
+      const tag    = cfg.tagFn    ? cfg.tagFn(nodeType)    : (cfg.tag    || null);
+      const tagCls = cfg.tagClsFn ? cfg.tagClsFn(nodeType) : (cfg.tagClass || 'wf-log-tag--system');
+      return {
+        text,
+        type: cfg.logType || 'info',
+        opts: { tag, tagClass: tagCls, html: cfg.useHtml || false },
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // WEBSOCKET CONNECTION + MESSAGE HANDLER
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function _connectExecWs(workflowId) {
+      _activeWfId = workflowId;
+      if (_execWs) { try { _execWs.close(); } catch (_) {} _execWs = null; }
+
+      const token  = getAuthToken();
+      const wsBase = API_BASE.replace(/^http/, 'ws');
+      const url    = `${wsBase}/api/v1/workflows/${workflowId}/ws?token=${encodeURIComponent(token)}`;
+
+      try { _execWs = new WebSocket(url); }
+      catch (e) {
+        _execLogAppend('Could not open event stream: ' + e.message, 'warning', { tag: 'WS', tagClass: 'wf-log-tag--error' });
+        return;
+      }
+
+      // Start indeterminate progress bar — graph parse is about to begin
+      _progressStart();
+
+      _execWs.onopen = () => _execLogAppend('Connected to live event stream', 'success', { tag: 'WS', tagClass: 'wf-log-tag--system' });
+
+      _execWs.onmessage = (evt) => {
+        let msg;
+        try { msg = JSON.parse(evt.data); } catch { return; }
+
+        if (msg.type === 'error') {
+          _execLogAppend('Auth error: ' + (msg.message || ''), 'error', { tag: 'Auth', tagClass: 'wf-log-tag--error' });
+          return;
+        }
+        if (msg.type !== 'workflow_event') { return; }
+
+        const event    = msg.event     || '';
+        const eventUid = msg.event_uid || '';
+
+        // Deduplicate events (NATS + MongoDB can both deliver same event_uid)
+        if (eventUid) {
+          if (_seenExecEventUids.has(eventUid)) return;
+          _seenExecEventUids.add(eventUid);
+          if (_seenExecEventUids.size > 2000) {
+            const first = _seenExecEventUids.values().next();
+            if (!first.done) _seenExecEventUids.delete(first.value);
+          }
+        }
+
+        const nodeId   = msg.node_id   || '';
+        const nodeType = msg.node_type || '';
+        const status   = msg.status    || '';
+        const message  = msg.message   || '';
+        const error    = msg.error     || '';
+        const agents   = msg.agents    || [];
+        const extra    = msg.extra     || {};
+
+        // ─────────────────────────────────────────────────────────────────
+        // SECTION A: Canvas node status badges + inline error callouts
+        // ─────────────────────────────────────────────────────────────────
+
+        if (nodeId && nodeId !== '__graph_parse__') {
+
+          if (event === 'node_started') {
+            _setNodeStatus(nodeId, 'running');
+          }
+
+          if (event === 'node_error') {
+            _setNodeStatus(nodeId, 'error', { errorText: error || message });
+          }
+
+          if (event === 'node_completed') {
+            _setNodeStatus(nodeId, 'completed');
+            _animateEdgesFromNode(nodeId);     // one-shot flash
+          }
+
+          if (event === 'agent_created') {
+            _setNodeStatus(nodeId, 'completed');
+            _animateEdgesFromNode(nodeId);
+          }
+
+          if (event === 'detection_event') {
+            _flashNodeEvent(nodeId);
+            _animateEdgesFromNode(nodeId);
+            _incrementNodeEventCount(nodeId);
+          }
+
+          if (event === 'notification_triggered' ||
+              event === 'alarm_triggered'        ||
+              event === 'report_generated') {
+            _flashNodeEvent(nodeId);
+            _animateEdgesFromNode(nodeId);
+          }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // SECTION B: Agent heartbeat → canvas badges + persistent live edges
+        // ─────────────────────────────────────────────────────────────────
+
+        if (event === 'agent_status_changed' || event === 'status_sync') {
+          agents.forEach(agent => {
+            const agentNodeId  = agent.drawflow_agent_node_id;
+            const cameraNodeId = agent.drawflow_camera_node_id;
+            const agentStatus  = (agent.status || '').toLowerCase();
+            const isPaused     = !!agent.paused;
+
+            if (!agentNodeId) return;
+
+            const displayStatus = isPaused                       ? 'paused'
+              : agentStatus === 'monitoring'                     ? 'monitoring'
+              : agentStatus === 'cancelled'                      ? 'cancelled'
+              : agentStatus;
+
+            _setNodeStatus(agentNodeId, displayStatus);
+
+            // Persistent live-edge animation while agent is monitoring
+            const isLive = agentStatus === 'monitoring' && !isPaused;
+            if (cameraNodeId) {
+              _setNodeStatus(cameraNodeId, isLive ? 'running' : displayStatus);
+              _setEdgeLive(cameraNodeId, isLive);
+            }
+            _setEdgeLive(agentNodeId, isLive);
+          });
+
+          _updateTopbarButtons(status);
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // SECTION C: Topbar buttons + progress bar + canvas banners
+        // ─────────────────────────────────────────────────────────────────
+
+        if (event === 'workflow_started') {
+          _updateTopbarButtons('running');
+          // Progress bar stays indeterminate until workflow_completed / error
+        }
+
+        if (event === 'workflow_completed') {
+          _progressDone(false);
+          _updateTopbarButtons('completed');
+          _clearAllLiveEdges();
+          const agentCount = (msg.agents || []).length || '';
+          _showCanvasBanner('success',
+            'Workflow executed successfully',
+            message || (agentCount ? `${agentCount} agent(s) now monitoring` : 'Agents are monitoring'),
+          );
+        }
+
+        if (event === 'workflow_error') {
+          _progressDone(true);
+          _updateTopbarButtons('error');
+          _clearAllLiveEdges();
+          _showCanvasBanner('error',
+            'Workflow execution failed',
+            error || message || 'Check the execution log for details',
+          );
+        }
+
+        if (event === 'workflow_stopped') {
+          _updateTopbarButtons('stopped');
+          _clearAllLiveEdges();
+          // Reset all running nodes to stopped
+          document.querySelectorAll('.wf-node--running').forEach(el => {
+            el.classList.replace('wf-node--running', 'wf-node--stopped');
+            const b = el.querySelector('.' + _NODE_STATUS_BADGE_CLASS);
+            if (b) b.innerHTML = '<i class="fa-solid fa-stop"></i>';
+          });
+          _showCanvasBanner('stopped', 'Workflow stopped', message || '');
+        }
+
+        if (event === 'workflow_paused') {
+          _updateTopbarButtons('paused');
+        }
+
+        if (event === 'workflow_resumed') {
+          _updateTopbarButtons('running');
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // SECTION D: Structured execution log
+        // ─────────────────────────────────────────────────────────────────
+
+        // Skip noisy heartbeat lines from the log panel — they update the
+        // canvas badges but don't need to flood the text log every 5 s.
+        if (event === 'agent_status_changed' || event === 'status_sync') {
+          // Only log the first status_sync at connect; skip all subsequent heartbeats
+          if (event === 'status_sync' && agents && agents.length > 0) {
+            const entry = _buildLogEntry(event, message, nodeType, error, agents, extra);
+            _execLogAppend(entry.text, entry.type, entry.opts);
+          }
+          return;
+        }
+
+        const entry = _buildLogEntry(event, message, nodeType, error, agents, extra);
+        _execLogAppend(entry.text, entry.type, entry.opts);
+      };
+
+      _execWs.onclose = () => {
+        _execLogAppend('Event stream closed', 'info', { tag: 'WS', tagClass: 'wf-log-tag--system' });
+        _execWs = null;
+      };
+      _execWs.onerror = () => _execLogAppend('Event stream error', 'warning', { tag: 'WS', tagClass: 'wf-log-tag--error' });
+    }
+
+    // ── Wire exec log panel buttons ──────────────────────────────────────────
+    document.getElementById('wf-exec-log-close')?.addEventListener('click', _execLogClose);
+    document.getElementById('wf-exec-log-clear')?.addEventListener('click', _execLogClear);
+
+    // ── Stop / Pause / Resume from topbar ────────────────────────────────────
+    async function _wfAction(action, successMsg, warnMsg) {
+      const wid = _activeWfId || editWorkflowId;
+      if (!wid) return;
+      if (action === 'stop' && !confirm('Stop this Watch Dog?')) return;
+      try {
+        const token = getAuthToken();
+        await fetch(`${API_BASE}/api/v1/workflows/${wid}/${action}`, {
+          method: 'POST', headers: { Authorization: `Bearer ${token}` }
+        });
+        const actionTag = { stop: 'Stopped', pause: 'Paused', resume: 'Resumed' }[action] || action;
+        const actionType = (action === 'stop' || action === 'pause') ? 'warning' : 'success';
+        _execLogAppend(successMsg, actionType, { tag: actionTag, tagClass: 'wf-log-tag--system' });
+        toast[action === 'resume' ? 'success' : 'warning']?.(successMsg) || toast.info(successMsg);
+        // Immediately reflect on canvas
+        if (action === 'stop') {
+          _clearAllLiveEdges();
+          document.querySelectorAll('.wf-node--running').forEach(el => {
+            el.classList.replace('wf-node--running', 'wf-node--stopped');
+            const b = el.querySelector('.' + _NODE_STATUS_BADGE_CLASS);
+            if (b) b.innerHTML = '<i class="fa-solid fa-stop"></i>';
+          });
+          _updateTopbarButtons('stopped');
+          _showCanvasBanner('stopped', 'Workflow stopped', 'All agents have been terminated.');
+        }
+        if (action === 'pause') {
+          _clearAllLiveEdges();
+          document.querySelectorAll('.wf-node--running').forEach(el => {
+            el.classList.replace('wf-node--running', 'wf-node--paused');
+            const b = el.querySelector('.' + _NODE_STATUS_BADGE_CLASS);
+            if (b) b.innerHTML = '<i class="fa-solid fa-pause"></i>';
+          });
+          _updateTopbarButtons('paused');
+        }
+        if (action === 'resume') {
+          document.querySelectorAll('.wf-node--paused').forEach(el => {
+            el.classList.replace('wf-node--paused', 'wf-node--running');
+            const b = el.querySelector('.' + _NODE_STATUS_BADGE_CLASS);
+            if (b) b.innerHTML = '<span class="wf-badge-spin"></span>';
+          });
+          _updateTopbarButtons('running');
+        }
+      } catch (e) { toast.error('Failed: ' + e.message); }
+    }
+
+    document.getElementById('btn-stop-workflow')?.addEventListener('click',   () => _wfAction('stop',   'Stop signal sent — workers terminating…'));
+    document.getElementById('btn-pause-workflow')?.addEventListener('click',  () => _wfAction('pause',  'Pause signal sent'));
+    document.getElementById('btn-resume-workflow')?.addEventListener('click', () => _wfAction('resume', 'Resume signal sent'));
+
+    // ── Run Watch Dog button ─────────────────────────────────────────────────
     const runWorkflowBtn = document.getElementById('btn-run-workflow');
     if (runWorkflowBtn) {
       runWorkflowBtn.addEventListener('click', async () => {
@@ -1729,43 +3245,62 @@ import { api } from '../../core/api.js';
           const saveResult = await saveWorkflowToBackend();
           if (!saveResult) {
             runWorkflowBtn.disabled = false;
-            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
+            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>Run Watch Dog</span>';
             return;
           }
           const workflowIdToRun = saveResult.id || editWorkflowId;
           if (!workflowIdToRun) {
-            alert('Cannot run workflow: no workflow ID found after save.');
+            toast.error('Cannot run workflow: no workflow ID found after save.');
             runWorkflowBtn.disabled = false;
-            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Workflow</span>';
+            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>Run Watch Dog</span>';
             return;
           }
+
+          // Update stop/pause buttons with the new workflow ID
+          ['btn-stop-workflow', 'btn-pause-workflow', 'btn-resume-workflow'].forEach(id => {
+            const b = document.getElementById(id);
+            if (b) b.setAttribute('data-workflow-id', workflowIdToRun);
+          });
+
+          // Always force the log panel open when Run is clicked — don't let a
+          // previously-saved closed state keep it hidden during live execution.
+          _execLogClear();
+          _execLogOpen(_LOG_HEIGHT_DEFAULT);
+          _resetAllNodeStatus();
+          _execLogAppend('Starting Watch Dog…', 'running');
+          _connectExecWs(workflowIdToRun);
+
           runWorkflowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Starting agents…</span>';
           const token = getAuthToken();
-          const headers = { 'Content-Type': 'application/json' };
-          if (token) headers['Authorization'] = `Bearer ${token}`;
+          const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
           const execRes = await fetch(`${API_BASE}/api/v1/workflows/${workflowIdToRun}/execute`, { method: 'POST', headers });
+
           if (execRes.status === 401) {
-            alert('Session expired. Please login again.');
+            toast.error('Session expired. Please login again.');
+            _execLogAppend('Authentication failed', 'error');
             runWorkflowBtn.disabled = false;
-            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Watch Dog</span>';
+            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>Run Watch Dog</span>';
             return;
           }
           const execResult = await execRes.json();
           if (execRes.ok) {
             const camList = (execResult.cameras || []).join(', ') || 'none';
-            alert(`Watch Dog started successfully!\n\n• Agents created: ${execResult.agents_started || 0}\n• Cameras: ${camList}\n• Status: ${execResult.initial_status || 'Monitoring'}\n\nDetection workers will start within ~5 seconds.`);
-            console.log('[RunWorkflow] Execute result:', execResult);
-            setTimeout(() => { navigateTo('workflow-list.html'); }, 1500);
+            _execLogAppend(`Agents launched: ${execResult.agents_started || 0} | Cameras: ${camList}`, 'success');
+            toast.success(`Watch Dog started — ${execResult.agents_started || 0} agent(s) launching`);
+            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-dot"></i><span>Running…</span>';
           } else {
-            alert('Watch Dog saved but failed to start agents:\n' + (execResult.detail || execResult.message || 'Unknown error'));
-            console.error('[RunWorkflow] Execute error:', execResult);
+            const errMsg = execResult.detail || execResult.message || 'Unknown error';
+            _execLogAppend('Failed to start agents: ' + errMsg, 'error');
+            toast.error('Watch Dog saved but failed to start agents: ' + errMsg);
+            runWorkflowBtn.disabled = false;
+            runWorkflowBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>Run Watch Dog</span>';
           }
         } catch (err) {
           console.error('[RunWorkflow] Unexpected error:', err);
-          alert('Unexpected error while running Watch Dog. Check the console.');
-        } finally {
+          _execLogAppend('Unexpected error: ' + err.message, 'error');
+          toast.error('Unexpected error while running Watch Dog.');
           runWorkflowBtn.disabled = false;
-          runWorkflowBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i><span>Run Watch Dog</span>';
+          runWorkflowBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>Run Watch Dog</span>';
         }
       });
     }
@@ -1784,10 +3319,11 @@ import { api } from '../../core/api.js';
           refreshAllNodeHtml();
           setupAllNodeInputHandlers();
           populateCameraDropdowns();
+          populateAllIoTDeviceRows();
         }, 50);
       } catch (err) {
         console.error(err);
-        alert('Invalid workflow JSON.');
+        toast.error('Invalid workflow JSON.');
       } finally {
         importFile.value = '';
       }
@@ -1829,7 +3365,7 @@ import { api } from '../../core/api.js';
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         const response = await fetch(`${API_BASE}/api/v1/workflows/${workflowId}`, { method: 'GET', headers });
-        if (response.status === 401) { alert('Session expired. Please login again.'); return false; }
+        if (response.status === 401) { toast.error('Session expired. Please login again.'); return false; }
         if (response.ok) {
           const workflowData = await response.json();
           console.log('Loading workflow:', workflowData);
@@ -1846,6 +3382,7 @@ import { api } from '../../core/api.js';
               refreshAllNodeHtml();
               setupAllNodeInputHandlers();
               populateCameraDropdowns();
+              populateAllIoTDeviceRows();
               updateNotificationNodesForSchedule();
             }, 50);
           }
@@ -1853,12 +3390,12 @@ import { api } from '../../core/api.js';
           return true;
         } else {
           console.error('Failed to load Watch Dog:', response.statusText);
-          alert('Failed to load Watch Dog for editing');
+          toast.error('Failed to load Watch Dog for editing');
           return false;
         }
       } catch (error) {
         console.error('Error loading Watch Dog:', error);
-        alert('Error loading Watch Dog for editing');
+        toast.error('Error loading Watch Dog for editing');
         return false;
       }
     }
@@ -1884,6 +3421,21 @@ import { api } from '../../core/api.js';
           const im = String(c.importance).toLowerCase();
           c.importance = im === 'high' ? 'High' : im === 'low' ? 'Low' : 'Normal';
         }
+      }
+      if (nodeKey === 'alarm_notification') {
+        // alarm is always critical/siren/vibration — no user config needed
+      }
+      if (nodeKey === 'iot_action') {
+        // Ensure devices is always an array and each entry has correct types
+        if (!Array.isArray(c.devices)) c.devices = [];
+        c.devices = c.devices
+          .filter(d => d && d.device_id)
+          .map(d => ({
+            device_id:          String(d.device_id),
+            command:            String(d.command || 'ON').toUpperCase() === 'OFF' ? 'OFF' : 'ON',
+            channel:            parseInt(d.channel || 0, 10),
+            auto_reset_seconds: parseInt(d.auto_reset_seconds || 0, 10),
+          }));
       }
       if (nodeKey === 'start' && Array.isArray(c.active_days)) {
         c.active_days = c.active_days.join(', ');
@@ -1990,6 +3542,19 @@ import { api } from '../../core/api.js';
       return { NODE_W: NODE_W, NODE_H: NODE_H, GAP_X: GAP_X, GAP_Y: GAP_Y, PAD: PAD, cardW: cardW, stepFallback: NODE_W + GAP_X };
     }
 
+    function getReservedRightWidthForChat(containerEl) {
+      if (typeof window === 'undefined' || !containerEl) return 0;
+      var chatDock = document.querySelector('.wf-canvas-column .wf-ai-chat.wf-ai-chat--open');
+      if (!chatDock) return 0;
+      var cRect = containerEl.getBoundingClientRect();
+      var pRect = chatDock.getBoundingClientRect();
+      if (!cRect || !pRect) return 0;
+      // Reserve the panel width + breathing gap only when it overlaps canvas area.
+      var overlap = Math.max(0, Math.min(cRect.right, pRect.right) - Math.max(cRect.left, pRect.left));
+      if (overlap <= 0) return 0;
+      return overlap + 24;
+    }
+
     function computeGenLayoutPositions(count, containerEl) {
       var dims = getWorkflowNodeLayoutDims(containerEl);
       var NODE_W = dims.NODE_W;
@@ -1997,7 +3562,9 @@ import { api } from '../../core/api.js';
       var GAP_X = dims.GAP_X;
       var GAP_Y = dims.GAP_Y;
       var PAD = dims.PAD;
-      const w = Math.max(320, (containerEl && containerEl.clientWidth) || 900);
+      const canvasW = Math.max(320, (containerEl && containerEl.clientWidth) || 900);
+      const reservedRight = getReservedRightWidthForChat(containerEl);
+      const w = Math.max(260, canvasW - reservedRight);
       const avail = Math.max(180, w - 2 * PAD);
       const minStepX = NODE_W + GAP_X;
       let cols = Math.max(1, Math.floor(avail / minStepX));
@@ -2206,6 +3773,7 @@ import { api } from '../../core/api.js';
       refreshAllNodeHtml();
       setupAllNodeInputHandlers();
       populateCameraDropdowns();
+      populateAllIoTDeviceRows();
       updateNotificationNodesForSchedule();
       /* Do not call editor.zoom_reset() here — it would reset zoom after import and undo zoom the user applied during the animation. */
       return true;
@@ -2229,6 +3797,14 @@ import { api } from '../../core/api.js';
       const modelLabel = modelToggle && modelToggle.querySelector('.wf-ai-chat-model-label');
       const modeEl = document.getElementById('wf-ai-chat-mode');
       const newThreadBtn = document.getElementById('wf-ai-chat-new-thread');
+      const chatDockEl = document.querySelector('.wf-ai-chat');
+      const chatLauncherBtn = document.getElementById('wf-ai-chat-launcher');
+      const chatCloseBtn = document.getElementById('wf-ai-chat-close');
+      const chatResizer = document.getElementById('wf-ai-chat-resizer');
+      const chatHost = container && container.closest('.wf-canvas-column');
+      const CHAT_WIDTH_KEY = 'visionai.workflow.chatWidth.v1';
+      const CHAT_WIDTH_MIN = 340;
+      const CHAT_WIDTH_MAX = 680;
 
       const assistantPanel = document.getElementById('wf-ai-assistant-panel');
       const userSnippet = document.getElementById('wf-ai-user-msg-snippet');
@@ -2239,6 +3815,56 @@ import { api } from '../../core/api.js';
       const clarBadge = document.getElementById('wf-ai-clarification-badge');
       const agentLogBody = document.getElementById('wf-ai-agent-log-body');
       const routerReasonEl = document.getElementById('wf-ai-router-reason');
+      function setChatDockOpen(nextOpen) {
+        const on = !!nextOpen;
+        if (chatDockEl) chatDockEl.classList.toggle('wf-ai-chat--open', on);
+        if (document && document.body) document.body.classList.toggle('wf-ai-chat-open', on);
+        if (on) setTimeout(function () { try { ta && ta.focus(); } catch (_) {} }, 80);
+      }
+      if (chatLauncherBtn) chatLauncherBtn.addEventListener('click', function () { setChatDockOpen(true); });
+      if (chatCloseBtn) chatCloseBtn.addEventListener('click', function () { setChatDockOpen(false); });
+      if (ta) {
+        ta.addEventListener('focus', function () { setChatDockOpen(true); });
+      }
+      setChatDockOpen(false);
+
+      function setChatWidth(px) {
+        if (!chatDockEl) return;
+        var n = Math.max(CHAT_WIDTH_MIN, Math.min(CHAT_WIDTH_MAX, px || CHAT_WIDTH_MIN));
+        chatDockEl.style.setProperty('--wf-chat-panel-width', n + 'px');
+        try { localStorage.setItem(CHAT_WIDTH_KEY, String(n)); } catch (_) {}
+      }
+      try {
+        var savedW = parseInt(localStorage.getItem(CHAT_WIDTH_KEY) || '', 10);
+        if (Number.isFinite(savedW)) setChatWidth(savedW);
+      } catch (_) {}
+      if (chatResizer && chatHost && chatDockEl) {
+        var resizing = false;
+        function stopResize() {
+          if (!resizing) return;
+          resizing = false;
+          chatResizer.classList.remove('is-dragging');
+          document.body.style.userSelect = '';
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+        }
+        function onMove(e) {
+          if (!resizing) return;
+          var rect = chatDockEl.getBoundingClientRect();
+          // Keep right edge fixed; derive width from pointer to current right edge.
+          setChatWidth(rect.right - e.clientX);
+        }
+        function onUp() { stopResize(); }
+        chatResizer.addEventListener('pointerdown', function (e) {
+          if (e.button !== 0) return;
+          resizing = true;
+          chatResizer.classList.add('is-dragging');
+          document.body.style.userSelect = 'none';
+          chatResizer.setPointerCapture?.(e.pointerId);
+          window.addEventListener('pointermove', onMove);
+          window.addEventListener('pointerup', onUp);
+        });
+      }
 
       let wfChatSessionId = newWorkflowChatSessionId();
       let wfChatLastWorkflow = null;
@@ -2275,32 +3901,40 @@ import { api } from '../../core/api.js';
 
       function renderTurnMessages(idx) {
         if (!messagesEl || idx < 0 || idx >= wfChatTurns.length) return;
-        var turn = wfChatTurns[idx];
         messagesEl.innerHTML = '';
-        var t = String(turn.assistant || '').trim();
-        if (!t) {
-          var empty = document.createElement('div');
-          empty.className = 'wf-ai-msg-block wf-ai-msg-block--placeholder';
-          empty.style.opacity = '0.75';
-          empty.style.fontStyle = 'italic';
-          empty.textContent = (idx === wfChatTurns.length - 1 && busy)
-            ? 'Waiting for response…'
-            : 'No response for this message yet.';
-          messagesEl.appendChild(empty);
-          messagesEl.scrollTop = messagesEl.scrollHeight;
-          return;
-        }
-        t.split(/\n{2,}/).forEach(function (para) {
-          var block = document.createElement('div');
-          block.className = 'wf-ai-msg-block';
-          var p = document.createElement('p');
-          para.split(/\n/).forEach(function (line, idxLn) {
-            if (idxLn) p.appendChild(document.createElement('br'));
-            p.appendChild(document.createTextNode(line));
+        for (var i = 0; i <= idx; i++) {
+          var turn = wfChatTurns[i];
+
+          // ── User bubble (right) ──
+          var userWrap = document.createElement('div');
+          userWrap.className = 'user-message-wrapper';
+          var userBubble = document.createElement('div');
+          userBubble.className = 'user-message';
+          userBubble.textContent = String(turn.user || '').trim();
+          userWrap.appendChild(userBubble);
+          messagesEl.appendChild(userWrap);
+
+          // ── AI bubble (left) ──
+          var t = String(turn.assistant || '').trim();
+          if (!t) {
+            // Don't show "Thinking…" — the loading spinner in the composer is enough
+            continue;
+          }
+
+          // One bubble per paragraph group
+          var aiBubble = document.createElement('div');
+          aiBubble.className = 'ai-message-transparent';
+          t.split(/\n{2,}/).forEach(function (para, pi) {
+            if (pi > 0) { var br = document.createElement('br'); aiBubble.appendChild(br); }
+            var p = document.createElement('p');
+            para.split(/\n/).forEach(function (line, li) {
+              if (li > 0) p.appendChild(document.createElement('br'));
+              p.appendChild(document.createTextNode(line));
+            });
+            aiBubble.appendChild(p);
           });
-          block.appendChild(p);
-          messagesEl.appendChild(block);
-        });
+          messagesEl.appendChild(aiBubble);
+        }
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
@@ -2364,13 +3998,27 @@ import { api } from '../../core/api.js';
       }
 
       function setAssistantStatusVisible(on, message) {
-        if (!assistantStatus) return;
-        assistantStatus.hidden = !on;
-        if (assistantStatusText && message) assistantStatusText.textContent = message;
+        // Show/hide the inline typing indicator inside the messages area
+        if (!messagesEl) return;
+        var existingIndicator = messagesEl.querySelector('.wf-ai-typing-indicator');
+        if (on) {
+          if (!existingIndicator) {
+            existingIndicator = document.createElement('div');
+            existingIndicator.className = 'wf-ai-typing-indicator ai-message-transparent';
+            messagesEl.appendChild(existingIndicator);
+          }
+          existingIndicator.textContent = message || 'Thinking…';
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        } else {
+          if (existingIndicator) existingIndicator.remove();
+        }
+        // keep hidden elements in sync for any code that checks them
+        if (assistantStatus) assistantStatus.hidden = !on;
+        if (assistantStatusText && message) assistantStatusText.textContent = message || '';
       }
 
       function openAssistantPanelForUserMessage(userText) {
-        if (assistantPanel) assistantPanel.hidden = false;
+        setChatDockOpen(true);
         registerUserPrompt(userText);
         if (clarBadge) clarBadge.hidden = true;
         if (routerReasonEl) {
@@ -2416,9 +4064,6 @@ import { api } from '../../core/api.js';
         wfChatSelectedTurnIndex = -1;
         setModeUi(null);
         if (messagesEl) messagesEl.innerHTML = '';
-        if (assistantPanel) {
-          assistantPanel.hidden = true;
-        }
         if (userSnippet) userSnippet.textContent = 'Your message';
         if (userPromptHistoryEl) userPromptHistoryEl.innerHTML = '';
         if (clarBadge) clarBadge.hidden = true;
@@ -2484,7 +4129,7 @@ import { api } from '../../core/api.js';
         if (!ta || busy || speechListening) return;
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) {
-          alert('Voice assistant is not available in this browser. Try Chrome or Edge, or type your message.');
+          toast.warning('Voice assistant is not available in this browser. Try Chrome or Edge, or type your message.');
           return;
         }
         stopSpeechListening();
@@ -2523,7 +4168,7 @@ import { api } from '../../core/api.js';
             msg = 'Speech service is not allowed (browser or policy may block cloud voice). Try typing your message.';
           }
           console.warn('[WF-chat] speech recognition:', err || '(unknown)', ev && ev.message ? ev.message : '');
-          alert(msg);
+          toast.warning(msg);
         };
         speechRec.onend = function () {
           if (speechListening) stopSpeechListening();
@@ -2532,7 +4177,7 @@ import { api } from '../../core/api.js';
           speechRec.start();
         } catch (e) {
           stopSpeechListening();
-          alert('Could not start voice input.');
+          toast.error('Could not start voice input.');
         }
       }
 
@@ -2567,11 +4212,11 @@ import { api } from '../../core/api.js';
 
       function setFetchLoading(on, message) {
         if (loadingEl) {
-          loadingEl.hidden = true;
-          loadingEl.setAttribute('aria-hidden', 'true');
+          loadingEl.hidden = !on;
+          loadingEl.setAttribute('aria-hidden', on ? 'false' : 'true');
+          if (on && loadingTextEl && message) loadingTextEl.textContent = message;
         }
         chatInner && chatInner.classList.toggle('wf-ai-chat-inner--fetching', !!on);
-        if (on && loadingTextEl && message) loadingTextEl.textContent = message;
       }
 
       function setBuildingPhase(on) {
@@ -2737,6 +4382,147 @@ import { api } from '../../core/api.js';
           }
           wfChatSlotFillPending = data.slot_fill_pending === true;
 
+          // Briefly highlight canvas nodes whose type is mentioned in question text
+          function highlightNodesForQuestion(questionText) {
+            var q = (questionText || '').toLowerCase();
+            var typeKeywords = {
+              camera: 'camera', cameras: 'camera',
+              notification: 'notification', email: 'notification', sms: 'notification',
+              alarm: 'alarm_notification', alert: 'alarm_notification',
+              report: 'report',
+              iot: 'iot_action', device: 'iot_action',
+              detection: 'class_detection_agent', 'object detection': 'class_detection_agent',
+              zone: 'class_detection_zone_agent',
+              count: 'object_count_agent',
+              behaviour: 'person_behaviour_agent', fall: 'person_behaviour_agent',
+              vlm: 'vlm_agent'
+            };
+            var matchedTypes = new Set();
+            Object.keys(typeKeywords).forEach(function (kw) {
+              if (q.includes(kw)) matchedTypes.add(typeKeywords[kw]);
+            });
+            if (!matchedTypes.size) return;
+            document.querySelectorAll('.drawflow-node').forEach(function (el) {
+              var nodeType = el.querySelector('[data-wf-type]');
+              var t = nodeType ? nodeType.getAttribute('data-wf-type') : (el.classList[1] || '');
+              if (matchedTypes.has(t)) {
+                el.classList.add('wf-slot-highlight');
+                setTimeout(function () { el.classList.remove('wf-slot-highlight'); }, 2800);
+              }
+            });
+          }
+
+          // Render interactive slot-question chips in the assistant panel
+          function renderSlotChips(questions) {
+            if (!messagesEl || !questions || !questions.length) return;
+            var wrap = document.createElement('div');
+            wrap.className = 'wf-slot-questions';
+            var lbl = document.createElement('div');
+            lbl.className = 'wf-slot-question-label';
+            lbl.textContent = 'A few details needed:';
+            wrap.appendChild(lbl);
+            questions.forEach(function (q, i) {
+              var chip = document.createElement('button');
+              chip.type = 'button';
+              chip.className = 'wf-slot-chip';
+              chip.innerHTML = '<span class="wf-slot-chip__num">' + (i + 1) + '.</span><span class="wf-slot-chip__text">' + q.replace(/</g, '&lt;') + '</span>';
+              chip.title = 'Click to answer this question';
+              chip.addEventListener('click', function () {
+                // Highlight relevant canvas nodes for this question
+                highlightNodesForQuestion(q);
+                // If already expanded, collapse
+                var existing = wrap.querySelector('.wf-slot-answer-wrap');
+                if (existing && existing.dataset.forQ === String(i)) {
+                  existing.remove();
+                  return;
+                }
+                if (existing) existing.remove();
+                var ansWrap = document.createElement('div');
+                ansWrap.className = 'wf-slot-answer-wrap';
+                ansWrap.dataset.forQ = String(i);
+                var inp = document.createElement('input');
+                inp.type = 'text';
+                inp.className = 'wf-slot-answer-input';
+                inp.placeholder = 'Your answer…';
+                inp.setAttribute('aria-label', 'Answer for: ' + q);
+                var sendChipBtn = document.createElement('button');
+                sendChipBtn.type = 'button';
+                sendChipBtn.className = 'wf-slot-answer-send';
+                sendChipBtn.textContent = 'Send';
+                function submitAnswer() {
+                  var val = inp.value.trim();
+                  if (!val) { inp.focus(); return; }
+                  // Build answer text that references the question
+                  var answer = questions.length === 1
+                    ? val
+                    : ('Q' + (i + 1) + ': ' + q + '\nAnswer: ' + val);
+                  if (ta) {
+                    ta.value = answer;
+                    ta.dispatchEvent(new Event('input', { bubbles: true }));
+                  }
+                  // auto-send
+                  wfChatSlotFillPending = true;
+                  if (sendBtn) sendBtn.click();
+                }
+                inp.addEventListener('keydown', function (e) {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitAnswer(); }
+                });
+                sendChipBtn.addEventListener('click', submitAnswer);
+                ansWrap.appendChild(inp);
+                ansWrap.appendChild(sendChipBtn);
+                chip.insertAdjacentElement('afterend', ansWrap);
+                setTimeout(function () { inp.focus(); }, 40);
+              });
+              wrap.appendChild(chip);
+            });
+            // For multiple questions, also show a "Send all" button after filling each inline input
+            if (questions.length > 1) {
+              var sendAllBtn = document.createElement('button');
+              sendAllBtn.type = 'button';
+              sendAllBtn.className = 'wf-slot-answer-send';
+              sendAllBtn.style.marginTop = '6px';
+              sendAllBtn.style.width = '100%';
+              sendAllBtn.textContent = 'Send all answers';
+              sendAllBtn.addEventListener('click', function () {
+                var parts = [];
+                wrap.querySelectorAll('.wf-slot-answer-input').forEach(function (inp, idx) {
+                  var val = inp.value.trim();
+                  if (val) parts.push('Q' + (idx + 1) + ': ' + questions[idx] + '\nAnswer: ' + val);
+                });
+                if (!parts.length) {
+                  wrap.querySelector('.wf-slot-answer-input') && wrap.querySelector('.wf-slot-answer-input').focus();
+                  return;
+                }
+                if (ta) {
+                  ta.value = parts.join('\n\n');
+                  ta.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                wfChatSlotFillPending = true;
+                if (sendBtn) sendBtn.click();
+              });
+              wrap.appendChild(sendAllBtn);
+              // Pre-expand all answer inputs when >1 questions
+              questions.forEach(function (qText, qi) {
+                var ansWrap = document.createElement('div');
+                ansWrap.className = 'wf-slot-answer-wrap';
+                ansWrap.dataset.forQ = String(qi);
+                var inp = document.createElement('input');
+                inp.type = 'text';
+                inp.className = 'wf-slot-answer-input';
+                inp.placeholder = 'Answer ' + (qi + 1) + '…';
+                inp.setAttribute('aria-label', 'Answer for: ' + qText);
+                inp.addEventListener('keydown', function (e) {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAllBtn.click(); }
+                });
+                ansWrap.appendChild(inp);
+                wrap.querySelector('.wf-slot-chip:nth-child(' + (qi + 2) + ')').insertAdjacentElement('afterend', ansWrap);
+              });
+            }
+
+            messagesEl.appendChild(wrap);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+
           if (data.router_reason && isDevUi() && routerReasonEl) {
             routerReasonEl.hidden = false;
             routerReasonEl.textContent = 'Router: ' + data.router_reason;
@@ -2752,7 +4538,7 @@ import { api } from '../../core/api.js';
               wfChatTurns[wfChatTurns.length - 1].assistant = errMsg;
               renderTurnMessages(wfChatSelectedTurnIndex);
             }
-            alert(errMsg);
+            toast.error(errMsg);
             wfChatConversationHistory.pop();
             if (voiceTurn) setBusy(false);
             return;
@@ -2784,7 +4570,11 @@ import { api } from '../../core/api.js';
             }
             if (assistantText) appendToActiveTurn(assistantText);
             else if (data.clarification_needed && shortMessage) appendToActiveTurn(shortMessage);
-            if (slotPrompt) appendToActiveTurn(slotPrompt);
+            if (wfChatSlotFillPending && slotQuestions.length) {
+              renderSlotChips(slotQuestions);
+            } else if (slotPrompt) {
+              appendToActiveTurn(slotPrompt);
+            }
             setAssistantStatusVisible(false);
             if (mode === 'chat_refine' && hasWorkflow) {
               /* Same graph snapshot: keep canvas as-is; optional future: diff and patch */
@@ -2805,16 +4595,20 @@ import { api } from '../../core/api.js';
                   if (Object.prototype.hasOwnProperty.call(data, 'plan')) wfChatLastPlan = data.plan;
                 } catch (buildErr) {
                   console.error('[Workflow chat] Canvas build:', buildErr);
-                  alert('Workflow was received but could not be placed on the canvas. See console.');
+                  toast.error('Workflow was received but could not be placed on the canvas. See console.');
                 }
                 setBuildingPhase(false);
               } else {
                 console.warn('[Workflow chat] Unknown workflow payload:', wf);
               }
             }
-            var line = assistantText || shortMessage || (didImport ? 'Workflow updated.' : '');
+            var line = assistantText || shortMessage || (didImport ? 'Workflow placed on canvas.' : '');
             if (line) appendToActiveTurn(line);
-            if (slotPrompt) appendToActiveTurn(slotPrompt);
+            if (wfChatSlotFillPending && slotQuestions.length) {
+              renderSlotChips(slotQuestions);
+            } else if (slotPrompt) {
+              appendToActiveTurn(slotPrompt);
+            }
             setAssistantStatusVisible(false);
             pushAssistantHistorySummary();
           } else {
@@ -2831,25 +4625,25 @@ import { api } from '../../core/api.js';
                   if (Object.prototype.hasOwnProperty.call(data, 'plan')) wfChatLastPlan = data.plan;
                 } catch (buildErr) {
                   console.error('[Workflow chat] Canvas build:', buildErr);
-                  alert('Workflow was received but could not be placed on the canvas. See console.');
+                  toast.error('Workflow was received but could not be placed on the canvas. See console.');
                 }
                 setBuildingPhase(false);
                 setModeUi('create');
-                var lineLeg = assistantText || shortMessage || 'Workflow updated.';
+                var lineLeg = assistantText || shortMessage || 'Workflow placed on canvas.';
                 if (lineLeg) appendToActiveTurn(lineLeg);
-                if (slotPrompt) appendToActiveTurn(slotPrompt);
-                wfChatConversationHistory.push({ role: 'assistant', content: (assistantText || shortMessage || 'Workflow updated.') + (slotPrompt ? ('\n\n' + slotPrompt) : ''), mode: 'create' });
+                if (wfChatSlotFillPending && slotQuestions.length) { renderSlotChips(slotQuestions); } else if (slotPrompt) { appendToActiveTurn(slotPrompt); }
+                wfChatConversationHistory.push({ role: 'assistant', content: (assistantText || shortMessage || 'Workflow placed on canvas.') + (slotPrompt ? ('\n\n' + slotPrompt) : ''), mode: 'create' });
               } else {
                 console.warn('[Workflow chat] Unknown workflow payload:', wfLegacy);
                 if (assistantText || shortMessage) {
                   appendToActiveTurn(assistantText || shortMessage);
-                  if (slotPrompt) appendToActiveTurn(slotPrompt);
+                  if (wfChatSlotFillPending && slotQuestions.length) { renderSlotChips(slotQuestions); } else if (slotPrompt) { appendToActiveTurn(slotPrompt); }
                   wfChatConversationHistory.push({ role: 'assistant', content: (assistantText || shortMessage) + (slotPrompt ? ('\n\n' + slotPrompt) : ''), mode: 'legacy' });
                 }
               }
             } else if (assistantText || shortMessage) {
               appendToActiveTurn(assistantText || shortMessage);
-              if (slotPrompt) appendToActiveTurn(slotPrompt);
+              if (wfChatSlotFillPending && slotQuestions.length) { renderSlotChips(slotQuestions); } else if (slotPrompt) { appendToActiveTurn(slotPrompt); }
               wfChatConversationHistory.push({ role: 'assistant', content: (assistantText || shortMessage) + (slotPrompt ? ('\n\n' + slotPrompt) : ''), mode: 'legacy' });
             } else if (ok) {
               setAssistantStatusVisible(false);
@@ -2860,7 +4654,7 @@ import { api } from '../../core/api.js';
                 wfChatTurns[wfChatTurns.length - 1].assistant = nwMsg;
                 renderTurnMessages(wfChatSelectedTurnIndex);
               }
-              alert(nwMsg);
+              toast.warning(nwMsg);
               if (voiceTurn) setBusy(false);
               return;
             }
@@ -3033,14 +4827,14 @@ import { api } from '../../core/api.js';
               wfChatTurns[wfChatTurns.length - 1].assistant = 'Error: ' + em;
               renderTurnMessages(wfChatSelectedTurnIndex);
             }
-            alert(em);
+            toast.error(em);
             setAssistantStatusVisible(false);
             wfResumeListeningAfterTurn();
           }
         };
 
         wfWatchdogVoiceWs.onerror = function () {
-          alert('Watchdog voice connection error.');
+          toast.error('Watchdog voice connection error.');
           endWatchdogVoiceSession();
         };
         wfWatchdogVoiceWs.onclose = function () {
@@ -3059,15 +4853,27 @@ import { api } from '../../core/api.js';
       }
 
       async function runGenerate() {
+        setChatDockOpen(true);
         if (!ta || busy) return;
         const text = (ta.value || '').trim();
         if (!text) {
-          alert('Enter a description of the Watch Dog you want to create.');
+          toast.warning('Enter a description of the Watch Dog you want to create.');
           return;
         }
         setBusy(true);
         openAssistantPanelForUserMessage(text);
-        setAssistantStatusVisible(true, 'Researching design patterns…');
+
+        // Cycle through stage labels while waiting for the backend
+        const _genStages = wfChatSlotFillPending
+          ? ['Collecting answers…', 'Filling node fields…', 'Validating workflow…']
+          : ['Understanding request…', 'Retrieving patterns…', 'Planning nodes…', 'Building workflow…', 'Validating…'];
+        let _stageIdx = 0;
+        setAssistantStatusVisible(true, _genStages[0]);
+        const _stageTimer = setInterval(function () {
+          _stageIdx = (_stageIdx + 1) % _genStages.length;
+          setAssistantStatusVisible(true, _genStages[_stageIdx]);
+        }, 1600);
+
         setFetchLoading(true, '');
         const base = String(WORKFLOW_CHAT_API_BASE || '').replace(/\/$/, '');
         try {
@@ -3076,7 +4882,9 @@ import { api } from '../../core/api.js';
           var body = {
             message: text,
             session_id: wfChatSessionId,
-            verbose: verbose
+            verbose: verbose,
+            autofill_slots: true,
+            enable_intent_router: (typeof window !== 'undefined' && typeof window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER === 'boolean') ? window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER : true
           };
           if (wfChatLastWorkflow) {
             body.previous_workflow = wfChatLastWorkflow;
@@ -3088,15 +4896,16 @@ import { api } from '../../core/api.js';
           if (sendHistory && !wfChatSessionId && wfChatConversationHistory.length) {
             body.conversation_history = wfChatConversationHistory.slice(-4);
           }
-          if (typeof window !== 'undefined' && typeof window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER === 'boolean') {
-            body.enable_intent_router = window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER;
-          }
+          var authToken = (typeof getAuthToken === 'function') ? getAuthToken() : (localStorage.getItem('visionai_token') || '');
+          var fetchHeaders = { 'Content-Type': 'application/json' };
+          if (authToken) fetchHeaders['Authorization'] = 'Bearer ' + authToken;
 
           const res = await fetch(base + '/api/v1/watchdog/generate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: fetchHeaders,
             body: JSON.stringify(body)
           });
+          clearInterval(_stageTimer);
           const data = await res.json().catch(function () { return {}; });
           writeAgentLog(data);
 
@@ -3109,12 +4918,13 @@ import { api } from '../../core/api.js';
               wfChatTurns[wfChatTurns.length - 1].assistant = 'Error: ' + detailStr;
               renderTurnMessages(wfChatSelectedTurnIndex);
             }
-            alert(detailStr);
+            toast.error(detailStr);
             return;
           }
 
           await applyWatchdogGeneratePayload(data, { userText: text, clearInput: true, voiceTurn: false });
         } catch (err) {
+          clearInterval(_stageTimer);
           console.error('[Workflow chat]', err);
           setFetchLoading(false);
           setBuildingPhase(false);
@@ -3125,8 +4935,9 @@ import { api } from '../../core/api.js';
             wfChatTurns[wfChatTurns.length - 1].assistant = netErr;
             renderTurnMessages(wfChatSelectedTurnIndex);
           }
-          alert(netErr);
+          toast.error(netErr);
         } finally {
+          clearInterval(_stageTimer);
           setBusy(false);
         }
       }
@@ -3162,6 +4973,15 @@ import { api } from '../../core/api.js';
         });
       }
 
+      // Drawflow attaches a mousedown handler on #drawflow that calls preventDefault(),
+      // which prevents the textarea from receiving focus when the chat dock visually
+      // overlaps the canvas. Stop propagation here so Drawflow never sees the click.
+      if (chatInner) {
+        chatInner.addEventListener('mousedown', function (ev) {
+          ev.stopPropagation();
+        });
+      }
+
       if (typeof window !== 'undefined') {
         window.__workflowChatResetThread = resetWorkflowChatThread;
         registerWatchdogVoiceReleaseHook();
@@ -3175,13 +4995,66 @@ import { api } from '../../core/api.js';
       addDefaultStartNode();
     }
 
+    // Register page-level cleanup so the router can tear down this editor
+    // instance before replacing the page content. Without this, document-level
+    // listeners registered above survive SPA navigation and double-fire on the
+    // next visit, breaking drag-drop and the chat toggle.
+    window.__visionaiPageCleanup = function () {
+      document.removeEventListener('click', _iotClickHandler);
+      document.removeEventListener('change', _iotChangeHandler, true);
+      document.removeEventListener('change', _showIfChangeHandler);
+      // Remove the body-level tooltip div created by this editor instance
+      const tt = document.getElementById('wf-node-tooltip');
+      if (tt) tt.remove();
+      // Strip body classes that affect scroll/layout on other pages
+      document.body.classList.remove('wf-ai-chat-open');
+      // Allow a fresh boot on the next navigation to this page
+      wfEditorInitInFlight = false;
+      try { editor.clear(); } catch (_) {}
+    };
+
     initWorkflowAiChatDock();
+    wfEditorInitInFlight = false;
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { initWorkflowEditor().catch(console.error); });
-  } else {
-    setTimeout(function () { initWorkflowEditor().catch(console.error); }, 0);
+export function boot() {
+  wfEditorInitInFlight = false;
+
+  // Lock the SPA viewport so it doesn't scroll — Drawflow needs a fixed canvas
+  // with a stable bounding rect.  overflow:auto on the ancestor shifts clientY
+  // which makes nodes drop at the wrong position.
+  const viewport = document.querySelector('.viewport-scrolls');
+  if (viewport) {
+    viewport.style.setProperty('overflow',        'hidden',  'important');
+    viewport.style.setProperty('display',         'flex',    'important');
+    viewport.style.setProperty('flex-direction',  'column',  'important');
+    // Kill the default content padding the shell injects — it adds vertical
+    // offset that Drawflow's getBoundingClientRect sees as part of the canvas
+    // but the drop coord calculation doesn't subtract.
+    viewport.querySelectorAll(':scope > *').forEach(child => {
+      child.style.setProperty('padding', '0', 'important');
+      child.style.removeProperty('padding-bottom');
+    });
   }
-})();
-        
+
+  // Cleanup: restore viewport scrolling when navigating away
+  window.__visionaiPageCleanup = function () {
+    if (viewport) {
+      viewport.style.removeProperty('overflow');
+      viewport.style.removeProperty('display');
+      viewport.style.removeProperty('flex-direction');
+      viewport.querySelectorAll(':scope > *').forEach(child => child.style.removeProperty('padding'));
+    }
+  };
+
+  initWorkflowEditor().catch(function (err) {
+    wfEditorInitInFlight = false;
+    const container = document.getElementById('drawflow');
+    if (container) delete container.dataset.wfEditorInitialized;
+    console.error(err);
+  });
+}
+
+// Boot is called by the SPA router on every navigation (mod.boot()).
+// Do NOT add an unconditional self-boot here — the router already handles it.
+

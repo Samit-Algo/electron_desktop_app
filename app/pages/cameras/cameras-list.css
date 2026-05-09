@@ -1,3 +1,26 @@
+            @keyframes dashboard-live-blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.2; }
+            }
+
+            .badge.badge-phoenix:has(.dashboard-live-dot) {
+                display: inline-flex;
+                align-items: center;
+            }
+
+            .dashboard-live-dot {
+                display: inline-flex;
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #16a34a;
+                margin-right: 4px;
+                position: relative;
+                top: -1px;
+                vertical-align: middle;
+                flex-shrink: 0;
+                animation: dashboard-live-blink 1.2s ease-in-out infinite;
+            }
             /*
               Multi-column grid: do NOT use min(100%, Xrem) in minmax() — the 100% often
               resolves to the full grid width and forces a single 100%-wide column.
@@ -58,3 +81,4 @@
                 100% { background-position: -100% 0; }
             }
         
+

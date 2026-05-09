@@ -366,8 +366,8 @@ class VisionAPIService {
     });
   }
 
-  async listAgentsByCamera(cameraId) {
-    return await this.request(`/api/v1/cameras/${cameraId}/agents`);
+  async listAgentsByCamera(cameraId, limit = 20, skip = 0) {
+    return await this.request(`/api/v1/cameras/${cameraId}/agents?limit=${limit}&skip=${skip}`);
   }
 
   async getWebRTCConfig() {

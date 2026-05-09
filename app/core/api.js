@@ -84,6 +84,15 @@ class ApiClient {
         throw new Error('Session expired. Please login again.');
       }
 
+      if (response.status === 204 || response.headers.get('content-length') === '0') {
+        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+        return null;
+      }
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+        return null;
+      }
       const data = await response.json();
       if (!response.ok) {
         throw makeApiError(data?.detail, `API Error: ${response.statusText}`);
@@ -192,6 +201,10 @@ class ApiClient {
           if (data.access_token) {
             this.token = data.access_token;
             localStorage.setItem('visionai_token', this.token);
+            if (data.refresh_token) {
+              this.refreshToken = data.refresh_token;
+              localStorage.setItem('visionai_refresh_token', this.refreshToken);
+            }
             return true;
           }
           return false;
@@ -237,8 +250,13 @@ class ApiClient {
     return this.post('/api/v1/cameras', body);
   }
 
-  async listAgentsByCamera(cameraId) {
-    return this.get(`/api/v1/cameras/${encodeURIComponent(cameraId)}/agents`);
+  async listAgentsByCamera(cameraId, limit = 20, skip = 0) {
+    return this.get(`/api/v1/cameras/${encodeURIComponent(cameraId)}/agents?limit=${limit}&skip=${skip}`);
+  }
+
+  async listWorkflowsByCamera(cameraId) {
+    const data = await this.get(`/api/v1/workflows/?camera_id=${encodeURIComponent(cameraId)}`);
+    return Array.isArray(data) ? data : (data?.workflows || []);
   }
 
   getAgentStreamWsURL(agentId) {
@@ -319,6 +337,15 @@ class ApiClient {
 
   // ── Streams / Live camera & Agent overlay ────────────────────────────────
 
+  /**
+   * GET /api/v1/streams/{cameraId}/preview
+   * Returns { camera_id, status, frame_base64, timestamp } — no FFmpeg spawn,
+   * served from the health-check snapshot cache (instant).
+   */
+  async getCameraPreview(cameraId) {
+    return this.get(`/api/v1/streams/${encodeURIComponent(cameraId)}/preview`);
+  }
+
   getLiveWsURL(cameraId) {
     if (!this.token) throw new Error('Not authenticated');
     const wsBase = this.baseURL.replace('http://', 'ws://').replace('https://', 'wss://');
@@ -326,7 +353,9 @@ class ApiClient {
   }
 
   getLiveMimeCodec() {
-    return 'video/mp4; codecs="avc1.42E01E"';
+    // avc1.4D001E = H.264 Main profile, level 3.0 (matches rtsp_streamer output)
+    // avc1.42E01E = Baseline — rejected by MSE when SPS says Main
+    return 'video/mp4; codecs="avc1.4D001E"';
   }
 
   getAgentOverlayFramesWsURL(agentId) {

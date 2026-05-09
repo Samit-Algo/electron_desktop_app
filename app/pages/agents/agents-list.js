@@ -536,7 +536,8 @@ function loadAgents() {
   renderAgentsSkeleton();
   listAgents()
     .then(function (agents) {
-      cachedAgents = Array.isArray(agents) ? agents : [];
+      var all = Array.isArray(agents) ? agents : [];
+      cachedAgents = all.filter(function (a) { return a.agent_source !== 'workflow'; });
       populateFilterOptions(cachedAgents);
       applyFiltersFromUrl();
       renderAgents(cachedAgents, getFilterState());

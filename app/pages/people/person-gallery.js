@@ -2,21 +2,25 @@ import { toast } from '../../core/toast.js';
 import { api } from '../../core/api.js';
 'use strict';
 
-const loadingEl = document.getElementById('person-gallery-loading');
-const emptyEl = document.getElementById('person-gallery-empty');
-const gridEl = document.getElementById('person-gallery-grid');
-const detailViewEl = document.getElementById('person-detail-view');
-const detailBackBtn = document.getElementById('person-detail-back');
-const detailNameEl = document.getElementById('person-detail-name');
-const detailMetaEl = document.getElementById('person-detail-meta');
-const detailImagesEl = document.getElementById('person-detail-images');
-const detailImagesLoadingEl = document.getElementById('person-detail-images-loading');
+function getEls() {
+  return {
+    loadingEl: document.getElementById('person-gallery-loading'),
+    emptyEl: document.getElementById('person-gallery-empty'),
+    gridEl: document.getElementById('person-gallery-grid'),
+    detailViewEl: document.getElementById('person-detail-view'),
+    detailBackBtn: document.getElementById('person-detail-back'),
+    detailNameEl: document.getElementById('person-detail-name'),
+    detailMetaEl: document.getElementById('person-detail-meta'),
+    detailImagesEl: document.getElementById('person-detail-images'),
+    detailImagesLoadingEl: document.getElementById('person-detail-images-loading'),
+  };
+}
 
-function showState(loading, empty, grid, detailView) {
-  if (loadingEl) loadingEl.classList.toggle('d-none', !loading);
-  if (emptyEl) emptyEl.classList.toggle('d-none', !empty);
-  if (gridEl) gridEl.classList.toggle('d-none', !grid);
-  if (detailViewEl) detailViewEl.classList.toggle('d-none', !detailView);
+function showState(els, loading, empty, grid, detailView) {
+  if (els.loadingEl) els.loadingEl.classList.toggle('d-none', !loading);
+  if (els.emptyEl) els.emptyEl.classList.toggle('d-none', !empty);
+  if (els.gridEl) els.gridEl.classList.toggle('d-none', !grid);
+  if (els.detailViewEl) els.detailViewEl.classList.toggle('d-none', !detailView);
 }
 
 async function loadMainPhotoUrl(personId, index) {
@@ -27,16 +31,18 @@ async function loadMainPhotoUrl(personId, index) {
 }
 
 async function renderGallery() {
-  showState(true, false, false, false);
+  const els = getEls();
+  if (!els.gridEl) return;
+  showState(els, true, false, false, false);
   if (!api || typeof api.getPersonGalleryList !== 'function') {
-    showState(false, true, false, false);
+    showState(els, false, true, false, false);
     return;
   }
   try {
     const people = await api.getPersonGalleryList();
-    if (!Array.isArray(people) || people.length === 0) { showState(false, true, false, false); return; }
+    if (!Array.isArray(people) || people.length === 0) { showState(els, false, true, false, false); return; }
     const sorted = people.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-    gridEl.innerHTML = '';
+    els.gridEl.innerHTML = '';
 
     for (const person of sorted) {
       const col = document.createElement('div');
@@ -75,7 +81,7 @@ async function renderGallery() {
       card.appendChild(imgWrap);
       card.appendChild(cardBody);
       col.appendChild(card);
-      gridEl.appendChild(col);
+      els.gridEl.appendChild(col);
 
       (async function () {
         const url = await loadMainPhotoUrl(person.id, 0);
@@ -85,27 +91,28 @@ async function renderGallery() {
 
       card.addEventListener('click', function () { openPersonDetail(person); });
     }
-    showState(false, false, true, false);
+    showState(els, false, false, true, false);
   } catch (err) {
     console.error('Person gallery load error:', err);
-    showState(false, true, false, false);
+    showState(els, false, true, false, false);
   }
 }
 
 async function openPersonDetail(person) {
-  if (!detailViewEl || !detailNameEl || !detailMetaEl || !detailImagesEl) return;
-  detailNameEl.textContent = person.name || '(unnamed)';
-  detailMetaEl.textContent = (person.image_count || 0) + ' photo(s) • ' + (person.status === 'active' ? 'Active' : 'Incomplete');
-  detailImagesEl.innerHTML = '';
-  detailImagesEl.classList.add('d-none');
-  detailImagesLoadingEl.classList.remove('d-none');
-  showState(false, false, false, true);
+  const els = getEls();
+  if (!els.detailViewEl || !els.detailNameEl || !els.detailMetaEl || !els.detailImagesEl) return;
+  els.detailNameEl.textContent = person.name || '(unnamed)';
+  els.detailMetaEl.textContent = (person.image_count || 0) + ' photo(s) • ' + (person.status === 'active' ? 'Active' : 'Incomplete');
+  els.detailImagesEl.innerHTML = '';
+  els.detailImagesEl.classList.add('d-none');
+  els.detailImagesLoadingEl.classList.remove('d-none');
+  showState(els, false, false, false, true);
 
   const count = Math.max(0, parseInt(person.image_count, 10) || 0);
   if (count === 0) {
-    detailImagesLoadingEl.classList.add('d-none');
-    detailImagesEl.classList.remove('d-none');
-    detailImagesEl.innerHTML = '<div class="col-12"><p class="text-body-tertiary small mb-0">No images for this person.</p></div>';
+    els.detailImagesLoadingEl.classList.add('d-none');
+    els.detailImagesEl.classList.remove('d-none');
+    els.detailImagesEl.innerHTML = '<div class="col-12"><p class="text-body-tertiary small mb-0">No images for this person.</p></div>';
     return;
   }
 
@@ -132,7 +139,7 @@ async function openPersonDetail(person) {
     card.appendChild(imgWrap);
     card.appendChild(cardBody);
     col.appendChild(card);
-    detailImagesEl.appendChild(col);
+    els.detailImagesEl.appendChild(col);
 
     (async function (idx) {
       try {
@@ -143,12 +150,8 @@ async function openPersonDetail(person) {
     })(i);
   }
 
-  detailImagesLoadingEl.classList.add('d-none');
-  detailImagesEl.classList.remove('d-none');
-}
-
-if (detailBackBtn) {
-  detailBackBtn.addEventListener('click', function () { showState(false, false, true, false); });
+  els.detailImagesLoadingEl.classList.add('d-none');
+  els.detailImagesEl.classList.remove('d-none');
 }
 
 function initFindPersonModal() {
@@ -187,7 +190,6 @@ function initFindPersonModal() {
       });
       galleryLoaded = true;
     } catch (err) {
-      const toast = toast || toast;
       if (toast && typeof toast.error === 'function') toast.error(err.message || 'Failed to load person list.');
     }
   }
@@ -212,7 +214,6 @@ function initFindPersonModal() {
   submitBtn.addEventListener('click', function () {
     var name = nameInput ? nameInput.value.trim() : '';
     var files = fileInput && fileInput.files ? fileInput.files : [];
-    var toast = toast || toast;
     if (!name) {
       if (toast && toast.warning) toast.warning('Please enter the person\'s name.');
       else alert('Please enter the person\'s name.');
@@ -257,13 +258,24 @@ function initFindPersonModal() {
   });
 }
 
-initFindPersonModal();
+function initDetailBack() {
+  const detailBackBtn = document.getElementById('person-detail-back');
+  if (detailBackBtn) {
+    detailBackBtn.addEventListener('click', function () {
+      const els = getEls();
+      showState(els, false, false, true, false);
+    });
+  }
+}
+
+export async function boot() {
+  initDetailBack();
+  initFindPersonModal();
+  await renderGallery();
+}
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', function () { renderGallery(); });
+  document.addEventListener('DOMContentLoaded', function () { boot(); });
 } else {
-  renderGallery();
+  boot();
 }
-window.addEventListener('vision:spa:navigated', function () {
-  if (document.getElementById('person-gallery-grid')) renderGallery();
-});

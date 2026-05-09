@@ -67,6 +67,8 @@
     return 'event-detail.html?' + params.toString();
   }
 
+  var PAGE_SIZE = 20;
+
   function createWidget(containerEl, options) {
     const opts = options || {};
     let state = {
@@ -79,6 +81,9 @@
       showHeader: opts.showHeader !== false,
       layout: opts.layout || 'grid',
       events: [],
+      currentSkip: 0,
+      totalEvents: 0,
+      isLoadingMore: false,
       imageCache: new Map(),
       container: containerEl,
       isMounted: true
@@ -128,10 +133,115 @@
       return out.slice(0, state.maxItems);
     }
 
+    function renderLoadMoreButton() {
+      var loadMoreId = uniqueId + '-load-more';
+      var existing = state.container.querySelector('#' + loadMoreId);
+      var hasMore = state.events.length < state.totalEvents;
+      if (!hasMore) {
+        if (existing) existing.remove();
+        return;
+      }
+      if (existing) return; // already rendered
+      var btn = document.createElement('div');
+      btn.id = loadMoreId;
+      btn.className = state.layout === 'horizontal' ? 'vision-events-load-more-horizontal' : 'col-12 text-center mt-2';
+      btn.innerHTML = '<button class="btn btn-phoenix-secondary btn-sm vision-events-load-more-btn" type="button">Load more</button>';
+      btn.querySelector('button').addEventListener('click', function () { loadMore(); });
+      var grid = state.container.querySelector('#' + gridId);
+      if (grid && grid.parentNode) grid.parentNode.insertBefore(btn, grid.nextSibling);
+    }
+
+    function loadMore() {
+      if (state.isLoadingMore || !state.isMounted) return;
+      state.isLoadingMore = true;
+      var btn = state.container.querySelector('.vision-events-load-more-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+      var nextSkip = state.currentSkip + PAGE_SIZE;
+      var callApi = function (withCamera) {
+        return window.visionAPI.listEvents(state.dateRange || 'all', PAGE_SIZE, nextSkip, withCamera ? state.cameraId : null);
+      };
+      callApi(true).catch(function () { return callApi(false); })
+        .then(function (res) {
+          var items = Array.isArray(res && res.items) ? res.items : [];
+          var newEvents = items.map(function (it) {
+            return {
+              event_id: it.id, eventId: it.id,
+              label: it.label || 'Event',
+              timestamp: it.event_ts || it.received_at,
+              event_ts: it.event_ts || it.received_at,
+              received_at: it.received_at,
+              camera_id: (it.camera_id || '').toString(),
+              cameraId: (it.camera_id || '').toString(),
+              agent_name: it.agent_name, agentName: it.agent_name,
+              severity: inferSeverity(it.label),
+              thumbDataUrl: null, thumbObjectUrl: null
+            };
+          });
+          if (state.cameraId) {
+            newEvents = newEvents.filter(function (e) {
+              return (e.camera_id || e.cameraId || '') === state.cameraId;
+            });
+          }
+          state.currentSkip = nextSkip;
+          state.events = state.events.concat(newEvents);
+          return Promise.all(newEvents.map(ensureEventImage)).then(function () { return newEvents; });
+        })
+        .then(function (newEvents) {
+          appendEvents(newEvents);
+          var loadMoreEl = state.container.querySelector('#' + uniqueId + '-load-more');
+          if (loadMoreEl) loadMoreEl.remove();
+          renderLoadMoreButton();
+        })
+        .catch(function () {
+          if (btn) { btn.disabled = false; btn.textContent = 'Load more'; }
+        })
+        .finally(function () { state.isLoadingMore = false; });
+    }
+
+    function appendEvents(newEvents) {
+      var grid = state.container.querySelector('#' + gridId);
+      if (!grid) return;
+      var filtered = newEvents.filter(function (ev) {
+        if (state.severityFilter && state.severityFilter !== 'all') {
+          return (ev.severity || inferSeverity(ev.label)) === state.severityFilter;
+        }
+        return true;
+      });
+      var height = state.compact ? '170px' : '236px';
+      var padding = state.compact ? 'p-3' : 'p-4';
+      var isHorizontal = state.layout === 'horizontal';
+      var cardStyle = isHorizontal ? 'width: 100%; height: ' + height + '; min-width: 0;' : '';
+      var colClass = isHorizontal ? '' : 'col-12 col-sm-6 col-md-4 col-xxl-3';
+      var html = filtered.map(function (ev) {
+        var sev = ev.severity || inferSeverity(ev.label);
+        var badgeCls = severityBadgeClass(sev);
+        var ago = timeAgo(ev.event_ts || ev.received_at || ev.timestamp);
+        var cam = escapeHtml(ev.camera_id || ev.cameraId || '');
+        var href = buildEventDetailUrl(ev);
+        var thumb = ev.thumb_object_url || ev.thumbObjectUrl || ev.thumb_data_url || ev.thumbDataUrl || null;
+        return (
+          (colClass ? '<div class="' + colClass + '">' : '') +
+          '<div class="btn-reveal-trigger position-relative rounded-2 overflow-hidden ' + padding + '"' + (cardStyle ? ' style="' + cardStyle + '"' : ' style="height: ' + height + ';"') + '>' +
+          (thumb ? '<img src="' + escapeHtml(thumb) + '" alt="" class="w-100 h-100 position-absolute top-0 start-0" style="object-fit: cover;">' : '<div class="w-100 h-100 position-absolute top-0 start-0 bg-body-secondary"></div>') +
+          '<div class="w-100 h-100 position-absolute top-0 start-0" style="background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%);"></div>' +
+          '<div class="position-relative h-100 d-flex flex-column justify-content-between">' +
+          '<div class="d-flex justify-content-between align-items-center"><span class="badge badge-phoenix fs-10 ' + badgeCls + '" data-bs-theme="light">' + escapeHtml(sev) + '</span></div>' +
+          '<div><h' + (state.compact ? '4' : '3') + ' class="text-white fw-bold line-clamp-2 mb-1">' + escapeHtml(ev.label || 'Event') + '</h' + (state.compact ? '4' : '3') + '>' +
+          '<p class="text-white text-opacity-75 fs-9 mb-0">' + (cam ? 'Camera ' + cam : 'Camera') + '</p>' +
+          '<div class="d-flex align-items-center mt-2"><span class="fa-solid fa-video text-white text-opacity-75 me-2 fs-10"></span>' +
+          '<span class="text-white text-opacity-75 fs-9">' + (cam ? 'Camera ' + cam : 'Camera') + '</span>' +
+          '<span class="text-white text-opacity-50 mx-2">•</span><span class="text-white text-opacity-75 fs-9">' + (ago || '') + '</span></div></div></div>' +
+          '<a class="stretched-link" href="' + escapeHtml(href) + '"></a></div>' +
+          (colClass ? '</div>' : '')
+        );
+      }).join('');
+      grid.insertAdjacentHTML('beforeend', html);
+    }
+
     function renderEvents(events) {
       const filtered = filterEvents(events);
       const countEl = state.container.querySelector('#' + countId);
-      if (countEl) countEl.textContent = String(filtered.length);
+      if (countEl) countEl.textContent = String(state.totalEvents || filtered.length);
 
       const grid = state.container.querySelector('#' + gridId);
       if (!grid) return;
@@ -173,6 +283,7 @@
           (colClass ? '</div>' : '')
         );
       }).join('');
+      renderLoadMoreButton();
     }
 
     function ensureEventImage(ev) {
@@ -217,14 +328,20 @@
         return Promise.resolve();
       }
 
-      // API may support camera_id; we also filter client-side as fallback
+      // Reset pagination state on full refresh
+      state.currentSkip = 0;
+      state.totalEvents = 0;
+      state.isLoadingMore = false;
+
       var cameraIdParam = state.cameraId || null;
       var callApi = function (withCamera) {
-        return window.visionAPI.listEvents(state.dateRange || 'all', 200, 0, withCamera ? cameraIdParam : null);
+        return window.visionAPI.listEvents(state.dateRange || 'all', PAGE_SIZE, 0, withCamera ? cameraIdParam : null);
       };
       return callApi(true).catch(function () { return callApi(false); })
         .then(function (res) {
           var items = Array.isArray(res && res.items) ? res.items : [];
+          state.totalEvents = (res && res.total != null) ? res.total : items.length;
+          state.currentSkip = items.length;
           state.events = items.map(function (it) {
             return {
               event_id: it.id,

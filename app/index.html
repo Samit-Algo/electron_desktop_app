@@ -505,6 +505,7 @@
 
   <!-- Shared widget scripts (window globals) -->
   <script src="./utils/events-board-widget.js"></script>
+  <script src="./utils/agents-board-widget.js"></script>
 
   <!-- Notification System (window globals, load in order) -->
   <script src="./notifications/constants.js"></script>
@@ -532,6 +533,9 @@
         console.error('[chatbot load]', e);
       }
     }
+
+    // Expose navigate globally so non-module widgets (agents-board-widget, events-board-widget) can do SPA navigation
+    window.__visionaiNavigate = (...args) => navigate(...args);
 
     async function boot() {
       await initSidebar();

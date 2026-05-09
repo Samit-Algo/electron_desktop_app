@@ -110,8 +110,6 @@
     return 'agent-detail.html?' + params.toString();
   }
 
-  var AGENT_PAGE_SIZE = 20;
-
   function createWidget(containerEl, options) {
     var opts = options || {};
     var state = {
@@ -122,9 +120,6 @@
       showCreateButton: !!opts.showCreateButton,
       showFilters: opts.showFilters !== false,
       agents: [],
-      currentSkip: 0,
-      totalAgents: 0,
-      isLoadingMore: false,
       container: containerEl,
       isMounted: true
     };
@@ -183,69 +178,10 @@
       );
     }
 
-    function renderAgentsLoadMoreButton() {
-      var loadMoreId = uniqueId + '-load-more';
-      var existing = state.container.querySelector('#' + loadMoreId);
-      var hasMore = state.agents.length < state.totalAgents;
-      if (!hasMore) {
-        if (existing) existing.remove();
-        return;
-      }
-      if (existing) return;
-      var btn = document.createElement('div');
-      btn.id = loadMoreId;
-      btn.className = 'col-12 text-center mt-2';
-      btn.innerHTML = '<button class="btn btn-phoenix-secondary btn-sm vision-agents-load-more-btn" type="button">Load more</button>';
-      btn.querySelector('button').addEventListener('click', function () { loadMoreAgents(); });
-      var grid = state.container.querySelector('#' + gridId);
-      if (grid && grid.parentNode) grid.parentNode.insertBefore(btn, grid.nextSibling);
-    }
-
-    function loadMoreAgents() {
-      if (state.isLoadingMore || !state.isMounted) return;
-      state.isLoadingMore = true;
-      var btn = state.container.querySelector('.vision-agents-load-more-btn');
-      if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
-      var nextSkip = state.currentSkip + AGENT_PAGE_SIZE;
-      var promise;
-      if (state.cameraId && typeof window.visionAPI.listAgentsByCamera === 'function') {
-        promise = window.visionAPI.listAgentsByCamera(state.cameraId, AGENT_PAGE_SIZE, nextSkip);
-      } else {
-        state.isLoadingMore = false;
-        if (btn) { btn.disabled = false; btn.textContent = 'Load more'; }
-        return;
-      }
-      promise
-        .then(function (res) {
-          var newAgents = Array.isArray(res && res.items) ? res.items : (Array.isArray(res) ? res : []);
-          if (res && res.total != null) state.totalAgents = res.total;
-          state.currentSkip = nextSkip;
-          state.agents = state.agents.concat(newAgents);
-          appendAgentCards(newAgents);
-          var loadMoreEl = state.container.querySelector('#' + uniqueId + '-load-more');
-          if (loadMoreEl) loadMoreEl.remove();
-          renderAgentsLoadMoreButton();
-        })
-        .catch(function () {
-          if (btn) { btn.disabled = false; btn.textContent = 'Load more'; }
-        })
-        .finally(function () { state.isLoadingMore = false; });
-    }
-
-    function appendAgentCards(newAgents) {
-      var grid = state.container.querySelector('#' + gridId);
-      if (!grid) return;
-      var filtered = filterAgents(newAgents);
-      if (!filtered.length) return;
-      var html = filtered.map(buildCardHtml).join('');
-      grid.insertAdjacentHTML('beforeend', html);
-      bindCardClicks(grid);
-    }
-
     function renderAgents(agents) {
       var filtered = filterAgents(agents);
       var countEl = state.container.querySelector('#' + countId);
-      if (countEl) countEl.textContent = String(state.totalAgents || filtered.length);
+      if (countEl) countEl.textContent = String(filtered.length);
 
       var grid = state.container.querySelector('#' + gridId);
       if (!grid) return;
@@ -273,7 +209,6 @@
       });
       grid.innerHTML = html.join('');
       bindCardClicks(grid);
-      renderAgentsLoadMoreButton();
     }
 
     function bindCardClicks(grid) {
@@ -285,10 +220,10 @@
           if (!id) return;
           e.preventDefault();
           var href = buildDetailUrl(id, { cameraId: state.cameraId });
-          if (window.visionaiSpa && typeof window.visionaiSpa.navigate === 'function') {
-            window.visionaiSpa.navigate(href).catch(function () { window.location.href = href; });
-          } else {
-            window.location.href = href;
+          if (typeof window.__visionaiNavigate === 'function') {
+            window.__visionaiNavigate(href).catch(function () {});
+          } else if (window.visionaiSpa && typeof window.visionaiSpa.navigate === 'function') {
+            window.visionaiSpa.navigate(href).catch(function () {});
           }
         });
       });
@@ -308,14 +243,9 @@
         return Promise.resolve();
       }
 
-      // Reset pagination state on full refresh
-      state.currentSkip = 0;
-      state.totalAgents = 0;
-      state.isLoadingMore = false;
-
       var promise;
       if (state.cameraId && typeof window.visionAPI.listAgentsByCamera === 'function') {
-        promise = window.visionAPI.listAgentsByCamera(state.cameraId, AGENT_PAGE_SIZE, 0);
+        promise = window.visionAPI.listAgentsByCamera(state.cameraId);
       } else if (typeof window.visionAPI.request === 'function') {
         promise = window.visionAPI.request('/api/v1/agents/list');
       } else {
@@ -324,12 +254,8 @@
       }
 
       return promise
-        .then(function (res) {
-          var agents = Array.isArray(res && res.items) ? res.items : (Array.isArray(res) ? res : []);
-          if (res && res.total != null) state.totalAgents = res.total;
-          else state.totalAgents = agents.length;
-          state.currentSkip = agents.length;
-          state.agents = agents;
+        .then(function (agents) {
+          state.agents = Array.isArray(agents) ? agents : [];
           renderAgents(state.agents);
         })
         .catch(function (err) {

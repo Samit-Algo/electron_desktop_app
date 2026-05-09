@@ -514,6 +514,15 @@
       resize: vertical;
     }
 
+    /* Readonly fields — theme-aware, no hardcoded dark colors */
+    .lf-readonly-input {
+      background: var(--lf-input-bg) !important;
+      color: var(--lf-label-color) !important;
+      border-color: var(--lf-input-border) !important;
+      cursor: default !important;
+      opacity: 0.85;
+    }
+
     .lf-footer {
       padding: 6px 12px;
       border-top: 1px solid var(--lf-header-border);
@@ -749,220 +758,434 @@
       color: #f87171 !important;
     }
 
-    /* Canvas column: dot grid + room for AI chat dock */
-    .wf-canvas-column {
-      padding-bottom: 7.5rem;
-    }
+    /* ═══════════════════════════════════════════════════════════════════════
+       AI Chat Panel — RIGHT-SIDE PANEL
+       - Fixed to the right edge of the canvas column
+       - Top aligns just below the floating toolbar row (~52px)
+       - Left edge is draggable (resizable width)
+       - Messages: user bubbles right, AI bubbles left
+    ═══════════════════════════════════════════════════════════════════════ */
 
-    /* AI chat dock — matches app theme; inherits document dir for RTL/LTR */
+    /* Panel container — absolutely positioned inside .wf-canvas-column */
     .wf-ai-chat {
-      position: fixed;
-      z-index: 25;
-      bottom: max(1rem, env(safe-area-inset-bottom, 0px));
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(42rem, calc(100vw - 1.5rem));
-      max-width: 100%;
-      direction: inherit;
-      /* Centering uses physical left:50% so the bar stays viewport-centered in both LTR and RTL */
+      position: absolute;
+      top: 52px;           /* below the floating toolbar */
+      right: 0;
+      bottom: 0;
+      width: var(--wf-chat-panel-width, 360px);
+      z-index: 20;
+      display: flex;
+      flex-direction: row;
+      pointer-events: none; /* clicks pass through when closed */
+      transition: width 0s; /* instant — resizer sets it directly */
     }
 
+    /* Hidden state */
+    .wf-ai-chat:not(.wf-ai-chat--open) {
+      pointer-events: none;
+    }
+    .wf-ai-chat:not(.wf-ai-chat--open) .wf-ai-chat-inner,
+    .wf-ai-chat:not(.wf-ai-chat--open) .wf-ai-chat-resizer {
+      display: none;
+    }
+
+    /* Vertical resizer — left edge of the panel */
+    .wf-ai-chat-resizer {
+      width: 4px;
+      background: transparent;
+      cursor: col-resize;
+      flex-shrink: 0;
+      pointer-events: all;
+      transition: background 0.15s;
+      z-index: 1;
+    }
+    .wf-ai-chat-resizer:hover,
+    .wf-ai-chat-resizer.is-dragging {
+      background: #6366f1;
+    }
+
+    /* Inner panel — fills remaining width after resizer */
     .wf-ai-chat-inner {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
       background: var(--wf-chat-surface);
-      border: 1px solid var(--wf-chat-surface-border);
-      border-radius: 1.25rem;
+      border-left: 1px solid var(--wf-chat-surface-border);
       box-shadow: var(--wf-chat-shadow);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      padding: 0.75rem 0.875rem 0.625rem;
+      pointer-events: all;
+      overflow: hidden;
     }
 
+    /* Header row */
+    .wf-ai-chat-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--lf-header-border);
+      flex-shrink: 0;
+    }
+
+    .wf-ai-chat-title {
+      font-size: 13px;
+      color: var(--lf-card-color);
+    }
+
+    .wf-ai-assistant-panel__avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6366f1;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    /* Icon buttons (close, new-thread) */
+    .wf-ai-chat-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--lf-icon-color);
+      transition: background 0.15s ease, color 0.15s ease;
+      flex-shrink: 0;
+    }
+    .wf-ai-chat-icon-btn:hover {
+      background: var(--wf-chat-icon-hover);
+      color: var(--lf-card-color);
+    }
+    .wf-ai-chat-icon-btn:focus-visible {
+      outline: 2px solid var(--bs-primary);
+      outline-offset: 2px;
+    }
+
+    /* Status / thinking bar */
+    .wf-ai-assistant-panel__status {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.78rem;
+      color: var(--lf-label-color);
+      padding: 0.35rem 0.75rem 0;
+      flex-shrink: 0;
+    }
+    .wf-ai-assistant-panel__status[hidden] { display: none !important; }
+
+    .wf-ai-assist-spin {
+      width: 0.9rem;
+      height: 0.9rem;
+      border: 2px solid var(--lf-input-border);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: wf-chat-spin 0.65s linear infinite;
+    }
+
+    @keyframes wf-chat-spin { to { transform: rotate(360deg); } }
+
+    /* Clarification badge */
+    .wf-ai-clarification-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.18rem 0.45rem;
+      border-radius: 0.35rem;
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      margin: 0.25rem 0.75rem 0;
+    }
+    .wf-ai-clarification-badge[hidden] { display: none !important; }
+
+    /* ── Messages area ────────────────────────────────────────────────────── */
+    .wf-ai-assistant-messages {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    /* User bubble — right aligned */
+    .user-message-wrapper {
+      display: flex;
+      justify-content: flex-end;
+      width: 100%;
+    }
+
+    .user-message {
+      background: #6366f1;
+      color: #fff;
+      border-radius: 1.1rem 1.1rem 0.25rem 1.1rem;
+      padding: 0.45rem 0.85rem;
+      max-width: 82%;
+      font-size: 0.8125rem;
+      line-height: 1.45;
+      word-wrap: break-word;
+    }
+
+    /* AI bubble — left aligned */
+    .ai-message-transparent {
+      align-self: flex-start;
+      background: var(--lf-input-bg);
+      border: 1px solid var(--lf-input-border);
+      border-radius: 1.1rem 1.1rem 1.1rem 0.25rem;
+      padding: 0.45rem 0.85rem;
+      max-width: 88%;
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      color: var(--lf-card-color);
+      word-wrap: break-word;
+    }
+
+    .ai-message-transparent p {
+      margin: 0 0 0.4rem;
+    }
+    .ai-message-transparent p:last-child { margin-bottom: 0; }
+
+    /* Placeholder text while waiting */
+    .wf-ai-msg-block--placeholder {
+      align-self: flex-start;
+      font-style: italic;
+      color: var(--lf-placeholder-color);
+      font-size: 0.8rem;
+      padding: 0.2rem 0;
+    }
+
+    /* Typing indicator — shows stage messages (Understanding request…, Building…) */
+    .wf-ai-typing-indicator {
+      font-style: italic;
+      color: var(--lf-placeholder-color) !important;
+      animation: wf-typing-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes wf-typing-pulse {
+      0%, 100% { opacity: 0.55; }
+      50%       { opacity: 1; }
+    }
+
+    /* Agent log (collapsible) */
+    .wf-ai-agent-log {
+      font-size: 0.7rem;
+      color: var(--lf-label-color);
+      padding: 0 0.75rem;
+      flex-shrink: 0;
+    }
+    .wf-ai-agent-log summary {
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+      padding: 0.3rem 0;
+    }
+    .wf-ai-agent-log summary::-webkit-details-marker { display: none; }
+    .wf-ai-agent-log__body {
+      margin: 0.25rem 0 0;
+      padding: 0.4rem;
+      max-height: 100px;
+      overflow: auto;
+      font-size: 0.65rem;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 0.35rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--lf-label-color);
+    }
+
+    .wf-ai-router-reason {
+      padding: 0 0.75rem;
+      font-size: 0.7rem;
+      flex-shrink: 0;
+    }
+    .wf-ai-router-reason[hidden] { display: none !important; }
+
+    /* ── Composer (input area at bottom) ─────────────────────────────────── */
+    .wf-ai-composer {
+      flex-shrink: 0;
+      padding: 0.5rem 0.75rem 0.65rem;
+      border-top: 1px solid var(--lf-header-border);
+    }
+
+    /* Loading row */
+    .wf-ai-chat-loading {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0 0 0.35rem;
+      font-size: 0.78rem;
+      color: var(--lf-label-color);
+    }
+    .wf-ai-chat-loading[hidden] { display: none !important; }
+    .wf-ai-chat-loading__spinner {
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid var(--lf-input-border);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: wf-chat-spin 0.65s linear infinite;
+    }
+
+    /* Input box wrapper (rounded, border) */
+    .wf-ai-input-box {
+      background: var(--lf-input-bg);
+      border: 1px solid var(--lf-input-border);
+      border-radius: 0.875rem;
+      padding: 0.5rem 0.65rem 0.4rem;
+      transition: border-color 0.15s;
+    }
+    .wf-ai-input-box:focus-within {
+      border-color: #6366f1;
+    }
+
+    /* Textarea */
     .wf-ai-chat-input {
       display: block;
       width: 100%;
       border: 0;
       background: transparent;
       color: var(--lf-card-color);
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       line-height: 1.45;
       resize: none;
-      min-height: 2.5rem;
-      max-height: 8rem;
-      padding: 0.2rem 0.15rem;
-      text-align: start;
+      min-height: 1.5rem;
+      max-height: 6rem;
+      padding: 0;
+      outline: none;
     }
-
     .wf-ai-chat-input::placeholder {
       color: var(--wf-chat-placeholder);
       opacity: 1;
     }
 
-    .wf-ai-chat-input:focus {
-      outline: none;
-    }
-
+    /* Toolbar row inside input box */
     .wf-ai-chat-toolbar {
-      margin-top: 0.5rem;
-      padding-top: 0.5rem;
-      border-top: 1px solid var(--lf-header-border);
-      gap: 0.5rem;
-    }
-
-    .wf-ai-chat-icon-btn {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      justify-content: center;
-      width: 2rem;
-      height: 2rem;
-      padding: 0;
-      border: none;
-      border-radius: 0.5rem;
-      background: transparent;
-      color: var(--lf-icon-color);
-      transition: background 0.15s ease, color 0.15s ease;
+      justify-content: space-between;
+      margin-top: 0.35rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid var(--lf-header-border);
     }
 
-    .wf-ai-chat-icon-btn:hover {
-      background: var(--wf-chat-icon-hover);
-      color: var(--lf-card-color);
-    }
-
-    .wf-ai-chat-icon-btn:focus-visible {
-      outline: 2px solid var(--bs-primary);
-      outline-offset: 2px;
-    }
-
+    /* Model selector pill */
     .wf-ai-chat-model-btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.3rem;
       border: 1px solid var(--lf-input-border);
-      background: var(--wf-chat-model-bg);
-      color: var(--wf-chat-model-color);
+      background: transparent;
+      color: var(--lf-label-color);
       border-radius: 999px;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 500;
-      padding: 0.28rem 0.65rem;
+      padding: 0.22rem 0.55rem;
       line-height: 1.2;
+      cursor: pointer;
     }
-
     .wf-ai-chat-model-btn:hover {
       background: var(--lf-play-btn-hover-bg);
       color: var(--lf-card-color);
     }
-
     .wf-ai-chat-model-label {
-      display: inline-block;
-      max-width: 9rem;
+      max-width: 7rem;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      vertical-align: middle;
     }
-
     .wf-ai-chat-model-btn::after {
-      display: inline-block;
-      margin-inline-start: 0.2rem;
-      vertical-align: 0.15em;
       content: "";
-      border-top: 0.28em solid;
-      border-inline-end: 0.22em solid transparent;
-      border-inline-start: 0.22em solid transparent;
-      opacity: 0.7;
+      display: inline-block;
+      border-top: 0.26em solid;
+      border-right: 0.2em solid transparent;
+      border-left: 0.2em solid transparent;
+      opacity: 0.6;
+      margin-left: 2px;
     }
 
+    /* Send button */
     .wf-ai-chat-send {
-      width: 2rem;
-      height: 2rem;
+      width: 28px;
+      height: 28px;
       padding: 0;
       border: none;
       border-radius: 50%;
-      background: var(--wf-chat-send-bg);
+      background: #6366f1;
       color: #fff;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      transition: background 0.15s ease;
+      font-size: 12px;
+      transition: background 0.15s;
     }
-
-    .wf-ai-chat-send:hover {
-      background: var(--wf-chat-send-hover);
-    }
-
-    .wf-ai-chat-send:focus-visible {
-      outline: 2px solid var(--wf-chat-send-bg);
-      outline-offset: 2px;
-    }
-
+    .wf-ai-chat-send:hover { background: #4f46e5; }
     .wf-ai-chat-send[hidden],
-    .wf-ai-chat-voice-btn[hidden] {
-      display: none !important;
-    }
+    .wf-ai-chat-voice-btn[hidden] { display: none !important; }
 
-    /* Voice assistant — wave bars (not mic) */
+    /* Voice button */
     .wf-ai-chat-voice-btn {
-      width: 2rem;
-      height: 2rem;
+      width: 28px;
+      height: 28px;
       padding: 0;
-      border: 1px solid var(--wf-chat-send-bg);
+      border: 1px solid rgba(99, 102, 241, 0.4);
       border-radius: 50%;
-      background: rgba(99, 102, 241, 0.12);
-      color: var(--wf-chat-send-bg);
+      background: rgba(99, 102, 241, 0.1);
+      color: #6366f1;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
     }
-
     .wf-ai-chat-voice-btn:hover:not(:disabled) {
-      background: rgba(99, 102, 241, 0.22);
-      border-color: var(--wf-chat-send-hover);
+      background: rgba(99, 102, 241, 0.2);
     }
-
-    .wf-ai-chat-voice-btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    .wf-ai-chat-voice-btn:focus-visible {
-      outline: 2px solid var(--wf-chat-send-bg);
-      outline-offset: 2px;
-    }
+    .wf-ai-chat-voice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .wf-ai-chat-voice-waves {
       display: inline-flex;
       align-items: flex-end;
       justify-content: center;
-      gap: 3px;
-      height: 14px;
+      gap: 2px;
+      height: 12px;
     }
-
     .wf-ai-chat-voice-waves i {
       display: block;
-      width: 3px;
+      width: 2.5px;
       border-radius: 1px;
       background: currentColor;
       transform-origin: center bottom;
       font-style: normal;
     }
-
-    .wf-ai-chat-voice-waves i:nth-child(1) { height: 6px; }
-    .wf-ai-chat-voice-waves i:nth-child(2) { height: 11px; }
-    .wf-ai-chat-voice-waves i:nth-child(3) { height: 8px; }
-    .wf-ai-chat-voice-waves i:nth-child(4) { height: 13px; }
+    .wf-ai-chat-voice-waves i:nth-child(1) { height: 5px; }
+    .wf-ai-chat-voice-waves i:nth-child(2) { height: 10px; }
+    .wf-ai-chat-voice-waves i:nth-child(3) { height: 7px; }
+    .wf-ai-chat-voice-waves i:nth-child(4) { height: 12px; }
 
     .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening {
-      background: rgba(99, 102, 241, 0.28);
-      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+      background: rgba(99, 102, 241, 0.25);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
       animation: wf-voice-pulse 1.2s ease-in-out infinite;
     }
-
     .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening .wf-ai-chat-voice-waves i {
       animation: wf-voice-bar 0.55s ease-in-out infinite;
     }
-
     .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening .wf-ai-chat-voice-waves i:nth-child(1) { animation-delay: 0ms; }
     .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening .wf-ai-chat-voice-waves i:nth-child(2) { animation-delay: 90ms; }
     .wf-ai-chat-voice-btn.wf-ai-chat-voice--listening .wf-ai-chat-voice-waves i:nth-child(3) { animation-delay: 45ms; }
@@ -972,53 +1195,28 @@
       0%, 100% { transform: scaleY(0.45); opacity: 0.75; }
       50% { transform: scaleY(1); opacity: 1; }
     }
-
     @keyframes wf-voice-pulse {
-      0%, 100% { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); }
-      50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); }
+      0%, 100% { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.28); }
+      50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15); }
     }
 
-    .wf-ai-chat .dropdown-menu {
-      font-size: 0.8125rem;
+    /* Dropdowns inside chat */
+    .wf-ai-chat .dropdown-menu,
+    .wf-ai-input-box .dropdown-menu {
+      font-size: 0.8rem;
       background: var(--lf-card-bg);
       border: 1px solid var(--lf-card-border);
       color: var(--lf-card-color);
     }
-
-    .wf-ai-chat .dropdown-item {
-      color: var(--lf-card-color);
-    }
-
+    .wf-ai-chat .dropdown-item,
+    .wf-ai-input-box .dropdown-item { color: var(--lf-card-color); }
     .wf-ai-chat .dropdown-item:hover,
-    .wf-ai-chat .dropdown-item:focus {
+    .wf-ai-input-box .dropdown-item:hover {
       background: var(--lf-play-btn-hover-bg);
       color: var(--lf-card-color);
     }
 
-    /* Chat: backend processing */
-    .wf-ai-chat-loading {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      padding: 0.4rem 0 0.1rem;
-      font-size: 0.8125rem;
-      color: var(--lf-label-color);
-    }
-    .wf-ai-chat-loading[hidden] {
-      display: none !important;
-    }
-    .wf-ai-chat-loading__spinner {
-      width: 1.1rem;
-      height: 1.1rem;
-      border: 2px solid var(--lf-input-border);
-      border-top-color: var(--bs-primary);
-      border-radius: 50%;
-      flex-shrink: 0;
-      animation: wf-chat-spin 0.65s linear infinite;
-    }
-    @keyframes wf-chat-spin {
-      to { transform: rotate(360deg); }
-    }
+    /* Loading / building state */
     .wf-ai-chat-inner.wf-ai-chat-inner--fetching .wf-ai-chat-input,
     .wf-ai-chat-inner.wf-ai-chat-inner--building .wf-ai-chat-input {
       opacity: 0.72;
@@ -1029,227 +1227,26 @@
       pointer-events: none;
     }
 
-    /* Floating agent chat: bottom-left, compact scroll */
-    .wf-ai-canvas-float {
-      position: absolute;
-      inset: 0;
-      z-index: 12;
-      pointer-events: none;
-    }
-    .wf-ai-canvas-float > * {
-      pointer-events: auto;
-    }
-    .wf-ai-assistant-panel {
-      position: absolute;
-      left: max(0.75rem, env(safe-area-inset-left, 0px));
-      bottom: calc(7.25rem + env(safe-area-inset-bottom, 0px));
-      width: min(300px, calc(100% - 1.5rem));
-      max-height: min(260px, 38vh);
-      display: flex;
-      flex-direction: column;
-      z-index: 1;
-    }
-    .wf-ai-assistant-panel[hidden] {
+    /* When chat panel is open, hide the launcher button */
+    .wf-ai-chat.wf-ai-chat--open ~ .wf-ai-chat-launcher {
       display: none !important;
     }
-    .wf-ai-assistant-panel__glow {
-      position: absolute;
-      inset: -2px;
-      border-radius: 1.15rem;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.55), rgba(59, 130, 246, 0.5), rgba(16, 185, 129, 0.45));
-      opacity: 0.85;
-      filter: blur(0.5px);
-      z-index: 0;
+
+    /* Dark theme tweaks for chat panel */
+    [data-bs-theme="dark"] .wf-ai-chat-inner {
+      border-left-color: #1f2937;
     }
-    .wf-ai-assistant-panel__inner {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      max-height: min(260px, 38vh);
-      background: var(--wf-chat-surface);
-      border: 1px solid var(--wf-chat-surface-border);
-      border-radius: 1rem;
-      padding: 0.5rem 0.6rem 0.45rem;
-      box-shadow: var(--wf-chat-shadow);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+    [data-bs-theme="dark"] .user-message {
+      background: #4f46e5;
     }
-    .wf-ai-assistant-panel__head {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      flex-shrink: 0;
-      margin-bottom: 0.35rem;
-      min-width: 0;
+    [data-bs-theme="dark"] .ai-message-transparent {
+      background: #111827;
+      border-color: #1f2937;
+      color: #e5e7eb;
     }
-    .wf-ai-assistant-panel__avatar {
-      width: 1.5rem;
-      height: 1.5rem;
-      border-radius: 999px;
-      background: var(--lf-input-bg);
-      border: 1px solid var(--lf-input-border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--lf-icon-color);
-      font-size: 0.75rem;
-      flex-shrink: 0;
-    }
-    .wf-ai-user-msg-dropdown {
-      min-width: 0;
-      flex: 1;
-    }
-    .wf-ai-user-msg-dropdown-btn {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.35rem;
-      border: 0;
-      border-radius: 0.5rem;
-      padding: 0.32rem 0.45rem;
-      background: rgba(128, 128, 128, 0.14);
-      color: var(--lf-card-color);
-      font-size: 0.75rem;
-      text-align: start;
-      line-height: 1.25;
-    }
-    .wf-ai-user-msg-dropdown-btn:hover,
-    .wf-ai-user-msg-dropdown-btn:focus {
-      background: rgba(128, 128, 128, 0.22);
-      color: var(--lf-card-color);
-    }
-    .wf-ai-user-msg-dropdown-btn::after {
-      margin-inline-start: auto;
-      flex-shrink: 0;
-    }
-    .wf-ai-user-msg-dropdown__label {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .wf-ai-user-msg-dropdown-menu {
-      max-width: min(280px, 85vw);
-      max-height: 200px;
-      overflow-y: auto;
-      font-size: 0.75rem;
-      background: var(--lf-card-bg);
-      border: 1px solid var(--lf-card-border);
-      color: var(--lf-card-color);
-    }
-    .wf-ai-user-msg-dropdown-menu .dropdown-item {
-      white-space: normal;
-      word-break: break-word;
-      padding-top: 0.35rem;
-      padding-bottom: 0.35rem;
-      color: var(--lf-card-color);
-    }
-    .wf-ai-user-msg-dropdown-menu .dropdown-item:hover,
-    .wf-ai-user-msg-dropdown-menu .dropdown-item:focus {
-      background: var(--lf-play-btn-hover-bg);
-      color: var(--lf-card-color);
-    }
-    .wf-ai-user-msg-dropdown-menu .dropdown-item.active {
-      background: rgba(99, 102, 241, 0.22);
-      color: var(--lf-card-color);
-      font-weight: 600;
-    }
-    .wf-ai-assistant-panel__status {
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-      font-size: 0.78rem;
-      color: var(--lf-label-color);
-      margin-bottom: 0.4rem;
-    }
-    .wf-ai-assistant-panel__status[hidden] {
-      display: none !important;
-    }
-    .wf-ai-assist-spin {
-      width: 0.95rem;
-      height: 0.95rem;
-      border: 2px solid var(--lf-input-border);
-      border-top-color: var(--bs-primary);
-      border-radius: 50%;
-      flex-shrink: 0;
-      animation: wf-chat-spin 0.65s linear infinite;
-    }
-    .wf-ai-clarification-badge {
-      display: inline-block;
-      font-size: 0.65rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      padding: 0.2rem 0.45rem;
-      border-radius: 0.35rem;
-      background: rgba(245, 158, 11, 0.2);
-      color: #fbbf24;
-      margin-bottom: 0.35rem;
-    }
-    .wf-ai-clarification-badge[hidden] {
-      display: none !important;
-    }
-    .wf-ai-assistant-messages {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      font-size: 0.78rem;
-      line-height: 1.45;
-      color: var(--lf-card-color);
-      margin-bottom: 0.25rem;
-    }
-    .wf-ai-msg-block {
-      margin-bottom: 0.65rem;
-      padding-bottom: 0.55rem;
-      border-bottom: 1px solid var(--lf-header-border);
-    }
-    .wf-ai-msg-block:last-child {
-      border-bottom: none;
-      margin-bottom: 0;
-      padding-bottom: 0;
-    }
-    .wf-ai-msg-block p {
-      margin: 0 0 0.45rem;
-    }
-    .wf-ai-msg-block p:last-child {
-      margin-bottom: 0;
-    }
-    .wf-ai-agent-log {
-      font-size: 0.7rem;
-      color: var(--lf-label-color);
-      margin-top: 0.25rem;
-    }
-    .wf-ai-agent-log summary {
-      cursor: pointer;
-      user-select: none;
-      list-style: none;
-    }
-    .wf-ai-agent-log summary::-webkit-details-marker {
-      display: none;
-    }
-    .wf-ai-agent-log__body {
-      margin: 0.35rem 0 0;
-      padding: 0.4rem;
-      max-height: 120px;
-      overflow: auto;
-      font-size: 0.65rem;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 0.35rem;
-      white-space: pre-wrap;
-      word-break: break-word;
-      color: var(--lf-label-color);
-    }
-    .wf-ai-router-reason {
-      margin-top: 0.25rem;
-      font-size: 0.7rem;
-    }
-    .wf-ai-router-reason[hidden] {
-      display: none !important;
+    [data-bs-theme="dark"] .wf-ai-input-box {
+      background: #0d1117;
+      border-color: #1f2937;
     }
 
     /* Generated node enter — slow, smooth ease */
@@ -1289,3 +1286,1103 @@
     .wf-canvas--gen-animating {
       cursor: progress;
     }
+
+    /* ── Top bar ─────────────────────────────────────────────────────────── */
+    .wf-topbar {
+      background: var(--wf-sidebar-bg);
+      border-bottom: 1px solid var(--wf-canvas-border) !important;
+      min-height: 52px;
+      flex-shrink: 0;
+    }
+
+    .wf-topbar-name-group {
+      max-width: 240px;
+    }
+
+    .wf-topbar-name-icon {
+      border-color: var(--wf-canvas-border) !important;
+      background: transparent !important;
+    }
+
+    .wf-topbar-name-input {
+      border-color: var(--wf-canvas-border) !important;
+      color: var(--wf-designer-color) !important;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .wf-topbar-name-input:focus {
+      box-shadow: none;
+      border-color: #6366f1 !important;
+    }
+
+    .wf-topbar-actions {
+      gap: 6px !important;
+    }
+
+    .wf-topbar-btn {
+      font-size: 12px;
+      padding: 5px 10px;
+      border-color: var(--wf-canvas-border);
+      color: var(--wf-designer-color);
+    }
+
+    .wf-topbar-back-btn {
+      margin-left: 4px;
+      height: calc(1.5em + 0.75rem + 2px);
+      min-width: calc(1.5em + 0.75rem + 2px);
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+      border-radius: 0.375rem;
+    }
+
+    .wf-topbar-btn:hover {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+      border-color: var(--lf-input-border);
+    }
+
+    .wf-topbar-btn--primary {
+      background: #6366f1 !important;
+      border-color: #6366f1 !important;
+      color: #fff !important;
+    }
+
+    .wf-topbar-btn--primary:hover {
+      background: #4f46e5 !important;
+      border-color: #4f46e5 !important;
+    }
+
+    /* ── Workflow designer layout ─────────────────────────────────────────── */
+    .workflow-designer {
+      display: grid;
+      --wf-components-sidebar-width: 220px;
+      --wf-exec-log-height: 0px;  /* 0 = closed; JS sets to e.g. 160px when open */
+      grid-template-columns: var(--wf-components-sidebar-width) 4px 1fr;
+      grid-template-rows: 1fr var(--wf-exec-log-height);
+      height: calc(100vh - 52px);
+      background: var(--wf-canvas-bg);
+      overflow: hidden;
+    }
+
+    /* Sidebar + resizer occupy row 1, log spans all cols in row 2 */
+    .wf-components-sidebar  { grid-column: 1; grid-row: 1; }
+    .wf-components-resizer  { grid-column: 2; grid-row: 1; }
+    .wf-canvas-column       { grid-column: 3; grid-row: 1; }
+    .wf-exec-log-panel      { grid-column: 1 / -1; grid-row: 2; }
+
+    /* Collapsed: sidebar header stays visible, only the body (node list) hides.
+       We use a fixed narrow column just wide enough for the header (~40px).
+       No grid-template-columns transition — causes white-flash in Drawflow. */
+    .workflow-designer.wf-components-collapsed {
+      grid-template-columns: 40px 0px 1fr;
+    }
+    .workflow-designer.wf-components-collapsed .wf-components-sidebar {
+      overflow: hidden;
+      min-width: 0;
+    }
+    .workflow-designer.wf-components-collapsed .wf-components-sidebar-body {
+      display: none !important;
+    }
+    /* hide the label text in header, keep icon + button */
+    .workflow-designer.wf-components-collapsed .wf-components-sidebar-header .fw-semibold {
+      display: none;
+    }
+    .workflow-designer.wf-components-collapsed .wf-components-sidebar-header {
+      justify-content: center;
+      padding: 0.5rem 0;
+    }
+    .workflow-designer.wf-components-collapsed .wf-components-resizer {
+      width: 0;
+      pointer-events: none;
+    }
+
+    /* ── Components sidebar ───────────────────────────────────────────────── */
+    .wf-components-sidebar {
+      background: var(--wf-sidebar-bg);
+      border-right: 1px solid var(--wf-canvas-border) !important;
+      overflow: hidden;
+      min-width: 0;
+      transition: width 0.25s ease;
+    }
+
+    .wf-components-sidebar-header {
+      background: var(--wf-sidebar-bg);
+      border-bottom: 1px solid var(--wf-canvas-border) !important;
+      min-height: 40px;
+      flex-shrink: 0;
+    }
+
+    .wf-components-sidebar-body {
+      overflow: hidden;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .wf-components-toggle-btn {
+      padding: 3px 6px;
+      font-size: 11px;
+      color: var(--lf-icon-color);
+      border: 1px solid var(--wf-canvas-border);
+      background: transparent;
+      border-radius: 5px;
+      line-height: 1.2;
+    }
+
+    .wf-components-toggle-btn:hover {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+
+    /* Sidebar section headers */
+    .wf-section-header {
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background 0.15s ease;
+      user-select: none;
+    }
+
+    .wf-section-arrow {
+      transition: transform 0.2s ease;
+    }
+
+    .wf-section.expanded .wf-section-arrow {
+      transform: rotate(90deg);
+    }
+
+    .wf-section-content {
+      display: none;
+    }
+
+    .wf-section.expanded .wf-section-content {
+      display: block;
+    }
+
+    /* Sidebar drag items */
+    .wf-section-item {
+      border-radius: 7px;
+      border: 1px solid transparent;
+      cursor: grab;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      user-select: none;
+    }
+
+    .wf-section-item:active {
+      cursor: grabbing;
+    }
+
+    .wf-section-item:hover {
+      background: rgba(99, 102, 241, 0.1) !important;
+      border-color: rgba(99, 102, 241, 0.2) !important;
+    }
+
+    .wf-section-item[data-hidden="true"] {
+      display: none !important;
+    }
+
+    .wf-node-sub {
+      font-size: 10px;
+      color: var(--lf-icon-color);
+      margin-top: 2px;
+      line-height: 1.1;
+    }
+
+    /* ── Resizer handle ───────────────────────────────────────────────────── */
+    .wf-components-resizer {
+      width: 4px;
+      background: transparent;
+      cursor: col-resize;
+      transition: background 0.15s ease;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    .wf-components-resizer:hover,
+    .wf-components-resizer.is-dragging {
+      background: #6366f1;
+    }
+
+    /* ── Canvas column ────────────────────────────────────────────────────── */
+    .wf-canvas-column {
+      position: relative;
+      overflow: hidden;
+      background: var(--wf-canvas-bg);
+      min-width: 0;
+      /* Always paint the bg — prevents white flash during sidebar collapse */
+      isolation: isolate;
+    }
+
+    .wf-canvas-column > #drawflow,
+    .wf-canvas-column > .wf-canvas {
+      background: var(--wf-canvas-bg);
+    }
+
+    .wf-canvas {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Floating toolbar (zoom / clear / import) ─────────────────────────── */
+    .wf-floating-toolbar {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      z-index: 20;
+      gap: 4px;
+      background: var(--wf-chat-surface);
+      border: 1px solid var(--wf-chat-surface-border);
+      border-radius: 10px;
+      padding: 4px 6px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .wf-toolbar-btn {
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--lf-icon-color);
+      border-radius: 6px;
+      font-size: 13px;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .wf-toolbar-btn:hover {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+
+    .wf-toolbar-btn.is-active {
+      background: rgba(99, 102, 241, 0.18);
+      color: #6366f1;
+    }
+
+    .wf-toolbar-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--lf-input-border);
+      align-self: center;
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+
+    /* ── AI chat launcher button (bottom-right of canvas) ────────────────── */
+    .wf-ai-chat-launcher {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 20;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #6366f1;
+      border: none;
+      color: #fff;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 18px rgba(99, 102, 241, 0.5);
+      cursor: pointer;
+      transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .wf-ai-chat-launcher:hover {
+      background: #4f46e5;
+      transform: scale(1.07);
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.65);
+    }
+
+    .wf-ai-chat-launcher[hidden] {
+      display: none !important;
+    }
+
+    /* ── AI composer (textarea wrapper inside chat inner) ── defined in chat panel section above */
+
+    /* ── Node tooltip (body-level, escapes sidebar overflow:hidden) ──────── */
+    #wf-node-tooltip {
+      position: fixed;
+      z-index: 9999;
+      pointer-events: none;
+      background: var(--lf-card-bg);
+      border: 1px solid var(--lf-card-border);
+      color: var(--lf-card-color);
+      border-radius: 8px;
+      padding: 7px 11px;
+      font-size: 11px;
+      line-height: 1.45;
+      max-width: 220px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    #wf-node-tooltip.visible {
+      opacity: 1;
+    }
+
+    /* ── Execution log panel ──────────────────────────────────────────────── */
+    .wf-exec-log-panel {
+      background: var(--wf-canvas-bg);
+      border-top: 1px solid var(--wf-canvas-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+      /* closed by default — grid row is 0px; shown when is-open added by JS */
+    }
+
+    /* Draggable top edge handle */
+    .wf-exec-log-resize-handle {
+      height: 4px;
+      background: transparent;
+      cursor: ns-resize;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .wf-exec-log-resize-handle:hover,
+    .wf-exec-log-resize-handle.is-dragging {
+      background: #6366f1;
+    }
+
+    .wf-exec-log-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      border-bottom: 1px solid var(--wf-canvas-border);
+      flex-shrink: 0;
+    }
+
+    .wf-exec-log-body {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 5px 12px;
+      font-family: 'Fira Mono', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 11px;
+      color: var(--lf-label-color);
+      line-height: 1.55;
+    }
+
+    .wf-exec-log-btn {
+      font-size: 10px;
+      padding: 2px 8px;
+      background: transparent;
+      border: 1px solid var(--wf-canvas-border);
+      color: var(--lf-icon-color);
+      border-radius: 4px;
+    }
+
+    .wf-exec-log-btn:hover {
+      background: var(--lf-play-btn-hover-bg);
+      color: var(--lf-card-color);
+    }
+
+    [data-bs-theme="dark"] .wf-exec-log-panel {
+      background: #020617;
+      border-top-color: #111827;
+    }
+    [data-bs-theme="dark"] .wf-exec-log-header {
+      border-bottom-color: #111827;
+    }
+    [data-bs-theme="dark"] .wf-exec-log-body {
+      color: #94a3b8;
+    }
+
+    /* ── "wf-hide-app-sidebar" fullscreen mode ────────────────────────────── */
+    main.main.wf-hide-app-sidebar .navbar-vertical-aside {
+      display: none !important;
+    }
+
+    main.main.wf-hide-app-sidebar .main-content {
+      margin-left: 0 !important;
+      padding-left: 0 !important;
+    }
+
+    /* ── Camera preview panel inside node card ───────────────────────────── */
+    .camera-preview-panel {
+      border-radius: 7px;
+      overflow: hidden;
+      background: var(--lf-input-bg);
+      border: 1px solid var(--lf-input-border);
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .camera-preview-inner {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 8px;
+      gap: 5px;
+      text-align: center;
+    }
+
+    .camera-preview--empty .camera-preview-icon,
+    .camera-preview--offline .camera-preview-icon {
+      font-size: 18px;
+      color: var(--lf-icon-color);
+    }
+
+    .camera-preview-icon--offline {
+      color: #ef4444 !important;
+    }
+
+    .camera-preview-hint {
+      font-size: 10px;
+      color: var(--lf-placeholder-color);
+    }
+
+    .camera-preview--loading {
+      gap: 6px;
+    }
+
+    .camera-preview-spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--lf-input-border);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: wf-chat-spin 0.65s linear infinite;
+    }
+
+    .camera-preview--live {
+      padding: 0;
+    }
+
+    .camera-preview-img-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .camera-preview-img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+    }
+
+    .camera-preview-badge {
+      position: absolute;
+      top: 5px;
+      left: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 999px;
+      backdrop-filter: blur(4px);
+    }
+
+    .camera-preview-badge--online {
+      background: rgba(34, 197, 94, 0.85);
+      color: #fff;
+    }
+
+    .camera-preview-badge--offline {
+      background: rgba(239, 68, 68, 0.85);
+      color: #fff;
+    }
+
+    .camera-preview-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      display: inline-block;
+    }
+
+    .camera-preview-ts {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.75);
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+
+    .camera-preview-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .camera-preview-status--offline { color: #ef4444; }
+    .camera-preview-status--warn    { color: #f59e0b; }
+
+    .camera-preview-dot--offline { background: #ef4444; }
+    .camera-preview-dot--warn    { background: #f59e0b; }
+
+    /* ── Drawflow canvas background dot-grid ─────────────────────────────── */
+    #drawflow {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: var(--wf-canvas-bg);
+    }
+
+    /* ── Dark theme overrides for sidebar / topbar / toolbar ─────────────── */
+    [data-bs-theme="dark"] .wf-topbar {
+      background: #020617;
+      border-bottom-color: #111827 !important;
+    }
+
+    [data-bs-theme="dark"] .wf-topbar-name-input {
+      color: #e5e7eb !important;
+    }
+
+    [data-bs-theme="dark"] .wf-topbar-btn {
+      color: #9ca3af;
+      border-color: #1f2937;
+    }
+
+    [data-bs-theme="dark"] .wf-components-sidebar {
+      background: #020617;
+      border-right-color: #111827 !important;
+    }
+
+    [data-bs-theme="dark"] .wf-components-sidebar-header {
+      background: #020617;
+      border-bottom-color: #111827 !important;
+    }
+
+    [data-bs-theme="dark"] .wf-section-item:hover {
+      background: rgba(99, 102, 241, 0.14) !important;
+      border-color: rgba(99, 102, 241, 0.25) !important;
+    }
+
+    [data-bs-theme="dark"] .wf-floating-toolbar {
+      background: rgba(13, 13, 13, 0.94);
+      border-color: rgba(55, 55, 55, 0.95);
+    }
+
+    [data-bs-theme="dark"] .wf-toolbar-btn {
+      color: #6b7280;
+    }
+
+    [data-bs-theme="dark"] .wf-toolbar-btn:hover {
+      background: #1a1a1a;
+      color: #e5e7eb;
+    }
+
+    [data-bs-theme="dark"] #wf-node-tooltip {
+      background: #0d0d0d;
+      border-color: #2a2a2a;
+      color: #e5e7eb;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+    }
+
+    [data-bs-theme="dark"] .wf-exec-log-panel {
+      background: #020617;
+      border-top-color: #111827;
+    }
+
+    [data-bs-theme="dark"] .wf-exec-log-header {
+      border-bottom-color: #111827;
+    }
+
+    /* ── Misc utility ─────────────────────────────────────────────────────── */
+    .cursor-pointer { cursor: pointer; }
+    .cursor-grab    { cursor: grab; }
+    .min-w-0        { min-width: 0; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       n8n-style live node status system
+       ═══════════════════════════════════════════════════════════════════════
+
+       HOW THIS WORKS
+       --------------
+       When the workflow runs, the backend sends WebSocket events.
+       workflow-editor.js reads those events and adds/removes CSS classes on
+       the Drawflow node <div id="node-N"> elements.  These classes control
+       the visual state of each node:
+
+         wf-node--running   → blue pulsing border   (node is being processed)
+         wf-node--done      → green border           (node finished OK)
+         wf-node--error     → red border             (node failed)
+         wf-node--paused    → amber border           (agent paused)
+         wf-node--stopped   → grey border            (agent stopped)
+
+       The .wf-n8n-badge overlay inside each node shows an icon/spinner.
+       The .wf-event-flash class is temporarily added when a detection or
+       notification fires — it animates a green glow and then disappears.
+       The .wf-event-count badge shows the running total of events on each node.
+
+       n8n COLOUR SCHEME (kept consistent)
+       ------------------------------------
+         running   #3b82f6  (blue)
+         done      #22c55e  (green)
+         error     #ef4444  (red)
+         paused    #f59e0b  (amber)
+         stopped   #6b7280  (grey)
+         event     #22c55e  (green flash)
+    ─────────────────────────────────────────────────────────────────────── */
+
+    /* ── Status border colours ─────────────────────────────────────────── */
+    .drawflow-node.wf-node--running {
+      outline: 2px solid #3b82f6;
+      outline-offset: 1px;
+    }
+
+    .drawflow-node.wf-node--done {
+      outline: 2px solid #22c55e;
+      outline-offset: 1px;
+      animation: none !important;
+      box-shadow: none !important;
+    }
+
+    .drawflow-node.wf-node--error {
+      outline: 2px solid #ef4444;
+      outline-offset: 1px;
+      animation: none !important;
+      box-shadow: none !important;
+    }
+
+    .drawflow-node.wf-node--paused {
+      outline: 2px solid #f59e0b;
+      outline-offset: 1px;
+      animation: none !important;
+    }
+
+    .drawflow-node.wf-node--stopped {
+      outline: 2px solid #6b7280;
+      outline-offset: 1px;
+      animation: none !important;
+      box-shadow: none !important;
+    }
+
+    /* ── Status badge overlay (top-right corner of the node card) ──────── */
+    /* The JS creates a <div class="wf-n8n-badge"> and inserts it inside
+       each .drawflow-node when the node first gets a status. */
+    .wf-n8n-badge {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width:  22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      z-index: 30;
+      pointer-events: none;   /* don't block node drag/click */
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    }
+
+    /* Badge background changes with the parent node's state */
+    .wf-node--running  .wf-n8n-badge  { background: #3b82f6; }
+    .wf-node--done     .wf-n8n-badge  { background: #22c55e; }
+    .wf-node--error    .wf-n8n-badge  { background: #ef4444; }
+    .wf-node--paused   .wf-n8n-badge  { background: #f59e0b; }
+    .wf-node--stopped  .wf-n8n-badge  { background: #6b7280; }
+
+    /* ── Spinning loader inside the badge (while running) ──────────────── */
+    /* JS sets badge innerHTML to <span class="wf-badge-spin"></span> */
+    .wf-badge-spin {
+      display: inline-block;
+      width:  11px;
+      height: 11px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: wf-badge-spin-anim 0.65s linear infinite;
+    }
+
+    @keyframes wf-badge-spin-anim {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Animated edge (SVG path between nodes) ────────────────────────── */
+    /* JS adds this class when data flows along an edge, then removes it */
+    .drawflow .connection path.main-path.wf-edge--active {
+      stroke:           #3b82f6;
+      stroke-width:     3;
+      animation:        wf-edge-flow-anim 1.2s ease-out forwards;
+    }
+
+    @keyframes wf-edge-flow-anim {
+      0%   { stroke: #3b82f6; stroke-width: 3; opacity: 1; }
+      70%  { stroke: #60a5fa; stroke-width: 2; opacity: 0.7; }
+      100% { stroke: inherit; stroke-width: inherit; opacity: 1; }
+    }
+
+    /* ── Event flash (green glow pulse, added temporarily on detection) ── */
+    /* JS adds .wf-event-flash for 600 ms then removes it.
+       It does NOT replace the existing running/done border — it overlays a
+       bright green glow so the user sees "something just happened here". */
+    .drawflow-node.wf-event-flash {
+      animation: wf-event-flash-anim 0.7s ease-out;
+    }
+
+    @keyframes wf-event-flash-anim {
+      0%   { box-shadow: 0 0  0px  0px rgba(34, 197, 94, 0.0); }
+      30%  { box-shadow: 0 0 12px  6px rgba(34, 197, 94, 0.7); }
+      100% { box-shadow: 0 0  0px  0px rgba(34, 197, 94, 0.0); }
+    }
+
+    /* ── Event count badge (shows "N events" below the status badge) ───── */
+    /* The JS creates a <div class="wf-event-count-badge"> inside each node
+       that has received at least one detection_event. */
+    .wf-event-count-badge {
+      position: absolute;
+      bottom: -10px;
+      left:   50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color:      #22c55e;
+      border:     1px solid #22c55e;
+      border-radius: 999px;
+      font-size:  9px;
+      font-weight: 700;
+      padding:    1px 7px;
+      white-space: nowrap;
+      z-index: 30;
+      pointer-events: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    /* Bump animation when the count increments */
+    .wf-event-count-badge.wf-count-bump {
+      animation: wf-count-bump-anim 0.3s ease-out;
+    }
+
+    @keyframes wf-count-bump-anim {
+      0%   { transform: translateX(-50%) scale(1);   }
+      50%  { transform: translateX(-50%) scale(1.35);}
+      100% { transform: translateX(-50%) scale(1);   }
+    }
+
+    /* Dark theme overrides */
+    [data-bs-theme="dark"] .wf-event-count-badge {
+      background: #0f172a;
+    }
+
+    [data-bs-theme="dark"] .drawflow-node.wf-node--running { outline-color: #60a5fa; }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--done    { outline-color: #4ade80; }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--error   { outline-color: #f87171; }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--paused  { outline-color: #fbbf24; }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--stopped { outline-color: #9ca3af; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       PHASE 1 — n8n-quality execution UX
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    /* ── 1a. Pulsing outline on running nodes (replaces static border) ─────── */
+    .drawflow-node.wf-node--running {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+      animation: wf-node-pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes wf-node-pulse {
+      0%,100% { outline-color: #3b82f6; outline-offset: 2px; box-shadow: 0 0  6px 0px rgba(59,130,246,0.35); }
+      50%      { outline-color: #60a5fa; outline-offset: 3px; box-shadow: 0 0 18px 4px rgba(59,130,246,0.55); }
+    }
+
+    [data-bs-theme="dark"] .drawflow-node.wf-node--running {
+      animation: wf-node-pulse-dark 1.8s ease-in-out infinite;
+    }
+    @keyframes wf-node-pulse-dark {
+      0%,100% { outline-color: #60a5fa; outline-offset: 2px; box-shadow: 0 0  8px 0px rgba(96,165,250,0.4); }
+      50%      { outline-color: #93c5fd; outline-offset: 3px; box-shadow: 0 0 22px 5px rgba(96,165,250,0.6); }
+    }
+
+    /* ── 1b. Persistent edge flow while agents are Monitoring ──────────────── */
+    /* JS adds .wf-edge--live (stays until stop) for running-phase edges.
+       .wf-edge--active is kept for the one-shot node-setup flash. */
+    .drawflow .connection path.main-path.wf-edge--live {
+      stroke:        #3b82f6;
+      stroke-width:  2.5;
+      stroke-dasharray: 8 5;
+      animation: wf-edge-live-flow 1.1s linear infinite;
+    }
+    @keyframes wf-edge-live-flow {
+      to { stroke-dashoffset: -26; }
+    }
+
+    [data-bs-theme="dark"] .drawflow .connection path.main-path.wf-edge--live {
+      stroke: #60a5fa;
+    }
+
+    /* ── 1c. Canvas success banner ─────────────────────────────────────────── */
+    .wf-canvas-banner {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12);
+      animation: wf-banner-in 0.3s cubic-bezier(0.34,1.28,0.64,1) both;
+      pointer-events: auto;
+      cursor: default;
+      max-width: calc(100vw - 80px);
+      white-space: normal;
+    }
+
+    @keyframes wf-banner-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(0.95); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0)      scale(1);   }
+    }
+
+    .wf-canvas-banner--success {
+      background: #052e16;
+      border: 1px solid #16a34a;
+      color: #4ade80;
+    }
+    .wf-canvas-banner--error {
+      background: #1c0505;
+      border: 1px solid #dc2626;
+      color: #f87171;
+    }
+    .wf-canvas-banner--stopped {
+      background: #111827;
+      border: 1px solid #4b5563;
+      color: #9ca3af;
+    }
+    html:not([data-bs-theme="dark"]) .wf-canvas-banner--success {
+      background: #f0fdf4;
+      border-color: #22c55e;
+      color: #15803d;
+    }
+    html:not([data-bs-theme="dark"]) .wf-canvas-banner--error {
+      background: #fef2f2;
+      border-color: #ef4444;
+      color: #b91c1c;
+    }
+    html:not([data-bs-theme="dark"]) .wf-canvas-banner--stopped {
+      background: #f9fafb;
+      border-color: #9ca3af;
+      color: #6b7280;
+    }
+
+    .wf-canvas-banner__icon {
+      font-size: 15px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .wf-canvas-banner__text {
+      flex: 1;
+      min-width: 0;
+    }
+    .wf-canvas-banner__title {
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+    .wf-canvas-banner__sub {
+      font-size: 11px;
+      font-weight: 400;
+      opacity: 0.8;
+      margin-top: 2px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .wf-canvas-banner__close {
+      flex-shrink: 0;
+      background: transparent;
+      border: none;
+      color: inherit;
+      opacity: 0.6;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 0 0 0 6px;
+      line-height: 1;
+      transition: opacity 0.15s;
+    }
+    .wf-canvas-banner__close:hover { opacity: 1; }
+
+    /* ── 1d. Inline error callout inside node card ─────────────────────────── */
+    .wf-node-error-callout {
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: rgba(220,38,38,0.12);
+      border: 1px solid rgba(220,38,38,0.4);
+      border-radius: 6px;
+      font-size: 10px;
+      color: #f87171;
+      line-height: 1.45;
+      word-break: break-word;
+      display: flex;
+      gap: 5px;
+      align-items: flex-start;
+    }
+    html:not([data-bs-theme="dark"]) .wf-node-error-callout {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
+    .wf-node-error-callout i { flex-shrink: 0; margin-top: 1px; font-size: 9px; }
+
+    /* ── 1e. Execution progress bar (graph-parse phase) ───────────────────── */
+    .wf-exec-progress-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 3px;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1, #38bdf8);
+      z-index: 300;
+      transition: width 0.4s ease, opacity 0.3s ease;
+      pointer-events: none;
+      border-radius: 0 2px 2px 0;
+    }
+    .wf-exec-progress-bar.is-indeterminate {
+      width: 100% !important;
+      animation: wf-progress-indeterminate 1.6s ease-in-out infinite;
+    }
+    @keyframes wf-progress-indeterminate {
+      0%   { transform: scaleX(0)   translateX(0%);   transform-origin: left; }
+      50%  { transform: scaleX(0.6) translateX(60%);  transform-origin: left; }
+      100% { transform: scaleX(0)   translateX(200%); transform-origin: left; }
+    }
+    .wf-exec-progress-bar.is-done {
+      width: 100% !important;
+      opacity: 0;
+      transition: width 0.2s ease, opacity 0.5s ease 0.3s;
+    }
+    .wf-exec-progress-bar.is-error {
+      background: #ef4444;
+      width: 100% !important;
+      opacity: 0;
+      transition: width 0.2s ease, opacity 0.5s ease 0.4s;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       PHASE 2 — Exec log structured rows + node execution time chip
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    /* ── 2a. Structured exec-log row ───────────────────────────────────────── */
+    .wf-exec-log-line {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 2px 0;
+      border-bottom: 1px solid transparent;
+      animation: wf-log-row-in 0.18s ease both;
+    }
+    @keyframes wf-log-row-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0);   }
+    }
+
+    .wf-log-ts {
+      flex-shrink: 0;
+      font-size: 9.5px;
+      color: #475569;
+      min-width: 54px;
+      letter-spacing: 0.01em;
+    }
+    [data-bs-theme="dark"] .wf-log-ts { color: #334155; }
+
+    /* Node-type tag pill in the log */
+    .wf-log-tag {
+      flex-shrink: 0;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(99,102,241,0.12);
+      color: #818cf8;
+      border: 1px solid rgba(99,102,241,0.2);
+    }
+    /* Tag colours per node category */
+    .wf-log-tag--camera       { background: rgba(56,189,248,0.12); color:#38bdf8; border-color:rgba(56,189,248,0.25); }
+    .wf-log-tag--agent        { background: rgba(139,92,246,0.12);  color:#a78bfa; border-color:rgba(139,92,246,0.25); }
+    .wf-log-tag--notification { background: rgba(245,158,11,0.12);  color:#fbbf24; border-color:rgba(245,158,11,0.25); }
+    .wf-log-tag--alarm        { background: rgba(239,68,68,0.12);   color:#f87171; border-color:rgba(239,68,68,0.25); }
+    .wf-log-tag--iot          { background: rgba(16,185,129,0.12);  color:#34d399; border-color:rgba(16,185,129,0.25); }
+    .wf-log-tag--report       { background: rgba(20,184,166,0.12);  color:#2dd4bf; border-color:rgba(20,184,166,0.25); }
+    .wf-log-tag--system       { background: rgba(100,116,139,0.12); color:#94a3b8; border-color:rgba(100,116,139,0.25); }
+    .wf-log-tag--error        { background: rgba(239,68,68,0.14);   color:#f87171; border-color:rgba(239,68,68,0.3);  }
+
+    /* Main message text */
+    .wf-log-msg {
+      flex: 1;
+      min-width: 0;
+      font-size: 11px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    /* Elapsed-time chip on the right */
+    .wf-log-elapsed {
+      flex-shrink: 0;
+      font-size: 9px;
+      color: #475569;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    [data-bs-theme="dark"] .wf-log-elapsed { color: #334155; }
+
+    /* ── 2b. Node execution-time chip (overlaid on card, bottom-right) ─────── */
+    .wf-node-elapsed-chip {
+      position: absolute;
+      bottom: -9px;
+      right:   6px;
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      font-size: 8.5px;
+      font-weight: 600;
+      padding: 1px 6px;
+      white-space: nowrap;
+      z-index: 30;
+      pointer-events: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    html:not([data-bs-theme="dark"]) .wf-node-elapsed-chip {
+      background: #fff;
+      color: #64748b;
+      border-color: #cbd5e1;
+    }
+
+    /* Separator line between agent rows in the heartbeat summary */
+    .wf-log-agent-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10.5px;
+      padding: 1px 0;
+    }
+    .wf-log-agent-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .wf-log-agent-dot--running  { background: #3b82f6; }
+    .wf-log-agent-dot--paused   { background: #f59e0b; }
+    .wf-log-agent-dot--stopped  { background: #6b7280; }
+    .wf-log-agent-dot--error    { background: #ef4444; }
+    .wf-log-agent-dot--done     { background: #22c55e; }

@@ -23,58 +23,91 @@
             <!-- Reuse Chat page layout: left list + right "conversation" (replaced with video player) -->
             <div class="chat d-flex phoenix-offcanvas-container pt-1 mt-n1 mb-9" id="camera-detail-shell">
                 <!-- Left sidebar -->
-                <div class="card p-3 p-xl-1 mt-xl-n1 chat-sidebar me-3 phoenix-offcanvas phoenix-offcanvas-start" id="agent-sidebar" style="min-width: 320px;">
-                    <!-- Search (same idea as chat) -->
-                    <div class="form-icon-container mb-4 d-sm-none d-xl-block">
-                        <input class="form-control form-icon-input" id="agent-search" type="text" placeholder="Search agents" />
-                        <span class="fas fa-user text-body fs-9 form-icon"></span>
+                <div class="card p-3 p-xl-1 mt-xl-n1 chat-sidebar me-3 phoenix-offcanvas phoenix-offcanvas-start" id="agent-sidebar" style="min-width: 300px; max-width: 300px;">
+                    <!-- Search -->
+                    <div class="form-icon-container mb-3">
+                        <input class="form-control form-icon-input form-control-sm" id="agent-search" type="text" placeholder="Search agents" />
+                        <span class="fas fa-search text-body fs-10 form-icon"></span>
                     </div>
 
-                    <!-- Tabs: All->Active, Read->Waiting, Unread->Inactive -->
-                    <ul class="nav nav-phoenix-pills mb-4 d-sm-none d-xl-flex" role="tablist">
+                    <!-- Tabs -->
+                    <ul class="nav nav-phoenix-pills mb-3 cd-tabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <a class="nav-link cursor-pointer active" data-agent-filter="active" role="tab" aria-selected="true">Active Agents</a>
+                            <a class="nav-link cursor-pointer active cd-tab" data-cd-tab="active" role="tab">
+                                Active <span class="cd-count" id="count-active">0</span>
+                            </a>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <a class="nav-link cursor-pointer" data-agent-filter="scheduled" role="tab" aria-selected="false">Waiting Agents</a>
+                            <a class="nav-link cursor-pointer cd-tab" data-cd-tab="scheduled" role="tab">
+                                Waiting <span class="cd-count" id="count-scheduled">0</span>
+                            </a>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <a class="nav-link cursor-pointer" data-agent-filter="completed" role="tab" aria-selected="false">Inactive Agents</a>
+                            <a class="nav-link cursor-pointer cd-tab" data-cd-tab="completed" role="tab">
+                                Inactive <span class="cd-count" id="count-completed">0</span>
+                            </a>
                         </li>
                     </ul>
 
-                    <div class="scrollbar" style="max-height: 70vh;">
-                        <ul class="nav chat-thread-tab flex-column list" id="agent-list">
-                            <li class="nav-item" id="agent-list-loading">
-                                <div class="text-body-tertiary fs-9 p-3">Loading agents...</div>
+                    <!-- Agent sections (one per tab, JS populates each) -->
+                    <div class="scrollbar cd-agent-scroll">
+                        <ul class="cd-agent-section" id="list-active"></ul>
+                        <ul class="cd-agent-section d-none" id="list-scheduled"></ul>
+                        <ul class="cd-agent-section d-none" id="list-completed"></ul>
+                    </div>
+
+                    <!-- Hidden legacy list for applyFilter compatibility -->
+                    <ul id="agent-list" style="display:none;"></ul>
+
+                    <!-- Workflows Section -->
+                    <div class="mt-3 pt-3 border-top border-translucent" id="cd-workflow-section">
+                        <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+                            <span class="fs-10 fw-semibold text-body-secondary text-uppercase">Workflows</span>
+                        </div>
+                        <!-- Workflow Tabs -->
+                        <ul class="nav nav-phoenix-pills mb-2 cd-wf-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link cursor-pointer active cd-wf-tab" data-cd-wf-tab="active" role="tab">
+                                    Active <span class="cd-count" id="wf-count-active">0</span>
+                                </a>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link cursor-pointer cd-wf-tab" data-cd-wf-tab="scheduled" role="tab">
+                                    Waiting <span class="cd-count" id="wf-count-scheduled">0</span>
+                                </a>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link cursor-pointer cd-wf-tab" data-cd-wf-tab="completed" role="tab">
+                                    Inactive <span class="cd-count" id="wf-count-completed">0</span>
+                                </a>
                             </li>
                         </ul>
+                        <!-- Workflow lists -->
+                        <div class="scrollbar cd-agent-scroll">
+                            <ul class="cd-agent-section" id="wf-list-active"></ul>
+                            <ul class="cd-agent-section d-none" id="wf-list-scheduled"></ul>
+                            <ul class="cd-agent-section d-none" id="wf-list-completed"></ul>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Right content: video player replaces chat thread -->
                 <div class="card flex-1 phoenix-offcanvas-container">
                     <div class="d-flex flex-column">
-                        <div class="card-header p-3 p-md-4 d-flex flex-between-center">
-                            <div class="d-flex align-items-center">
-                                <span class="fa-solid fa-video text-primary me-2" id="stream-type-icon"></span>
-                                <div class="d-flex flex-column flex-md-row align-items-md-center">
-                                    <div class="fw-semibold text-body-emphasis me-3" id="camera-header-name">Live Camera</div>
-                                    <p class="fs-9 mb-0 me-2">
-                                        <span class="fa-solid fa-circle text-success fs-11 me-2" id="camera-status-dot"></span>
-                                        <span id="camera-status-text">Live</span>
-                                    </p>
-                                    <button class="btn btn-phoenix-secondary btn-sm ms-2 d-none" type="button" id="switch-to-camera-btn" title="Switch back to camera stream">
-                                        <span class="fa-solid fa-video me-1"></span>Camera View
-                                    </button>
-                                </div>
+                        <div class="card-header px-3 d-flex flex-between-center" style="padding-top:6px;padding-bottom:6px;">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fa-solid fa-circle fs-11 is-live" id="camera-status-dot"></span>
+                                <span class="fs-10 text-body-tertiary" id="camera-status-text">Live</span>
+                                <button class="btn btn-phoenix-secondary btn-sm d-none" type="button" id="switch-to-camera-btn" title="Switch back to camera stream" style="white-space:nowrap;">
+                                    Camera View
+                                </button>
                             </div>
                             <div class="d-flex gap-2">
-                                <button class="btn btn-icon btn-phoenix-primary" type="button" id="toggle-agent-sidebar" title="Collapse/Expand Agents">
-                                    <span class="fa-solid fa-angles-left"></span>
+                                <button class="btn btn-icon btn-sm btn-phoenix-primary" type="button" id="toggle-agent-sidebar" title="Collapse/Expand Agents">
+                                    <span class="fa-solid fa-angles-left fs-10"></span>
                                 </button>
-                                <button class="btn btn-icon btn-phoenix-primary" type="button" id="camera-reload" title="Reload">
-                                    <span class="fa-solid fa-rotate"></span>
+                                <button class="btn btn-icon btn-sm btn-phoenix-primary" type="button" id="camera-reload" title="Reload">
+                                    <span class="fa-solid fa-rotate fs-10"></span>
                                 </button>
                             </div>
                         </div>
@@ -86,6 +119,7 @@
                                 <img id="camera-agent-frames" class="w-100 h-100 visionai-video visionai-agent-frames" alt="Agent view" style="display:none; object-fit:contain;">
                                 <!-- Agent overlay canvas (Option A) -->
                                 <canvas id="agent-overlay-canvas" class="visionai-agent-overlay"></canvas>
+                                <div id="camera-status-reason" class="visionai-status-reason d-none"></div>
 
                                 <div class="position-absolute bottom-0 start-0 m-3">
                                     <span class="badge bg-dark bg-opacity-75 text-white fs-9" id="camera-overlay-badge">

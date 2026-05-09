@@ -4,10 +4,14 @@ import { api } from '../../core/api.js';
 
 const GRID_KEY = 'visionai.dashboard.liveCameraGrid.v1';
 const STATS_POLL_MS = 120000;
-let statsPollTimer = null;
+// Snapshot refresh interval — matches backend health-check cadence
+const SNAPSHOT_POLL_MS = 60000;
 
-const livePlayers = new Map();
+let statsPollTimer = null;
+let snapshotPollTimer = null;
 let cameraData = [];
+
+// ── Loading state helpers ─────────────────────────────────────────────────────
 
 function setStatsLoading(isLoading) {
   const el = document.getElementById('vision-dashboard-stats');
@@ -24,6 +28,8 @@ function setCamerasLoading(isLoading) {
   if (el) el.setAttribute('data-loading', isLoading ? 'true' : 'false');
 }
 
+// ── Event severity helpers ────────────────────────────────────────────────────
+
 function inferSeverityFromLabel(label) {
   const t = String(label || '').toLowerCase();
   if (t.includes('weapon') || t.includes('fire') || t.includes('fall') || t.includes('intrusion')) return 'Critical';
@@ -38,6 +44,8 @@ function eventSeverity(it) {
   if (s === 'info') return 'Info';
   return inferSeverityFromLabel(it.label);
 }
+
+// ── Stats polling ─────────────────────────────────────────────────────────────
 
 function stopDashboardStatsPolling() {
   if (statsPollTimer) { clearInterval(statsPollTimer); statsPollTimer = null; }
@@ -73,14 +81,16 @@ async function refreshDashboardStats() {
 
     const camList = Array.isArray(cameras) ? cameras : [];
     const totalCams = camList.length;
-    const hasCamStatus = camList.some(c => c.status != null || c.is_online != null || c.live != null);
-    let online = camList.filter(c => c.status === 'online' || c.is_online === true || c.live === true).length;
-    if (!hasCamStatus && totalCams > 0) online = totalCams;
-    const offline = hasCamStatus ? Math.max(0, totalCams - online) : 0;
+    const online = camList.filter(c => c.status === 'live').length;
+    const offline = camList.filter(c => String(c.status || '').toLowerCase() === 'offline').length;
+    const reconnecting = camList.filter(c => {
+      const s = String(c.status || '').toLowerCase();
+      return s === 'reconnecting' || s === 'error';
+    }).length;
 
     setText('vision-stat-cameras-total', String(totalCams));
     setText('vision-stat-cameras-online-badge', `${online} online`);
-    setText('vision-stat-cameras-offline', `${offline} offline`);
+    setText('vision-stat-cameras-offline', reconnecting > 0 ? `${offline} offline • ${reconnecting} reconnecting` : `${offline} offline`);
 
     const agents = Array.isArray(agentsRes) ? agentsRes : [];
     const mon = agents.filter(a => String(a.status || '').toLowerCase() === 'monitoring').length;
@@ -115,6 +125,8 @@ async function refreshDashboardStats() {
   }
 }
 
+// ── Script/CSS loaders ────────────────────────────────────────────────────────
+
 function loadCssOnce(href) {
   if ([...document.styleSheets].some(s => s.href === href)) return;
   if (document.querySelector(`link[data-gridstack="true"][href="${href}"]`)) return;
@@ -144,14 +156,48 @@ async function ensureGridStack() {
   await loadScriptOnce('/vendors/gridstack/gridstack-all.js');
 }
 
-async function ensureWsFmp4Player() {
-  if (window.createWsFmp4Player) return;
-  await loadScriptOnce('/app/utils/ws-fmp4-player.js');
-}
-
 function safeJsonParse(v) {
   try { return JSON.parse(v); } catch { return null; }
 }
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+
+/**
+ * Update the status badge on a camera tile.
+ *
+ * States:
+ *   'live-preview' – camera reachable, snapshot loaded → green blinking dot + "Live Preview"
+ *   'offline'      – camera unreachable                → red  + "Offline"
+ *   'reconnecting' – temporary unreachable             → amber + "Reconnecting"
+ *   'loading'      – waiting for first preview fetch   → grey + "Loading…"
+ *   'unknown'      – no status info                    → grey + "Unknown"
+ */
+function updateCameraStatus(tileId, state) {
+  const el = document.getElementById(`status-${tileId}`);
+  if (!el) return;
+  el.className = 'badge badge-phoenix fs-10';
+  el.title = '';
+
+  switch (state) {
+    case 'live-preview':
+      el.classList.add('badge-phoenix-success');
+      el.innerHTML = '<span class="dashboard-live-dot me-1"></span>Live Preview';
+      break;
+    case 'offline':
+      el.classList.add('badge-phoenix-danger');
+      el.textContent = 'Offline';
+      break;
+    case 'reconnecting':
+      el.classList.add('badge-phoenix-warning');
+      el.textContent = 'Reconnecting';
+      break;
+    default:
+      el.classList.add('badge-phoenix-secondary');
+      el.textContent = state === 'loading' ? 'Loading…' : 'Unknown';
+  }
+}
+
+// ── Tile HTML ─────────────────────────────────────────────────────────────────
 
 function createCameraTile(camera, index) {
   const tile = document.createElement('div');
@@ -164,90 +210,184 @@ function createCameraTile(camera, index) {
   tile.setAttribute('gs-w', '3');
   tile.setAttribute('gs-h', '4');
   const displayName = camera.name || 'Camera';
+
   tile.innerHTML = `
     <div class="grid-stack-item-content">
-      <div class="card h-100 camera-tile" data-camera-id="${camera.id}" data-tile-id="${tileId}">
+      <div class="card h-100 camera-tile" data-camera-id="${camera.id}" data-tile-id="${tileId}" style="cursor:pointer;">
         <div class="card-header bg-body-emphasis p-2 d-flex justify-content-between align-items-center gap-2 camera-drag-surface">
           <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
             <span class="fa-solid fa-grip-vertical text-body-tertiary camera-drag-handle flex-shrink-0" title="Drag"></span>
             <span class="fa-solid fa-video text-primary fs-9 flex-shrink-0"></span>
-            <span class="fw-semibold fs-9 camera-name" title="${displayName}">${displayName}</span>
+            <span class="fw-semibold fs-9 camera-name text-truncate" title="${displayName}">${displayName}</span>
           </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge badge-phoenix badge-phoenix-secondary fs-10 camera-status" id="status-${tileId}">Loading...</span>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <span class="badge badge-phoenix badge-phoenix-secondary fs-10" id="status-${tileId}">Loading…</span>
           </div>
         </div>
-        <div class="card-body p-0 position-relative camera-body">
-          <video class="camera-video" id="video-${tileId}" autoplay muted playsinline></video>
-          <div class="position-absolute top-50 start-50 translate-middle" id="loading-${tileId}">
-            <div class="spinner-border text-light" role="status">
-              <span class="visually-hidden">Loading stream...</span>
-            </div>
+        <div class="card-body p-0 position-relative camera-body overflow-hidden" style="background:#111;">
+
+          <!-- Snapshot preview image (fills tile like an event card) -->
+          <img
+            id="snapshot-${tileId}"
+            class="position-absolute top-0 start-0 w-100 h-100"
+            style="object-fit:contain;object-position:center center;display:none;"
+            alt=""
+          />
+
+          <!-- Placeholder shown while loading or when camera is offline -->
+          <div
+            id="placeholder-${tileId}"
+            class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center gap-2"
+            style="color:#555;"
+          >
+            <span class="fa-solid fa-video-slash" style="font-size:1.6rem;"></span>
+            <span class="fs-10 text-center px-3" id="placeholder-text-${tileId}">Loading…</span>
           </div>
-          <div class="position-absolute bottom-0 start-0 m-2">
-            <span class="badge bg-dark bg-opacity-75 text-white fs-9 camera-overlay" id="overlay-${tileId}" style="display: none;">
-              <span class="fa-solid fa-eye me-1"></span><span class="overlay-text">Live</span>
-            </span>
+
+          <!-- Dark gradient overlay so badge is always readable over the image -->
+          <div
+            class="position-absolute top-0 start-0 w-100 h-100 pointer-events-none"
+            style="background:linear-gradient(180deg,rgba(0,0,0,0.35) 0%,rgba(0,0,0,0) 40%,rgba(0,0,0,0) 60%,rgba(0,0,0,0.55) 100%);display:none;"
+            id="gradient-${tileId}"
+          ></div>
+
+          <!-- Bottom-left: snapshot timestamp -->
+          <div class="position-absolute bottom-0 start-0 m-2" id="ts-badge-${tileId}" style="display:none;">
+            <span class="badge bg-dark bg-opacity-75 text-white fs-10" id="ts-text-${tileId}"></span>
           </div>
+
         </div>
       </div>
     </div>`;
   return tile;
 }
 
-async function initLivePlayer(camera, videoEl, tileId = null) {
-  const streamId = tileId || camera.id;
-  if (!window.createWsFmp4Player) { updateCameraStatus(streamId, 'error', 'Player missing'); return null; }
-  if (!api || !api.isAuthenticated()) { updateCameraStatus(streamId, 'error', 'Not logged in'); return null; }
+// ── Snapshot / preview polling ────────────────────────────────────────────────
 
-  const existing = livePlayers.get(streamId);
-  if (existing && typeof existing.destroy === 'function') existing.destroy();
+/**
+ * Format a snapshot ISO timestamp to a short human-readable string,
+ * e.g. "Updated 32s ago" or "Updated 4m ago".
+ */
+function formatSnapshotAge(isoTs) {
+  if (!isoTs) return '';
+  try {
+    const diffMs = Date.now() - new Date(isoTs).getTime();
+    const secs = Math.round(diffMs / 1000);
+    if (secs < 60) return `${secs}s ago`;
+    const mins = Math.round(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    return `${Math.round(mins / 60)}h ago`;
+  } catch {
+    return '';
+  }
+}
 
-  updateCameraStatus(streamId, 'loading', 'Connecting...');
-  let wsUrl = null;
-  try { wsUrl = api.getLiveWsURL(camera.id); }
-  catch (e) { updateCameraStatus(streamId, 'error', 'Auth Error'); hideLoading(streamId); return null; }
+function resolveCameraStatus(previewStatus, backendStatus) {
+  const normalize = (s) => {
+    const v = String(s || '').toLowerCase();
+    if (v === 'error') return 'reconnecting';
+    return v;
+  };
+  const p = normalize(previewStatus);
+  const b = normalize(backendStatus);
 
-  const mimeCodec = api.getLiveMimeCodec();
-  const player = window.createWsFmp4Player({
-    videoEl, wsUrl, mimeCodec, bufferSeconds: 15,
-    onState: (ev) => {
-      if (!ev || !ev.state) return;
-      if (ev.state === 'connecting') { updateCameraStatus(streamId, 'loading', 'Connecting...'); return; }
-      if (ev.state === 'ws-open') { updateCameraStatus(streamId, 'loading', 'Starting...'); showOverlay(streamId, 'Live'); return; }
-      if (ev.state === 'first-append') {
-        hideLoading(streamId);
-        updateCameraStatus(streamId, 'live', 'Live');
-        try { if (videoEl && videoEl.paused) videoEl.play().catch(() => {}); } catch {}
-        return;
+  // Backend camera health should win for hard states.
+  if (b === 'offline' || b === 'reconnecting') return b;
+  if (p === 'offline' || p === 'reconnecting') return p;
+  if (p === 'live' || b === 'live') return 'live';
+  return p || b || 'unknown';
+}
+
+async function refreshCameraPreview(camera) {
+  const id = camera.id;
+  try {
+    const preview = await api.getCameraPreview(id);
+    const status = resolveCameraStatus(preview?.status, camera?.status);
+
+    const snapshotEl  = document.getElementById(`snapshot-${id}`);
+    const placeholder = document.getElementById(`placeholder-${id}`);
+    const placeholderText = document.getElementById(`placeholder-text-${id}`);
+    const gradientEl  = document.getElementById(`gradient-${id}`);
+    const tsBadge     = document.getElementById(`ts-badge-${id}`);
+    const tsText      = document.getElementById(`ts-text-${id}`);
+
+    if (preview.frame_base64) {
+      // Show the snapshot image
+      if (snapshotEl) {
+        snapshotEl.src = `data:image/jpeg;base64,${preview.frame_base64}`;
+        snapshotEl.style.display = '';
       }
-      if (ev.state === 'stalled') { updateCameraStatus(streamId, 'loading', 'Stalled...'); return; }
-      if (ev.state === 'append-error' || ev.state === 'error') { updateCameraStatus(streamId, 'error', 'Stream Error'); hideLoading(streamId); return; }
+      if (placeholder) placeholder.style.display = 'none';
+      if (gradientEl)  gradientEl.style.display = '';
+
+      // Timestamp badge
+      const age = formatSnapshotAge(preview.timestamp);
+      if (tsBadge) tsBadge.style.display = '';
+      if (tsText)  tsText.textContent = age ? `Updated ${age}` : 'Preview';
+
+      updateCameraStatus(
+        id,
+        status === 'live'
+          ? 'live-preview'
+          : status === 'offline'
+            ? 'offline'
+            : status === 'reconnecting'
+              ? 'reconnecting'
+              : 'unknown'
+      );
+    } else {
+      // No frame — show placeholder
+      if (snapshotEl)  snapshotEl.style.display = 'none';
+      if (placeholder) placeholder.style.display = '';
+      if (gradientEl)  gradientEl.style.display = 'none';
+      if (tsBadge)     tsBadge.style.display = 'none';
+
+      if (placeholderText) {
+        placeholderText.textContent =
+          (status === 'offline' ? 'Camera offline'
+          : status === 'reconnecting' ? 'Reconnecting…'
+          : 'No preview available');
+      }
+
+      updateCameraStatus(
+        id,
+        status === 'offline' ? 'offline' : status === 'reconnecting' ? 'reconnecting' : 'unknown'
+      );
     }
-  });
-  livePlayers.set(streamId, player);
-  return player;
+  } catch (err) {
+    console.warn(`[Dashboard] preview fetch failed for camera ${id}:`, err);
+    updateCameraStatus(id, 'unknown');
+  }
 }
 
-function updateCameraStatus(tileId, status, text) {
-  const statusEl = document.getElementById(`status-${tileId}`);
-  if (!statusEl) return;
-  statusEl.className = 'badge badge-phoenix fs-10';
-  if (status === 'live') statusEl.classList.add('badge-phoenix-success');
-  else if (status === 'error' || status === 'offline') statusEl.classList.add('badge-phoenix-warning');
-  else statusEl.classList.add('badge-phoenix-secondary');
-  statusEl.textContent = text;
+async function refreshAllPreviews() {
+  if (!api || !api.isAuthenticated()) return;
+
+  // Keep dashboard tile status aligned with backend camera health, not only preview endpoint.
+  try {
+    const latest = await api.listCameras();
+    if (Array.isArray(latest) && latest.length > 0) {
+      const byId = new Map(latest.map(c => [String(c.id), c]));
+      cameraData = cameraData.map(cam => {
+        const fresh = byId.get(String(cam.id));
+        return fresh ? { ...cam, ...fresh } : cam;
+      });
+    }
+  } catch {}
+
+  await Promise.allSettled(cameraData.map(cam => refreshCameraPreview(cam)));
 }
 
-function hideLoading(tileId) {
-  const el = document.getElementById(`loading-${tileId}`);
-  if (el) el.style.display = 'none';
+function stopSnapshotPolling() {
+  if (snapshotPollTimer) { clearInterval(snapshotPollTimer); snapshotPollTimer = null; }
 }
 
-function showOverlay(tileId, text) {
-  const el = document.getElementById(`overlay-${tileId}`);
-  if (el) { const t = el.querySelector('.overlay-text'); if (t) t.textContent = text; el.style.display = 'block'; }
+function startSnapshotPolling() {
+  stopSnapshotPolling();
+  snapshotPollTimer = setInterval(refreshAllPreviews, SNAPSHOT_POLL_MS);
 }
+
+// ── Camera grid ───────────────────────────────────────────────────────────────
 
 async function loadCameras() {
   if (!api || !api.isAuthenticated()) return;
@@ -255,26 +395,30 @@ async function loadCameras() {
   try {
     const cameras = await api.listCameras();
     cameraData = cameras;
-    const gridEl = document.getElementById('live-camera-grid');
+    const gridEl   = document.getElementById('live-camera-grid');
     const loadingEl = document.getElementById('camera-loading');
     if (loadingEl) loadingEl.remove();
+
     if (!cameras || cameras.length === 0) {
       gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">No cameras found</p></div>';
       setCamerasLoading(false);
       return;
     }
+
     gridEl.innerHTML = '';
     gridEl.dataset.gridstackInited = 'false';
     if (window.GridStack && gridEl.gridstack) gridEl.gridstack.destroy(false);
+
     cameras.forEach((camera, index) => { gridEl.appendChild(createCameraTile(camera, index)); });
     initCameraGrid();
-    for (const camera of cameras) {
-      const videoEl = document.getElementById(`video-${camera.id}`);
-      if (videoEl) { const player = await initLivePlayer(camera, videoEl); if (player) livePlayers.set(camera.id, player); }
-    }
+
+    // Fetch previews immediately, then start polling
+    await refreshAllPreviews();
+    startSnapshotPolling();
+
     setCamerasLoading(false);
   } catch (error) {
-    const gridEl = document.getElementById('live-camera-grid');
+    const gridEl   = document.getElementById('live-camera-grid');
     const loadingEl = document.getElementById('camera-loading');
     if (loadingEl) loadingEl.remove();
     gridEl.innerHTML = `<div class="d-flex justify-content-center align-items-center p-5"><p class="text-danger">Error loading cameras: ${error.message}</p></div>`;
@@ -296,29 +440,29 @@ function initCameraGrid() {
 
   let isGridInteracting = false;
   grid.on('dragstart resizestart', () => { isGridInteracting = true; });
-  grid.on('dragstop resizestop', () => { setTimeout(() => { isGridInteracting = false; }, 0); });
+  grid.on('dragstop resizestop',   () => { setTimeout(() => { isGridInteracting = false; }, 0); });
 
+  // Single click → navigate directly to camera detail page
   gridEl.addEventListener('click', (e) => {
+    if (isGridInteracting) return;
     if (e.target.closest('button')) return;
-    const body = e.target.closest?.('.camera-body');
-    if (!body || isGridInteracting) return;
-    const card = body.closest?.('.camera-tile');
+    if (e.target.closest('.ui-resizable-handle')) return;
+    if (e.target.closest('.camera-drag-surface') || e.target.closest('.camera-drag-handle')) return;
+    const card  = e.target.closest?.('.camera-tile');
     const camId = card?.getAttribute('data-camera-id');
     if (!camId) return;
     const href = `/app/pages/cameras/camera-detail.html?camera=${encodeURIComponent(camId)}`;
     navigate(href).catch?.(() => { window.location.href = href; });
   });
 
-  function saveLayout() {
-    const layout = grid.engine.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, w: n.w, h: n.h }));
-    localStorage.setItem(GRID_KEY, JSON.stringify(layout));
-  }
-
-  const saved = safeJsonParse(localStorage.getItem(GRID_KEY));
+  const saved    = safeJsonParse(localStorage.getItem(GRID_KEY));
   const defaultW = 3, defaultH = 4, cols = 4;
+
   if (cameraData.length > 0) {
     const savedById = new Map();
-    if (Array.isArray(saved) && saved.length) saved.forEach(item => { if (item && item.id) savedById.set(item.id, item); });
+    if (Array.isArray(saved) && saved.length) {
+      saved.forEach(item => { if (item && item.id) savedById.set(item.id, item); });
+    }
     let maxY = -1;
     const fullLayout = cameraData.map(cam => {
       const existing = savedById.get(cam.id);
@@ -342,11 +486,15 @@ function initCameraGrid() {
     grid.load(fullLayout);
   }
 
+  function saveLayout() {
+    const layout = grid.engine.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, w: n.w, h: n.h }));
+    localStorage.setItem(GRID_KEY, JSON.stringify(layout));
+  }
   grid.on('change', saveLayout);
 
   const resetBtn = document.getElementById('reset-camera-layout');
   if (resetBtn) {
-    resetBtn.addEventListener('click', function () {
+    resetBtn.addEventListener('click', () => {
       localStorage.removeItem(GRID_KEY);
       const defaultLayout = cameraData.map((cam, idx) => ({
         id: cam.id, x: (idx % cols) * 3, y: Math.floor(idx / cols) * 4, w: 3, h: 4
@@ -357,60 +505,57 @@ function initCameraGrid() {
   return true;
 }
 
+// ── Events widget ─────────────────────────────────────────────────────────────
+
 let latestEventsWidget = null;
 function onEventNotification() { if (latestEventsWidget && latestEventsWidget.refresh) latestEventsWidget.refresh(); }
 
 function mountLatestEventsWidget() {
   const container = document.getElementById('vision-latest-events');
-  console.log('[Dashboard] mountLatestEventsWidget: container=', !!container, 'VisionEventsBoardWidget=', typeof window.VisionEventsBoardWidget);
   if (!container) return;
-  if (latestEventsWidget) { try { latestEventsWidget.destroy(); } catch (e) {} latestEventsWidget = null; }
+  if (latestEventsWidget) { try { latestEventsWidget.destroy(); } catch {} latestEventsWidget = null; }
   if (typeof window.VisionEventsBoardWidget !== 'undefined' && window.VisionEventsBoardWidget.mount) {
     latestEventsWidget = window.VisionEventsBoardWidget.mount(container, {
       dateRange: 'all', maxItems: 5, compact: true, showFilters: false, showHeader: false, layout: 'horizontal'
     });
     window.addEventListener('vision:event-notification', onEventNotification);
-    console.log('[Dashboard] events widget mounted successfully');
     setEventsLoading(false);
   } else {
-    console.error('[Dashboard] VisionEventsBoardWidget not available!');
     setEventsLoading(false);
   }
 }
 
-function stopCameraStreams() {
+// ── Cleanup ───────────────────────────────────────────────────────────────────
+
+function cleanup() {
   stopDashboardStatsPolling();
-  livePlayers.forEach(player => { if (player && typeof player.destroy === 'function') player.destroy(); });
-  livePlayers.clear();
-}
-
-function cleanupPlayers() {
-  stopCameraStreams();
+  stopSnapshotPolling();
   window.removeEventListener('vision:event-notification', onEventNotification);
-  if (latestEventsWidget && latestEventsWidget.destroy) { try { latestEventsWidget.destroy(); } catch (e) {} latestEventsWidget = null; }
+  if (latestEventsWidget && latestEventsWidget.destroy) {
+    try { latestEventsWidget.destroy(); } catch {}
+    latestEventsWidget = null;
+  }
 }
 
-window.addEventListener('beforeunload', cleanupPlayers);
+window.addEventListener('beforeunload', cleanup);
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
 
 export async function boot() {
   if (!document.getElementById('live-camera-grid')) return;
 
   stopDashboardStatsPolling();
-  cleanupPlayers();
+  cleanup();
   setStatsLoading(true);
   setEventsLoading(true);
   setCamerasLoading(true);
 
-  // Re-register cleanup so the router can call it on next navigation away
-  window.__visionaiPageCleanup = cleanupPlayers;
+  window.__visionaiPageCleanup = cleanup;
 
-  // Mount events widget immediately (same as old code) — widget has its own auth check
   mountLatestEventsWidget();
 
   await ensureGridStack();
-  await ensureWsFmp4Player();
 
-  // Wait for API auth to be ready
   let tries = 0;
   const maxTries = 50;
   (function checkAuth() {
@@ -421,7 +566,7 @@ export async function boot() {
     } else if (++tries < maxTries) {
       setTimeout(checkAuth, 100);
     } else {
-      const gridEl = document.getElementById('live-camera-grid');
+      const gridEl   = document.getElementById('live-camera-grid');
       const loadingEl = document.getElementById('camera-loading');
       if (loadingEl) loadingEl.remove();
       if (gridEl) gridEl.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><p class="text-body-tertiary">Please login to view cameras</p></div>';
@@ -440,7 +585,7 @@ window.addEventListener('authStateChanged', (event) => {
     loadCameras();
     startDashboardStatsPolling();
   } else {
-    stopCameraStreams();
+    cleanup();
     setStatsLoading(false);
     setCamerasLoading(false);
     setEventsLoading(false);
