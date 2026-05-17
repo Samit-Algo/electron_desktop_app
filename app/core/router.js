@@ -1,4 +1,6 @@
 const INTERNAL_HTML_RE = /\.html(?:$|[?#])/i;
+let beforeNavigateGuard = null;
+let bypassNextNavigateGuard = false;
 const PAGE_ROUTE_MAP = new Map([
   ['/pages/dashboard.html', '/app/pages/dashboard/dashboard.html'],
   ['/app/pages/dashboard.html', '/app/pages/dashboard/dashboard.html'],
@@ -242,6 +244,11 @@ const BODY_CLASSES_TO_STRIP = [
 ];
 
 async function loadPage(url, { push = true } = {}) {
+  if (!bypassNextNavigateGuard && typeof beforeNavigateGuard === 'function') {
+    const allowed = await beforeNavigateGuard(url);
+    if (!allowed) return;
+  }
+  bypassNextNavigateGuard = false;
   try {
     if (typeof window.__visionaiPageCleanup === 'function') window.__visionaiPageCleanup();
   } catch (e) {
@@ -345,6 +352,15 @@ export function navigate(href, { push = true } = {}) {
   if (nextUrl.origin !== window.location.origin) return;
   if (!INTERNAL_HTML_RE.test(nextUrl.pathname + nextUrl.search + nextUrl.hash)) return;
   return loadPage(nextUrl.href, { push });
+}
+
+export function setBeforeNavigateGuard(guardFn) {
+  beforeNavigateGuard = typeof guardFn === 'function' ? guardFn : null;
+}
+
+export function navigateWithoutGuard(href, { push = true } = {}) {
+  bypassNextNavigateGuard = true;
+  return navigate(href, { push });
 }
 
 export function initRouter() {

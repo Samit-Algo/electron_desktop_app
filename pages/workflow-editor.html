@@ -1318,6 +1318,69 @@
     .wf-canvas--gen-animating {
       cursor: progress;
     }
+
+    /* ── v2 router clarify-mode option chips ─────────────────────────────── */
+    .wf-clarify-options {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 2px;
+      align-self: stretch;
+      width: 100%;
+    }
+    .wf-clarify-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #ffffff;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.08s ease, box-shadow 0.15s ease;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .wf-clarify-chip:hover:not(:disabled) {
+      background: #f5f3ff;
+      border-color: #a78bfa;
+      box-shadow: 0 1px 2px rgba(99, 102, 241, 0.08);
+    }
+    .wf-clarify-chip:active:not(:disabled) { transform: scale(0.99); }
+    .wf-clarify-chip:focus-visible {
+      outline: 2px solid #6366f1;
+      outline-offset: 1px;
+    }
+    .wf-clarify-chip:disabled { cursor: default; opacity: 0.55; }
+    .wf-clarify-chip--picked,
+    .wf-clarify-chip--picked:disabled {
+      background: #eef2ff;
+      border-color: #6366f1;
+      opacity: 1;
+    }
+    .wf-clarify-chip__label {
+      font-weight: 600;
+      font-size: 13px;
+      line-height: 1.3;
+      color: #1f2937;
+    }
+    .wf-clarify-chip__desc {
+      font-weight: 400;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #6b7280;
+    }
+    /* App-theme-driven dark mode (data-bs-theme="dark" on <html>) — NOT OS theme. */
+    [data-bs-theme="dark"] .wf-clarify-chip { background: #1f2937; border-color: #374151; }
+    [data-bs-theme="dark"] .wf-clarify-chip:hover:not(:disabled) { background: #312e81; border-color: #818cf8; }
+    [data-bs-theme="dark"] .wf-clarify-chip--picked,
+    [data-bs-theme="dark"] .wf-clarify-chip--picked:disabled { background: #312e81; border-color: #818cf8; }
+    [data-bs-theme="dark"] .wf-clarify-chip__label { color: #f3f4f6; }
+    [data-bs-theme="dark"] .wf-clarify-chip__desc  { color: #9ca3af; }
     </style>
 
     <!-- Top Bar -->
@@ -4338,6 +4401,108 @@
             wfChatConversationHistory.push({ role: 'assistant', content: summary || '(no text)', mode: mode || 'unknown' });
           }
 
+          // ── v2 router modes (build / edit / clarify / explain) ──────────────
+          // Each branch returns early — so it must clear and re-focus the
+          // input itself; the legacy clear-input below is unreachable for v2.
+          function _v2FinalizeInput() {
+            if (opts.clearInput === false) return;
+            if (!ta) return;
+            try {
+              ta.value = '';
+              if (typeof resizeTa === 'function') resizeTa();
+              if (typeof syncChatPrimaryAction === 'function') syncChatPrimaryAction();
+              ta.dispatchEvent(new Event('input', { bubbles: true }));
+              setTimeout(function () { try { ta.focus(); } catch (_) {} }, 0);
+            } catch (_) {}
+          }
+
+          function renderClarifyOptions(_question, options) {
+            if (!messagesEl || !Array.isArray(options) || !options.length) return;
+            var wrap = document.createElement('div');
+            wrap.className = 'wf-clarify-options';
+            options.forEach(function (opt) {
+              var label = String((opt && opt.label) || '').trim();
+              var desc  = String((opt && opt.description) || '').trim();
+              if (!label) return;
+              var chip = document.createElement('button');
+              chip.type = 'button';
+              chip.className = 'wf-clarify-chip';
+              var safeLabel = label.replace(/</g, '&lt;');
+              var safeDesc  = desc.replace(/</g, '&lt;');
+              chip.innerHTML =
+                '<span class="wf-clarify-chip__label">' + safeLabel + '</span>' +
+                (safeDesc ? '<span class="wf-clarify-chip__desc">' + safeDesc + '</span>' : '');
+              chip.title = label;
+              chip.addEventListener('click', function () {
+                wrap.querySelectorAll('.wf-clarify-chip').forEach(function (b) {
+                  b.disabled = true;
+                  b.classList.remove('wf-clarify-chip--picked');
+                });
+                chip.classList.add('wf-clarify-chip--picked');
+                if (ta) {
+                  ta.value = label;
+                  ta.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                if (sendBtn) sendBtn.click();
+              });
+              wrap.appendChild(chip);
+            });
+            messagesEl.appendChild(wrap);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+
+          if (mode === 'clarify') {
+            var q = String(data.clarification_question || '').trim();
+            if (q) appendToActiveTurn(q);
+            renderClarifyOptions(q, data.clarification_options);
+            wfChatConversationHistory.push({ role: 'assistant', content: q || '(clarification)', mode: 'clarify' });
+            setAssistantStatusVisible(false);
+            setFetchLoading(false);
+            _v2FinalizeInput();
+            return;
+          }
+
+          if (mode === 'explain') {
+            var reply = String(data.assistant_reply || '').trim();
+            if (reply) appendToActiveTurn(reply);
+            wfChatConversationHistory.push({ role: 'assistant', content: reply || '(no reply)', mode: 'explain' });
+            setAssistantStatusVisible(false);
+            setFetchLoading(false);
+            _v2FinalizeInput();
+            return;
+          }
+
+          if (mode === 'build' || mode === 'edit') {
+            var wfV2 = data.workflow;
+            var didImportV2 = false;
+            if (wfV2) {
+              var graphV2 = extractWorkflowGraph(wfV2);
+              if (graphV2 && graphV2.nodes && graphV2.nodes.length) {
+                setAssistantStatusVisible(true, mode === 'edit' ? 'Updating workflow on canvas…' : 'Building workflow on canvas…');
+                setBuildingPhase(true);
+                try {
+                  await animateWorkflowImportFromGraph(graphV2);
+                  didImportV2 = true;
+                  wfChatLastWorkflow = data.workflow;
+                } catch (buildErr) {
+                  console.error('[Workflow chat v2] Canvas build:', buildErr);
+                  toast.error('Workflow was received but could not be placed on the canvas. See console.');
+                }
+                setBuildingPhase(false);
+              }
+            }
+            var summaryV2 = String(data.build_summary || '').trim();
+            var lineV2 = summaryV2 || (didImportV2
+              ? (mode === 'edit' ? 'Workflow updated on canvas.' : 'Workflow placed on canvas.')
+              : 'Workflow generated.');
+            appendToActiveTurn(lineV2);
+            wfChatConversationHistory.push({ role: 'assistant', content: lineV2, mode: mode });
+            setAssistantStatusVisible(false);
+            setFetchLoading(false);
+            _v2FinalizeInput();
+            return;
+          }
+
           if (mode === 'chat' || mode === 'chat_refine') {
             if (hasWorkflow) {
               wfChatLastWorkflow = data.workflow;
@@ -4477,17 +4642,24 @@
 
         wfWatchdogVoiceWs.onopen = function () {
           var verbose = !!((typeof window !== 'undefined' && window.WORKFLOW_CHAT_VERBOSE) || false);
-          var hist = wfChatConversationHistory.map(function (h) {
-            return { role: String(h.role || ''), content: String(h.content != null ? h.content : '') };
-          }).filter(function (h) { return h.role && h.content; }).slice(-20);
+          // Live canvas snapshot — same context the text /v2/generate path sees.
+          // Conversation history is loaded server-side from session_id; no need
+          // to ship it over the WS anymore.
+          var liveCanvas = null;
+          try {
+            var _exp = (typeof editor !== 'undefined' && editor && typeof editor.export === 'function') ? editor.export() : null;
+            var _home = _exp && _exp.drawflow && _exp.drawflow.Home;
+            var _lc = _home ? extractFromDrawflowHome(_home) : null;
+            if (_lc && _lc.nodes && _lc.nodes.length) liveCanvas = _lc;
+            else if (wfChatLastWorkflow) liveCanvas = wfChatLastWorkflow;
+          } catch (_) {
+            if (wfChatLastWorkflow) liveCanvas = wfChatLastWorkflow;
+          }
           wfWatchdogVoiceWs.send(JSON.stringify({
             type: 'start',
             session_id: wfChatSessionId || null,
             verbose: verbose,
-            enable_intent_router: (typeof window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER === 'boolean') ? window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER : true,
-            autofill_slots: true,
-            slot_fill_followup: !!wfChatSlotFillPending,
-            conversation_history: hist
+            current_workflow: liveCanvas
           }));
         };
 
@@ -4643,6 +4815,19 @@
             body.previous_workflow = wfChatLastWorkflow;
             if (wfChatLastPlan != null) body.previous_plan = wfChatLastPlan;
           }
+          try {
+            var _exp = editor && typeof editor.export === 'function' ? editor.export() : null;
+            var _home = _exp && _exp.drawflow && _exp.drawflow.Home;
+            var _liveCanvas = _home ? extractFromDrawflowHome(_home) : null;
+            if (_liveCanvas && _liveCanvas.nodes && _liveCanvas.nodes.length) {
+              body.current_workflow = _liveCanvas;
+            } else if (wfChatLastWorkflow) {
+              body.current_workflow = wfChatLastWorkflow;
+            }
+          } catch (_canvasSnapErr) {
+            console.warn('[Workflow chat v2] live canvas snapshot failed:', _canvasSnapErr);
+            if (wfChatLastWorkflow) body.current_workflow = wfChatLastWorkflow;
+          }
           if (wfChatSlotFillPending) {
             body.slot_fill_followup = true;
           }
@@ -4653,7 +4838,7 @@
             body.enable_intent_router = window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER;
           }
 
-          const res = await fetch(base + '/api/v1/watchdog/generate', {
+          const res = await fetch(base + '/api/v1/watchdog/v2/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)

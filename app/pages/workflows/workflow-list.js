@@ -10,6 +10,7 @@ const API_BASE = (typeof window !== 'undefined' && window.VISION_API_BASE)
 
 // Active WebSocket connections: workflowId → WebSocket
 const _wsSockets = {};
+let _activeWorkflowStateFilter = 'published';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -77,8 +78,9 @@ function _agentStatusDot(status) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Action buttons — rendered based on current overall status
 // ─────────────────────────────────────────────────────────────────────────────
-function _actionButtons(workflowId, overallStatus) {
+function _actionButtons(workflowId, overallStatus, workflowState = 'published') {
   const id = workflowId;
+  const isDraft = String(workflowState || 'published').toLowerCase() === 'draft';
   const running  = overallStatus === 'running';
   const paused   = overallStatus === 'paused';
   const inactive = ['inactive', 'completed', 'unknown'].includes(overallStatus);
@@ -114,7 +116,7 @@ function _actionButtons(workflowId, overallStatus) {
     </button>`;
 
   // Show Run when inactive; hide Run when running or paused (use resume instead)
-  const showRun = inactive;
+  const showRun = inactive && !isDraft;
 
   return `<div class="d-flex justify-content-center gap-1 flex-wrap">
     ${showRun ? runBtn : ''}
@@ -151,13 +153,17 @@ function _agentRows(agents, workflowId) {
 // ─────────────────────────────────────────────────────────────────────────────
 async function loadWorkflow() {
   try {
-    const result = await api.get('/api/v1/workflows/');
+    const result = await api.get(`/api/v1/workflows/?workflow_state=${encodeURIComponent(_activeWorkflowStateFilter)}`);
     const workflows = result.workflows || result;
     const list = Array.isArray(workflows) ? workflows : [];
     window.currentWorkflowData = list;
     // Fetch live status for each workflow in parallel
     const statuses = await Promise.allSettled(
-      list.map(w => api.get(`/api/v1/workflows/${w.id}/status`))
+      list.map(w => {
+        const state = String(w.workflow_state || 'published').toLowerCase();
+        if (state === 'draft') return Promise.resolve({ status: 'inactive', agents: [] });
+        return api.get(`/api/v1/workflows/${w.id}/status`);
+      })
     );
     const statusMap = {};
     list.forEach((w, i) => {
@@ -166,7 +172,10 @@ async function loadWorkflow() {
     });
     displayWorkflows(list, statusMap);
     // Subscribe WS for each workflow
-    list.forEach(w => _connectWorkflowWs(w.id));
+    list.forEach(w => {
+      const state = String(w.workflow_state || 'published').toLowerCase();
+      if (state !== 'draft') _connectWorkflowWs(w.id);
+    });
   } catch (err) {
     console.error('[WorkflowList] loadWorkflow error:', err);
     const tbody = document.getElementById('WorkflowTableBody');
@@ -183,7 +192,7 @@ function displayWorkflows(data, statusMap = {}) {
   window.currentWorkflowData = data;
 
   const totalEl = document.getElementById('totalAssetCount');
-  if (totalEl) totalEl.textContent = `(${data.length} Watch Dogs)`;
+  if (totalEl) totalEl.textContent = `(${data.length} ${_activeWorkflowStateFilter === 'draft' ? 'Drafts' : 'Watch Dogs'})`;
 
   if (data.length === 0) {
     tbody.innerHTML = '<tr><td colspan="6" class="text-center text-body-tertiary py-4">No Watch Dogs found</td></tr>';
@@ -195,6 +204,7 @@ function displayWorkflows(data, statusMap = {}) {
     const flowName    = workflow.name || 'Unnamed Watch Dog';
     const description = workflow.description || '—';
     const createdAt   = workflow.created_at ? new Date(workflow.created_at).toLocaleDateString() : '—';
+    const workflowState = String(workflow.workflow_state || 'published').toLowerCase();
     const liveStatus  = statusMap[wid] || { status: 'inactive', agents: [] };
     const overall     = liveStatus.status || 'inactive';
     const agents      = liveStatus.agents || [];
@@ -204,7 +214,7 @@ function displayWorkflows(data, statusMap = {}) {
     row.innerHTML = `
       <td class="align-middle ps-0">
         <h6 class="mb-0 d-flex align-items-center gap-2">
-          <strong>${flowName}</strong>
+          <strong>${flowName}</strong>${workflowState === 'draft' ? ' <span class="badge bg-warning text-dark">Draft</span>' : ''}
           <button class="btn btn-link btn-sm p-0 text-muted wf-expand-btn" data-workflow-id="${wid}" title="Toggle agents" style="font-size:11px;">
             <i class="fas fa-chevron-down"></i>
           </button>
@@ -213,7 +223,7 @@ function displayWorkflows(data, statusMap = {}) {
       <td class="align-middle ps-0"><span class="text-body-secondary">${description}</span></td>
       <td class="align-middle ps-0" id="wf-status-${wid}">${_overallBadge(overall)}</td>
       <td class="align-middle ps-0"><span class="text-body-secondary">${createdAt}</span></td>
-      <td class="align-middle text-center" id="wf-actions-${wid}">${_actionButtons(wid, overall)}</td>`;
+      <td class="align-middle text-center" id="wf-actions-${wid}">${_actionButtons(wid, overall, workflowState)}</td>`;
     tbody.appendChild(row);
 
     // Agent sub-rows (hidden by default)
@@ -271,17 +281,33 @@ function _connectWorkflowWs(workflowId) {
   };
 }
 
-function _applyWorkflowEvent(workflowId, msg) {
-  const overall  = msg.status || 'inactive';
-  const agents   = msg.agents || [];
+// Events that carry WORKFLOW-LEVEL overall status (running/scheduled/inactive/...).
+// Other events (agent_running, agent_stopped, node_error, detection_event) carry
+// event-level status which must NOT drive the workflow badge.
+const _WORKFLOW_LEVEL_EVENTS = new Set(['status_sync', 'agent_status_changed']);
 
+// Terminal events: when these arrive we refetch /status for authoritative state,
+// because the heartbeat may not fire after the workflow becomes inactive.
+const _TERMINAL_EVENTS = new Set(['workflow_stopped', 'workflow_completed', 'workflow_error']);
+
+async function _refetchStatusAndApply(workflowId) {
+  try {
+    const live = await api.get(`/api/v1/workflows/${workflowId}/status`);
+    _renderWorkflowStatus(workflowId, live.status || 'inactive', live.agents || []);
+  } catch (err) {
+    console.warn('[WorkflowList] refetch status failed:', err);
+  }
+}
+
+function _renderWorkflowStatus(workflowId, overall, agents) {
   // Update status badge
   const statusCell = document.getElementById(`wf-status-${workflowId}`);
   if (statusCell) statusCell.innerHTML = _overallBadge(overall);
 
   // Update action buttons
   const actionsCell = document.getElementById(`wf-actions-${workflowId}`);
-  if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, overall);
+  const current = (window.currentWorkflowData || []).find(w => String(w.id) === String(workflowId));
+  if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, overall, current?.workflow_state || 'published');
 
   // Update agent sub-rows
   const agentRow = document.querySelector(`tr[data-agents-for="${workflowId}"]`);
@@ -292,7 +318,6 @@ function _applyWorkflowEvent(workflowId, msg) {
       </table>
     </td>`;
   } else if (agents.length > 0) {
-    // Insert agent row after the workflow row if it doesn't exist yet
     const workflowRow = document.querySelector(`tr[data-workflow-id="${workflowId}"]`);
     if (workflowRow) {
       const tr = document.createElement('tr');
@@ -306,6 +331,27 @@ function _applyWorkflowEvent(workflowId, msg) {
       workflowRow.insertAdjacentElement('afterend', tr);
     }
   }
+}
+
+function _applyWorkflowEvent(workflowId, msg) {
+  const eventName = msg.event || '';
+
+  // Workflow-level events: trust msg.status + msg.agents directly
+  if (_WORKFLOW_LEVEL_EVENTS.has(eventName)) {
+    _renderWorkflowStatus(workflowId, msg.status || 'inactive', msg.agents || []);
+    return;
+  }
+
+  // Terminal events: heartbeat suppression means we won't get a clean inactive
+  // update — refetch the authoritative status via REST.
+  if (_TERMINAL_EVENTS.has(eventName)) {
+    // Small delay so backend has time to mark agents Cancelled in DB
+    setTimeout(() => _refetchStatusAndApply(workflowId), 500);
+    return;
+  }
+
+  // Other events (agent_running, detection_event, node_error, etc.) carry
+  // event-level status — they MUST NOT drive the workflow overall badge.
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -326,7 +372,8 @@ async function runWorkflow(workflowId) {
     const statusCell = document.getElementById(`wf-status-${workflowId}`);
     if (statusCell) statusCell.innerHTML = _overallBadge('running');
     const actionsCell = document.getElementById(`wf-actions-${workflowId}`);
-    if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, 'running');
+    const current = (window.currentWorkflowData || []).find(w => String(w.id) === String(workflowId));
+    if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, 'running', current?.workflow_state || 'published');
 
     if (agents === 0 && result.status !== 'running') {
       _showToast('Watch Dog started — no agents created. Check workflow design.', 'warning');
@@ -349,7 +396,8 @@ async function stopWorkflow(workflowId) {
     const statusCell = document.getElementById(`wf-status-${workflowId}`);
     if (statusCell) statusCell.innerHTML = _overallBadge('stopping');
     const actionsCell = document.getElementById(`wf-actions-${workflowId}`);
-    if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, 'stopping');
+    const current = (window.currentWorkflowData || []).find(w => String(w.id) === String(workflowId));
+    if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, 'stopping', current?.workflow_state || 'published');
   } catch (err) {
     _showToast('Failed to stop: ' + (err.message || 'Unknown error'), 'danger');
   }
@@ -362,7 +410,8 @@ async function pauseWorkflow(workflowId) {
     const statusCell = document.getElementById(`wf-status-${workflowId}`);
     if (statusCell) statusCell.innerHTML = _overallBadge('paused');
     const actionsCell = document.getElementById(`wf-actions-${workflowId}`);
-    if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, 'paused');
+    const current = (window.currentWorkflowData || []).find(w => String(w.id) === String(workflowId));
+    if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, 'paused', current?.workflow_state || 'published');
   } catch (err) {
     _showToast('Failed to pause: ' + (err.message || 'Unknown error'), 'danger');
   }
@@ -375,7 +424,8 @@ async function resumeWorkflow(workflowId) {
     const statusCell = document.getElementById(`wf-status-${workflowId}`);
     if (statusCell) statusCell.innerHTML = _overallBadge('running');
     const actionsCell = document.getElementById(`wf-actions-${workflowId}`);
-    if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, 'running');
+    const current = (window.currentWorkflowData || []).find(w => String(w.id) === String(workflowId));
+    if (actionsCell) actionsCell.innerHTML = _actionButtons(workflowId, 'running', current?.workflow_state || 'published');
   } catch (err) {
     _showToast('Failed to resume: ' + (err.message || 'Unknown error'), 'danger');
   }
@@ -452,6 +502,29 @@ function _showToast(message, type = 'info') {
 // Boot
 // ─────────────────────────────────────────────────────────────────────────────
 export function boot() {
+  const publishedBtn = document.getElementById('wf-filter-published');
+  const draftBtn = document.getElementById('wf-filter-draft');
+  const applyFilterUi = () => {
+    const isDraft = _activeWorkflowStateFilter === 'draft';
+    if (publishedBtn) publishedBtn.className = `btn btn-sm ${isDraft ? 'btn-outline-secondary' : 'btn-primary'}`;
+    if (draftBtn) draftBtn.className = `btn btn-sm ${isDraft ? 'btn-primary' : 'btn-outline-secondary'}`;
+  };
+  if (publishedBtn) {
+    publishedBtn.addEventListener('click', () => {
+      _activeWorkflowStateFilter = 'published';
+      applyFilterUi();
+      loadWorkflow();
+    });
+  }
+  if (draftBtn) {
+    draftBtn.addEventListener('click', () => {
+      _activeWorkflowStateFilter = 'draft';
+      applyFilterUi();
+      loadWorkflow();
+    });
+  }
+  applyFilterUi();
+
   const tbody = document.getElementById('WorkflowTableBody');
 
   if (tbody) {

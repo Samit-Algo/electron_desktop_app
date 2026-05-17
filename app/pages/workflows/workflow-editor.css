@@ -1389,6 +1389,9 @@
     .workflow-designer.wf-components-collapsed .wf-components-sidebar-header .fw-semibold {
       display: none;
     }
+    .workflow-designer.wf-components-collapsed .wf-components-sidebar-header > .d-flex.align-items-center.gap-2 {
+      display: none !important;
+    }
     .workflow-designer.wf-components-collapsed .wf-components-sidebar-header {
       justify-content: center;
       padding: 0.5rem 0;
@@ -1938,32 +1941,39 @@
 
     /* ── Status border colours ─────────────────────────────────────────── */
     .drawflow-node.wf-node--running {
-      outline: 2px solid #3b82f6;
+      outline: 1.5px solid rgba(34, 197, 94, 0.75);
       outline-offset: 1px;
     }
 
     .drawflow-node.wf-node--done {
-      outline: 2px solid #22c55e;
+      outline: 1.5px solid rgba(34, 197, 94, 0.75);
       outline-offset: 1px;
       animation: none !important;
       box-shadow: none !important;
     }
 
     .drawflow-node.wf-node--error {
-      outline: 2px solid #ef4444;
+      outline: 1.5px solid rgba(239, 68, 68, 0.75);
+      outline-offset: 1px;
+      animation: none !important;
+      box-shadow: none !important;
+    }
+
+    .drawflow-node.wf-node--waiting {
+      outline: 1.5px solid rgba(249, 115, 22, 0.85);
       outline-offset: 1px;
       animation: none !important;
       box-shadow: none !important;
     }
 
     .drawflow-node.wf-node--paused {
-      outline: 2px solid #f59e0b;
+      outline: 1.5px solid rgba(249, 115, 22, 0.85);
       outline-offset: 1px;
       animation: none !important;
     }
 
     .drawflow-node.wf-node--stopped {
-      outline: 2px solid #6b7280;
+      outline: 1.5px solid rgba(34, 197, 94, 0.75);
       outline-offset: 1px;
       animation: none !important;
       box-shadow: none !important;
@@ -1974,39 +1984,37 @@
        each .drawflow-node when the node first gets a status. */
     .wf-n8n-badge {
       position: absolute;
-      top: -10px;
-      right: -10px;
-      width:  22px;
-      height: 22px;
-      border-radius: 50%;
+      top: -8px;
+      right: -8px;
+      width:  18px;
+      height: 18px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
       z-index: 30;
-      pointer-events: none;   /* don't block node drag/click */
-      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+      pointer-events: none;
+      background: transparent;
+      border-radius: 0;
+      box-shadow: none;
     }
 
-    /* Badge background changes with the parent node's state */
-    .wf-node--running  .wf-n8n-badge  { background: #3b82f6; }
-    .wf-node--done     .wf-n8n-badge  { background: #22c55e; }
-    .wf-node--error    .wf-n8n-badge  { background: #ef4444; }
-    .wf-node--paused   .wf-n8n-badge  { background: #f59e0b; }
-    .wf-node--stopped  .wf-n8n-badge  { background: #6b7280; }
+    /* Icon color matches border state (no circle background, just icon) */
+    .wf-node--running  .wf-n8n-badge,
+    .wf-node--done     .wf-n8n-badge,
+    .wf-node--stopped  .wf-n8n-badge   { color: #16a34a; background: transparent; }
+    .wf-node--error    .wf-n8n-badge   { color: #dc2626; background: transparent; }
+    .wf-node--waiting  .wf-n8n-badge,
+    .wf-node--paused   .wf-n8n-badge   { color: #ea580c; background: transparent; }
 
-    /* ── Spinning loader inside the badge (while running) ──────────────── */
-    /* JS sets badge innerHTML to <span class="wf-badge-spin"></span> */
+    /* ── Double-arrow spinning loader (Pisces / refresh icon) ──────────── */
+    /* JS sets badge innerHTML to <i class="fa-solid fa-arrows-rotate wf-badge-spin"></i> */
     .wf-badge-spin {
       display: inline-block;
-      width:  11px;
-      height: 11px;
-      border: 2px solid rgba(255,255,255,0.4);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: wf-badge-spin-anim 0.65s linear infinite;
+      animation: wf-badge-spin-anim 1.4s linear infinite;
+      transform-origin: 50% 50%;
+      font-size: 13px;
     }
 
     @keyframes wf-badge-spin-anim {
@@ -2032,12 +2040,13 @@
        It does NOT replace the existing running/done border — it overlays a
        bright green glow so the user sees "something just happened here". */
     .drawflow-node.wf-event-flash {
-      animation: wf-event-flash-anim 0.7s ease-out;
+      animation: wf-event-flash-anim 2s ease-out;
     }
 
     @keyframes wf-event-flash-anim {
       0%   { box-shadow: 0 0  0px  0px rgba(34, 197, 94, 0.0); }
-      30%  { box-shadow: 0 0 12px  6px rgba(34, 197, 94, 0.7); }
+      15%  { box-shadow: 0 0 18px  8px rgba(34, 197, 94, 0.75); }
+      80%  { box-shadow: 0 0 14px  6px rgba(34, 197, 94, 0.55); }
       100% { box-shadow: 0 0  0px  0px rgba(34, 197, 94, 0.0); }
     }
 
@@ -2078,34 +2087,28 @@
       background: #0f172a;
     }
 
-    [data-bs-theme="dark"] .drawflow-node.wf-node--running { outline-color: #60a5fa; }
-    [data-bs-theme="dark"] .drawflow-node.wf-node--done    { outline-color: #4ade80; }
-    [data-bs-theme="dark"] .drawflow-node.wf-node--error   { outline-color: #f87171; }
-    [data-bs-theme="dark"] .drawflow-node.wf-node--paused  { outline-color: #fbbf24; }
-    [data-bs-theme="dark"] .drawflow-node.wf-node--stopped { outline-color: #9ca3af; }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--running { outline-color: rgba(74, 222, 128, 0.85); }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--done    { outline-color: rgba(74, 222, 128, 0.85); }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--error   { outline-color: rgba(248, 113, 113, 0.85); }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--waiting { outline-color: rgba(251, 146, 60, 0.95); }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--paused  { outline-color: rgba(251, 146, 60, 0.95); }
+    [data-bs-theme="dark"] .drawflow-node.wf-node--stopped { outline-color: rgba(74, 222, 128, 0.85); }
 
     /* ═══════════════════════════════════════════════════════════════════════
        PHASE 1 — n8n-quality execution UX
        ═══════════════════════════════════════════════════════════════════════ */
 
-    /* ── 1a. Pulsing outline on running nodes (replaces static border) ─────── */
+    /* ── Running state: calm mild green outline, no pulse ──────────────── */
     .drawflow-node.wf-node--running {
-      outline: 2px solid #3b82f6;
-      outline-offset: 2px;
-      animation: wf-node-pulse 1.8s ease-in-out infinite;
-    }
-
-    @keyframes wf-node-pulse {
-      0%,100% { outline-color: #3b82f6; outline-offset: 2px; box-shadow: 0 0  6px 0px rgba(59,130,246,0.35); }
-      50%      { outline-color: #60a5fa; outline-offset: 3px; box-shadow: 0 0 18px 4px rgba(59,130,246,0.55); }
+      outline: 1.5px solid rgba(34, 197, 94, 0.75);
+      outline-offset: 1px;
+      animation: none;
+      box-shadow: none;
     }
 
     [data-bs-theme="dark"] .drawflow-node.wf-node--running {
-      animation: wf-node-pulse-dark 1.8s ease-in-out infinite;
-    }
-    @keyframes wf-node-pulse-dark {
-      0%,100% { outline-color: #60a5fa; outline-offset: 2px; box-shadow: 0 0  8px 0px rgba(96,165,250,0.4); }
-      50%      { outline-color: #93c5fd; outline-offset: 3px; box-shadow: 0 0 22px 5px rgba(96,165,250,0.6); }
+      outline-color: rgba(74, 222, 128, 0.85);
+      animation: none;
     }
 
     /* ── 1b. Persistent edge flow while agents are Monitoring ──────────────── */
@@ -2386,3 +2389,220 @@
     .wf-log-agent-dot--stopped  { background: #6b7280; }
     .wf-log-agent-dot--error    { background: #ef4444; }
     .wf-log-agent-dot--done     { background: #22c55e; }
+
+    /* ── v2 router clarify-mode option chips ─────────────────────────────── */
+    /* Rendered under the assistant chat bubble when the LLM asks the user to
+       pick from 2-4 labelled options. Styled as full-width selectable cards. */
+    .wf-clarify-options {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 2px;
+      align-self: stretch;
+      width: 100%;
+    }
+
+    .wf-clarify-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #ffffff;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.08s ease, box-shadow 0.15s ease;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .wf-clarify-chip:hover:not(:disabled) {
+      background: #f5f3ff;
+      border-color: #a78bfa;
+      box-shadow: 0 1px 2px rgba(99, 102, 241, 0.08);
+    }
+
+    .wf-clarify-chip:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+
+    .wf-clarify-chip:focus-visible {
+      outline: 2px solid #6366f1;
+      outline-offset: 1px;
+    }
+
+    .wf-clarify-chip:disabled {
+      cursor: default;
+      opacity: 0.55;
+    }
+
+    .wf-clarify-chip--picked,
+    .wf-clarify-chip--picked:disabled {
+      background: #eef2ff;
+      border-color: #6366f1;
+      opacity: 1;
+    }
+
+    .wf-clarify-chip__label {
+      font-weight: 600;
+      font-size: 13px;
+      line-height: 1.3;
+      color: #1f2937;
+    }
+
+    .wf-clarify-chip__desc {
+      font-weight: 400;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #6b7280;
+    }
+
+    /* Dark-mode pair — driven by the app's Bootstrap theme switch
+       (data-bs-theme="dark" on <html>), NOT prefers-color-scheme, because the
+       app's theme is independent of the OS preference. */
+    [data-bs-theme="dark"] .wf-clarify-chip {
+      background: #1f2937;
+      border-color: #374151;
+    }
+    [data-bs-theme="dark"] .wf-clarify-chip:hover:not(:disabled) {
+      background: #312e81;
+      border-color: #818cf8;
+    }
+    [data-bs-theme="dark"] .wf-clarify-chip--picked,
+    [data-bs-theme="dark"] .wf-clarify-chip--picked:disabled {
+      background: #312e81;
+      border-color: #818cf8;
+    }
+    [data-bs-theme="dark"] .wf-clarify-chip__label { color: #f3f4f6; }
+    [data-bs-theme="dark"] .wf-clarify-chip__desc  { color: #9ca3af; }
+
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       FINAL OVERRIDE: clean flat-gray node theme (no per-type gradients)
+       All nodes look identical at rest: light gray card, gray border.
+       State changes happen ONLY on the border color.
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    :root {
+      --wf-node-bg-flat:     #F4F5F7;
+      --wf-node-border-flat: #D1D5DB;
+      --wf-edge-default:     rgba(156, 163, 175, 0.75);
+      --wf-edge-completed:   rgba(34, 197, 94, 0.85);
+    }
+    [data-bs-theme="dark"] {
+      --wf-node-bg-flat:     #1F2025;
+      --wf-node-border-flat: #3A3B42;
+      --wf-edge-default:     rgba(107, 114, 128, 0.75);
+      --wf-edge-completed:   rgba(74, 222, 128, 0.85);
+    }
+
+    /* Reset per-type card: flat gray bg, no gradient overlay, thicker simple border */
+    .lf-card[data-wf-type] {
+      background: var(--wf-node-bg-flat) !important;
+      border: 2.5px solid var(--wf-node-border-flat) !important;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.04) !important;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .lf-card[data-wf-type]::before,
+    .lf-card[data-wf-type]::after {
+      display: none !important;
+    }
+    .lf-card[data-wf-type] .lf-card-header {
+      background: transparent !important;
+      border-bottom: 1px solid var(--wf-node-border-flat) !important;
+    }
+    .lf-card[data-wf-type] .lf-title-text {
+      text-shadow: none !important;
+      color: var(--lf-card-color) !important;
+    }
+
+    /* Header icon: muted gray, same for every type */
+    .lf-card[data-wf-type] .lf-header-icon {
+      background: rgba(0,0,0,0.05) !important;
+      color: #6B7280 !important;
+      box-shadow: none !important;
+    }
+    [data-bs-theme="dark"] .lf-card[data-wf-type] .lf-header-icon {
+      background: rgba(255,255,255,0.06) !important;
+      color: #9CA3AF !important;
+    }
+
+    /* State changes: only the card border color changes (NOT outline) */
+    .drawflow-node.wf-node--running .lf-card[data-wf-type],
+    .drawflow-node.wf-node--done    .lf-card[data-wf-type],
+    .drawflow-node.wf-node--stopped .lf-card[data-wf-type] {
+      border-color: rgba(34, 197, 94, 0.85) !important;
+    }
+    .drawflow-node.wf-node--error   .lf-card[data-wf-type] {
+      border-color: rgba(239, 68, 68, 0.85) !important;
+    }
+    .drawflow-node.wf-node--waiting .lf-card[data-wf-type],
+    .drawflow-node.wf-node--paused  .lf-card[data-wf-type] {
+      border-color: rgba(249, 115, 22, 0.95) !important;
+    }
+
+    /* Drop the old outline so we ONLY see the card border */
+    .drawflow-node.wf-node--running,
+    .drawflow-node.wf-node--done,
+    .drawflow-node.wf-node--error,
+    .drawflow-node.wf-node--waiting,
+    .drawflow-node.wf-node--paused,
+    .drawflow-node.wf-node--stopped {
+      outline: none !important;
+      box-shadow: none !important;
+      animation: none !important;
+    }
+
+    /* Spinner / status icon INSIDE the card at top-right corner */
+    .wf-n8n-badge {
+      position: absolute !important;
+      top: 8px !important;
+      right: 10px !important;
+      width: 18px !important;
+      height: 18px !important;
+      background: transparent !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      font-size: 14px !important;
+      z-index: 5 !important;
+    }
+
+    /* Connection lines: ALWAYS animated dashes — gray by default */
+    .drawflow .connection .main-path {
+      stroke: var(--wf-edge-default) !important;
+      stroke-width: 2.5 !important;
+      stroke-dasharray: 7 5 !important;
+      animation: wf-edge-flow-soft 1.4s linear infinite !important;
+      transition: stroke 0.4s ease;
+    }
+    @keyframes wf-edge-flow-soft {
+      to { stroke-dashoffset: -24; }
+    }
+
+    /* When source node has completed → green moving line */
+    .drawflow .connection.wf-conn-completed .main-path {
+      stroke: var(--wf-edge-completed) !important;
+    }
+
+    /* Live = same as default (gray moving), no special override needed */
+    .drawflow .connection.wf-conn-live .main-path {
+      stroke: var(--wf-edge-default) !important;
+    }
+
+    /* Override older edge-flow classes to use the same gray moving style */
+    .drawflow .connection path.main-path.wf-flow,
+    .drawflow .connection path.main-path.wf-edge--live,
+    .drawflow .connection path.main-path.wf-edge--active {
+      stroke: var(--wf-edge-default) !important;
+      stroke-dasharray: 7 5 !important;
+      animation: wf-edge-flow-soft 1.4s linear infinite !important;
+    }
+    .drawflow .connection.wf-conn-completed path.main-path.wf-flow,
+    .drawflow .connection.wf-conn-completed path.main-path.wf-edge--live,
+    .drawflow .connection.wf-conn-completed path.main-path.wf-edge--active {
+      stroke: var(--wf-edge-completed) !important;
+    }

@@ -1,4 +1,4 @@
-import { navigate } from '../../core/router.js';
+import { navigate, navigateWithoutGuard, setBeforeNavigateGuard } from '../../core/router.js';
 import { api } from '../../core/api.js';
 import { toast } from '../../core/toast.js';
 
@@ -29,6 +29,11 @@ const DRAWFLOW_SRC = 'https://cdn.jsdelivr.net/npm/drawflow@0.0.47/dist/drawflow
   function navigateTo(href) {
     if (!href) return;
     navigate(href).catch?.(() => { window.location.href = href; });
+  }
+
+  function navigateToBypassingGuard(href) {
+    if (!href) return;
+    navigateWithoutGuard(href).catch?.(() => { window.location.href = href; });
   }
 
   window.toggleSection = function(header) {
@@ -107,9 +112,128 @@ let wfEditorInitInFlight = false;
     const COMPONENTS_WIDTH_MIN = 180;
     const COMPONENTS_WIDTH_MAX = 360;
     const COMPONENTS_WIDTH_STORAGE_KEY = 'visionai.workflow.componentsSidebarWidth.v1';
+    const editorSessionState = {
+      isDirty: false,
+      lastSavedHash: '',
+      hasPendingSave: false,
+      workflowLifecycleState: 'published',
+      isHydrating: true,
+    };
+    let wfUnsavedModal = null;
+    let wfLeaveResolver = null;
+    let wfDirtyTimer = null;
+    let wfBeforeUnloadBound = false;
 
     if (backBtn) {
-      backBtn.addEventListener('click', () => navigateTo('workflow-list.html'));
+      backBtn.addEventListener('click', async () => {
+        const canLeave = await confirmLeaveEditor('workflow-list.html');
+        if (canLeave) navigateToBypassingGuard('workflow-list.html');
+      });
+    }
+    document.addEventListener('input', scheduleDirtyRecalc, true);
+    document.addEventListener('change', scheduleDirtyRecalc, true);
+
+    function stableStringify(v) {
+      if (v === null || typeof v !== 'object') return JSON.stringify(v);
+      if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+      const keys = Object.keys(v).sort();
+      return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+    }
+
+    function computeWorkflowHash() {
+      let flow = {};
+      try { flow = editor && typeof editor.export === 'function' ? editor.export() : {}; } catch (_) {}
+      const name = (document.getElementById('workflow-name-input')?.value || '').trim();
+      const description = String(window.currentWorkflowDescription || workflowDescription || '');
+      const bind_to_event = getBindEvent(flow) || 'Unbound';
+      return stableStringify({ name, description, bind_to_event, drawflow_data: flow });
+    }
+
+    function markDirty(flag) {
+      if (editorSessionState.isHydrating) return;
+      editorSessionState.isDirty = !!flag;
+    }
+
+    function updateDirtyFromCurrentState() {
+      if (editorSessionState.isHydrating) return;
+      const currentHash = computeWorkflowHash();
+      editorSessionState.isDirty = currentHash !== editorSessionState.lastSavedHash;
+    }
+
+    function scheduleDirtyRecalc() {
+      if (editorSessionState.isHydrating) return;
+      clearTimeout(wfDirtyTimer);
+      wfDirtyTimer = setTimeout(updateDirtyFromCurrentState, 25);
+    }
+
+    function setSavedBaseline(workflowState) {
+      if (workflowState === 'draft' || workflowState === 'published') {
+        editorSessionState.workflowLifecycleState = workflowState;
+      }
+      editorSessionState.lastSavedHash = computeWorkflowHash();
+      editorSessionState.isDirty = false;
+    }
+
+    function ensureUnsavedModal() {
+      const modalEl = document.getElementById('wf-unsaved-modal');
+      if (!modalEl || !window.bootstrap?.Modal) return null;
+      if (!wfUnsavedModal) wfUnsavedModal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+      return wfUnsavedModal;
+    }
+
+    async function saveAsState(workflowState) {
+      const saved = await saveWorkflowToBackend(workflowState);
+      if (!saved) return false;
+      toast.success(workflowState === 'draft' ? 'Draft saved.' : 'Watch Dog saved successfully!');
+      return true;
+    }
+
+    async function confirmLeaveEditor(targetHref) {
+      if (!editorSessionState.isDirty && !editorSessionState.hasPendingSave) return true;
+      const modal = ensureUnsavedModal();
+      if (!modal) return window.confirm('You have unsaved changes. Leave without saving?');
+      const btnSave = document.getElementById('wf-unsaved-save');
+      const btnDraft = document.getElementById('wf-unsaved-draft');
+      const btnDiscard = document.getElementById('wf-unsaved-discard');
+      return await new Promise((resolve) => {
+        wfLeaveResolver = resolve;
+        const finish = (ok) => {
+          if (!wfLeaveResolver) return;
+          const fn = wfLeaveResolver;
+          wfLeaveResolver = null;
+          fn(ok);
+        };
+        const onSave = async () => {
+          btnSave.disabled = btnDraft.disabled = btnDiscard.disabled = true;
+          const ok = await saveAsState('published');
+          btnSave.disabled = btnDraft.disabled = btnDiscard.disabled = false;
+          if (!ok) return;
+          modal.hide();
+          finish(true);
+        };
+        const onDraft = async () => {
+          btnSave.disabled = btnDraft.disabled = btnDiscard.disabled = true;
+          const ok = await saveAsState('draft');
+          btnSave.disabled = btnDraft.disabled = btnDiscard.disabled = false;
+          if (!ok) return;
+          modal.hide();
+          finish(true);
+        };
+        const onDiscard = () => { modal.hide(); finish(true); };
+        const onHidden = () => {
+          btnSave?.removeEventListener('click', onSave);
+          btnDraft?.removeEventListener('click', onDraft);
+          btnDiscard?.removeEventListener('click', onDiscard);
+          if (wfLeaveResolver) finish(false);
+          modalEl?.removeEventListener('hidden.bs.modal', onHidden);
+        };
+        const modalEl = document.getElementById('wf-unsaved-modal');
+        btnSave?.addEventListener('click', onSave);
+        btnDraft?.addEventListener('click', onDraft);
+        btnDiscard?.addEventListener('click', onDiscard);
+        modalEl?.addEventListener('hidden.bs.modal', onHidden);
+        modal.show();
+      });
     }
 
     function clampSidebarWidth(v) {
@@ -1860,6 +1984,7 @@ let wfEditorInitInFlight = false;
       } else {
         updateNotificationNodesForSchedule();
       }
+      scheduleDirtyRecalc();
     });
 
     // Force connection styles on all SVG paths - animated
@@ -1896,8 +2021,10 @@ let wfEditorInitInFlight = false;
 
     // Apply styles whenever connections change
     editor.on('connectionCreated', forceConnectionStyles);
-    editor.on('connectionRemoved', forceConnectionStyles);
-    editor.on('import', forceConnectionStyles);
+    editor.on('connectionRemoved', function () { forceConnectionStyles(); scheduleDirtyRecalc(); });
+    editor.on('import', function () { forceConnectionStyles(); scheduleDirtyRecalc(); });
+    editor.on('nodeCreated', scheduleDirtyRecalc);
+    editor.on('nodeRemoved', scheduleDirtyRecalc);
     
     // Initial application
     setTimeout(forceConnectionStyles, 100);
@@ -2207,7 +2334,7 @@ let wfEditorInitInFlight = false;
       else if (e.deltaY > 0) editor.zoom_out();
     }, { passive: false });
 
-    clearBtn.addEventListener('click', () => { editor.clear(); addDefaultStartNode(); });
+    clearBtn.addEventListener('click', () => { editor.clear(); addDefaultStartNode(); scheduleDirtyRecalc(); });
 
     exportBtn.addEventListener('click', () => {
       const data = editor.export();
@@ -2219,18 +2346,19 @@ let wfEditorInitInFlight = false;
       URL.revokeObjectURL(url);
     });
 
-    newBtn.addEventListener('click', () => { editor.clear(); addDefaultStartNode(); });
+    newBtn.addEventListener('click', () => { editor.clear(); addDefaultStartNode(); scheduleDirtyRecalc(); });
 
     // Prevent double-save races (save button spam, run triggering save while save is in flight)
     let _isSaving = false;
 
-    async function saveWorkflowToBackend() {
+    async function saveWorkflowToBackend(workflowState = 'published') {
       if (_isSaving) return null;
       if (hasUnusedEndNode()) {
         toast.warning('Cannot save: the Start node schedule is set to "Always" but an End node is still connected. Remove the End node (or change the schedule to Daily, Weekly, or Once) and try again.');
         return null;
       }
       _isSaving = true;
+      editorSessionState.hasPendingSave = true;
       try {
         const exportedFlow = editor.export();
         prepareWorkflowData(exportedFlow);
@@ -2242,6 +2370,7 @@ let wfEditorInitInFlight = false;
           description: window.currentWorkflowDescription || workflowDescription || '',
           drawflow_data: exportedFlow,
           bind_to_event: bindEvent,
+          workflow_state: workflowState,
         };
 
         const token = getAuthToken();
@@ -2298,9 +2427,12 @@ let wfEditorInitInFlight = false;
             } catch (_) {}
           }
         }
-
+        const resultingState = (result.workflow_state || workflowState || 'published').toLowerCase();
+        setSavedBaseline(resultingState);
+        editorSessionState.workflowLifecycleState = resultingState;
         return result;
       } finally {
+        editorSessionState.hasPendingSave = false;
         _isSaving = false;
       }
     }
@@ -2309,7 +2441,7 @@ let wfEditorInitInFlight = false;
       if (_isSaving) return;
       try {
         saveBtn.disabled = true;
-        const result = await saveWorkflowToBackend();
+        const result = await saveWorkflowToBackend('published');
         if (!result) return;
         toast.success('Watch Dog saved successfully!');
         // Stay on the editor — no redirect to list
@@ -2651,20 +2783,25 @@ let wfEditorInitInFlight = false;
       // Remove all existing state classes before adding the new one
       el.classList.remove(
         'wf-node--idle', 'wf-node--running', 'wf-node--done',
-        'wf-node--error', 'wf-node--paused', 'wf-node--stopped'
+        'wf-node--error', 'wf-node--paused', 'wf-node--stopped',
+        'wf-node--waiting'
       );
 
       const badge = _getOrCreateStatusBadge(el);
 
+      // Double-arrow Pisces-style spinner for any running/active state.
+      const SPIN_HTML = '<i class="fa-solid fa-arrows-rotate wf-badge-spin"></i>';
+
       const statusConfig = {
-        running:    { cls: 'wf-node--running', html: '<span class="wf-badge-spin"></span>', tip: 'Running…'   },
-        completed:  { cls: 'wf-node--done',    html: '<i class="fa-solid fa-check"></i>',  tip: 'Completed'  },
-        error:      { cls: 'wf-node--error',   html: '<i class="fa-solid fa-xmark"></i>',  tip: 'Error'      },
-        paused:     { cls: 'wf-node--paused',  html: '<i class="fa-solid fa-pause"></i>',  tip: 'Paused'     },
-        stopped:    { cls: 'wf-node--stopped', html: '<i class="fa-solid fa-stop"></i>',   tip: 'Stopped'    },
-        cancelled:  { cls: 'wf-node--stopped', html: '<i class="fa-solid fa-stop"></i>',   tip: 'Cancelled'  },
-        monitoring: { cls: 'wf-node--running', html: '<span class="wf-badge-spin"></span>', tip: 'Monitoring' },
-        scheduled:  { cls: 'wf-node--paused',  html: '<i class="fa-solid fa-clock"></i>',  tip: 'Scheduled'  },
+        running:    { cls: 'wf-node--running', html: SPIN_HTML,                              tip: 'Running…'    },
+        completed:  { cls: 'wf-node--done',    html: '<i class="fa-solid fa-check"></i>',    tip: 'Completed'   },
+        error:      { cls: 'wf-node--error',   html: '<i class="fa-solid fa-xmark"></i>',    tip: 'Error'       },
+        waiting:    { cls: 'wf-node--waiting', html: SPIN_HTML,                              tip: 'Reconnecting…' },
+        paused:     { cls: 'wf-node--paused',  html: '<i class="fa-solid fa-pause"></i>',    tip: 'Paused'      },
+        stopped:    { cls: 'wf-node--stopped', html: '<i class="fa-solid fa-check"></i>',    tip: 'Stopped'     },
+        cancelled:  { cls: 'wf-node--stopped', html: '<i class="fa-solid fa-check"></i>',    tip: 'Cancelled'   },
+        monitoring: { cls: 'wf-node--running', html: SPIN_HTML,                              tip: 'Monitoring'  },
+        scheduled:  { cls: 'wf-node--paused',  html: '<i class="fa-solid fa-clock"></i>',    tip: 'Scheduled'   },
       };
 
       const cfg = statusConfig[s] || null;
@@ -2709,7 +2846,7 @@ let wfEditorInitInFlight = false;
       // Force a reflow so the browser registers the removal before re-adding
       void el.offsetWidth;
       el.classList.add('wf-event-flash');
-      setTimeout(() => el.classList.remove('wf-event-flash'), 700);
+      setTimeout(() => el.classList.remove('wf-event-flash'), 2000);
     }
 
     // ── Increment the event count badge on an agent node ─────────────────────
@@ -2782,6 +2919,46 @@ let wfEditorInitInFlight = false;
       _getEdgesFromNode(drawflowNodeId).forEach(path => {
         path.classList.add('wf-edge--active');
         setTimeout(() => path.classList.remove('wf-edge--active'), 1400);
+      });
+    }
+
+    // Get connection wrappers (not inner paths) from a node — used for coloring.
+    function _getConnectionsFromNode(drawflowNodeId) {
+      const conns = [];
+      document.querySelectorAll('.drawflow .connection').forEach(conn => {
+        const cls = typeof conn.className === 'string'
+          ? conn.className
+          : (conn.getAttribute('class') || '');
+        if (cls.includes(`node_out_node-${drawflowNodeId}`) || cls.includes(`node_out_node${drawflowNodeId}`)) {
+          conns.push(conn);
+        }
+      });
+      return conns;
+    }
+
+    // Mark all outgoing connections of a node as completed (green line).
+    function _setConnectionsCompleted(drawflowNodeId) {
+      _getConnectionsFromNode(drawflowNodeId).forEach(c => {
+        c.classList.remove('wf-conn-live');
+        c.classList.add('wf-conn-completed');
+      });
+    }
+
+    // Mark all outgoing connections of a node as live (subtle gray dashes).
+    function _setConnectionsLive(drawflowNodeId, live) {
+      _getConnectionsFromNode(drawflowNodeId).forEach(c => {
+        if (live) {
+          c.classList.remove('wf-conn-completed');
+          c.classList.add('wf-conn-live');
+        } else {
+          c.classList.remove('wf-conn-live');
+        }
+      });
+    }
+
+    function _clearAllConnectionStates() {
+      document.querySelectorAll('.wf-conn-completed, .wf-conn-live').forEach(c => {
+        c.classList.remove('wf-conn-completed', 'wf-conn-live');
       });
     }
 
@@ -3040,37 +3217,65 @@ let wfEditorInitInFlight = false;
         // SECTION A: Canvas node status badges + inline error callouts
         // ─────────────────────────────────────────────────────────────────
 
+        // Phase distinction: setup events should NOT paint canvas nodes.
+        // Setup is invisible to the user — only runtime events drive node state.
+        const phase = msg.phase || 'runtime';
+        const isSetup = phase === 'setup';
+
         if (nodeId && nodeId !== '__graph_parse__') {
 
-          if (event === 'node_started') {
-            _setNodeStatus(nodeId, 'running');
-          }
-
+          // node_error is the only event that paints during setup (config errors
+          // like missing zone, model not available, schedule misconfig)
           if (event === 'node_error') {
             _setNodeStatus(nodeId, 'error', { errorText: error || message });
           }
 
-          if (event === 'node_completed') {
-            _setNodeStatus(nodeId, 'completed');
-            _animateEdgesFromNode(nodeId);     // one-shot flash
-          }
+          // ── Setup-phase events: do NOT change node visuals (keep gray) ──
+          if (isSetup) {
+            // setup events still go to the log panel; canvas stays untouched
+          } else {
 
-          if (event === 'agent_created') {
-            _setNodeStatus(nodeId, 'completed');
-            _animateEdgesFromNode(nodeId);
-          }
+            // ── Runtime events: paint nodes with green/orange/red ──
+            if (event === 'agent_running'        ||
+                event === 'agent_process_started'||
+                event === 'camera_streaming'     ||
+                event === 'camera_online') {
+              _setNodeStatus(nodeId, 'running');
+              _setConnectionsLive(nodeId, true);
+            }
 
-          if (event === 'detection_event') {
-            _flashNodeEvent(nodeId);
-            _animateEdgesFromNode(nodeId);
-            _incrementNodeEventCount(nodeId);
-          }
+            if (event === 'camera_reconnecting') {
+              _setNodeStatus(nodeId, 'waiting');
+              _setConnectionsLive(nodeId, false);
+            }
 
-          if (event === 'notification_triggered' ||
-              event === 'alarm_triggered'        ||
-              event === 'report_generated') {
-            _flashNodeEvent(nodeId);
-            _animateEdgesFromNode(nodeId);
+            if (event === 'agent_stopped'    ||
+                event === 'agent_completed'  ||
+                event === 'workflow_stopped') {
+              _setNodeStatus(nodeId, 'completed');
+              _setConnectionsLive(nodeId, false);
+              _setConnectionsCompleted(nodeId);
+            }
+
+            if (event === 'agent_crashed') {
+              _setNodeStatus(nodeId, 'error', { errorText: error || message });
+            }
+
+            if (event === 'detection_event') {
+              _flashNodeEvent(nodeId);
+              _animateEdgesFromNode(nodeId);
+              _incrementNodeEventCount(nodeId);
+            }
+
+            // Brief 1-sec green flash for fire-and-forget action nodes
+            if (event === 'notification_sent'    ||
+                event === 'notification_triggered'||
+                event === 'alarm_triggered'      ||
+                event === 'iot_action_sent'      ||
+                event === 'report_generated') {
+              _flashNodeEvent(nodeId);
+              _animateEdgesFromNode(nodeId);
+            }
           }
         }
 
@@ -3242,7 +3447,7 @@ let wfEditorInitInFlight = false;
         try {
           runWorkflowBtn.disabled = true;
           runWorkflowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Saving…</span>';
-          const saveResult = await saveWorkflowToBackend();
+          const saveResult = await saveWorkflowToBackend('published');
           if (!saveResult) {
             runWorkflowBtn.disabled = false;
             runWorkflowBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>Run Watch Dog</span>';
@@ -3320,6 +3525,7 @@ let wfEditorInitInFlight = false;
           setupAllNodeInputHandlers();
           populateCameraDropdowns();
           populateAllIoTDeviceRows();
+          scheduleDirtyRecalc();
         }, 50);
       } catch (err) {
         console.error(err);
@@ -3361,6 +3567,7 @@ let wfEditorInitInFlight = false;
 
     async function loadWorkflowForEdit(workflowId) {
       try {
+        editorSessionState.isHydrating = true;
         const token = getAuthToken();
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -3372,6 +3579,7 @@ let wfEditorInitInFlight = false;
           window.currentWorkflowName = workflowData.name || '';
           window.currentWorkflowOwner = workflowOwner || '';
           window.currentWorkflowDescription = workflowData.description || '';
+          editorSessionState.workflowLifecycleState = (workflowData.workflow_state || 'published').toLowerCase();
           const nameInput = document.getElementById('workflow-name-input');
           if (nameInput && workflowData.name) nameInput.value = workflowData.name;
           editor.clear();
@@ -3386,6 +3594,10 @@ let wfEditorInitInFlight = false;
               updateNotificationNodesForSchedule();
             }, 50);
           }
+          setTimeout(() => {
+            editorSessionState.isHydrating = false;
+            setSavedBaseline(editorSessionState.workflowLifecycleState);
+          }, 80);
           document.title = `Edit Watch Dog: ${window.currentWorkflowName}`;
           return true;
         } else {
@@ -3397,6 +3609,8 @@ let wfEditorInitInFlight = false;
         console.error('Error loading Watch Dog:', error);
         toast.error('Error loading Watch Dog for editing');
         return false;
+      } finally {
+        if (!isEditMode) editorSessionState.isHydrating = false;
       }
     }
 
@@ -4563,6 +4777,123 @@ let wfEditorInitInFlight = false;
             wfChatConversationHistory.push({ role: 'assistant', content: summary || '(no text)', mode: mode || 'unknown' });
           }
 
+          // ── v2 router modes (build / edit / clarify / explain) ──────────────
+          // The /v2/generate endpoint returns mode='build'|'edit'|'clarify'|'explain'.
+          // 'build'/'edit' re-render the canvas; 'clarify'/'explain' are
+          // conversational. Each branch returns early — so it must clear and
+          // re-focus the input itself (the legacy clear-input at the bottom
+          // of this function is unreachable for v2).
+          function _v2FinalizeInput() {
+            if (opts.clearInput === false) return;
+            if (!ta) return;
+            try {
+              ta.value = '';
+              if (typeof resizeTa === 'function') resizeTa();
+              if (typeof syncChatPrimaryAction === 'function') syncChatPrimaryAction();
+              ta.dispatchEvent(new Event('input', { bubbles: true }));
+              // Refocus so the user can keep typing without clicking again.
+              setTimeout(function () { try { ta.focus(); } catch (_) {} }, 0);
+            } catch (_) { /* never block UI on focus race */ }
+          }
+          // Renders the clarify-mode options under the assistant chat bubble.
+          // The question itself is NOT re-rendered here — it's already shown
+          // as the assistant chat bubble via appendToActiveTurn() upstream.
+          function renderClarifyOptions(_question, options) {
+            if (!messagesEl || !Array.isArray(options) || !options.length) return;
+            var wrap = document.createElement('div');
+            wrap.className = 'wf-clarify-options';
+            options.forEach(function (opt) {
+              var label = String((opt && opt.label) || '').trim();
+              var desc  = String((opt && opt.description) || '').trim();
+              if (!label) return;
+              var chip = document.createElement('button');
+              chip.type = 'button';
+              chip.className = 'wf-clarify-chip';
+              var safeLabel = label.replace(/</g, '&lt;');
+              var safeDesc  = desc.replace(/</g, '&lt;');
+              chip.innerHTML =
+                '<span class="wf-clarify-chip__label">' + safeLabel + '</span>' +
+                (safeDesc ? '<span class="wf-clarify-chip__desc">' + safeDesc + '</span>' : '');
+              chip.title = label;
+              chip.addEventListener('click', function () {
+                // Disable all chips in the group once one is picked, so the
+                // user can't accidentally double-send.
+                wrap.querySelectorAll('.wf-clarify-chip').forEach(function (b) {
+                  b.disabled = true;
+                  b.classList.remove('wf-clarify-chip--picked');
+                });
+                chip.classList.add('wf-clarify-chip--picked');
+                if (ta) {
+                  ta.value = label;
+                  ta.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                if (sendBtn) sendBtn.click();
+              });
+              wrap.appendChild(chip);
+            });
+            messagesEl.appendChild(wrap);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+
+          if (mode === 'clarify') {
+            var q = String(data.clarification_question || '').trim();
+            if (q) appendToActiveTurn(q);
+            renderClarifyOptions(q, data.clarification_options);
+            wfChatConversationHistory.push({ role: 'assistant', content: q || '(clarification)', mode: 'clarify' });
+            setAssistantStatusVisible(false);
+            setFetchLoading(false);
+            _v2FinalizeInput();
+            if (voiceTurn) setBusy(false);
+            return;
+          }
+
+          if (mode === 'explain') {
+            var reply = String(data.assistant_reply || '').trim();
+            if (reply) appendToActiveTurn(reply);
+            wfChatConversationHistory.push({ role: 'assistant', content: reply || '(no reply)', mode: 'explain' });
+            setAssistantStatusVisible(false);
+            setFetchLoading(false);
+            _v2FinalizeInput();
+            if (voiceTurn) setBusy(false);
+            return;
+          }
+
+          if (mode === 'build' || mode === 'edit') {
+            // Both modes return a full workflow JSON. Build = fresh canvas,
+            // edit = applicator-modified canvas. Either way we re-render.
+            var wfV2 = data.workflow;
+            var didImportV2 = false;
+            if (wfV2) {
+              var graphV2 = extractWorkflowGraph(wfV2);
+              if (graphV2 && graphV2.nodes && graphV2.nodes.length) {
+                setAssistantStatusVisible(true, mode === 'edit' ? 'Updating workflow on canvas…' : 'Building workflow on canvas…');
+                setBuildingPhase(true);
+                try {
+                  await animateWorkflowImportFromGraph(graphV2);
+                  didImportV2 = true;
+                  wfChatLastWorkflow = data.workflow;
+                } catch (buildErr) {
+                  console.error('[Workflow chat v2] Canvas build:', buildErr);
+                  toast.error('Workflow was received but could not be placed on the canvas. See console.');
+                }
+                setBuildingPhase(false);
+              }
+            }
+            // Server-composed deterministic summary (build_summary covers
+            // both modes). Falls back to a generic placeholder if absent.
+            var summaryV2 = String(data.build_summary || '').trim();
+            var lineV2 = summaryV2 || (didImportV2
+              ? (mode === 'edit' ? 'Workflow updated on canvas.' : 'Workflow placed on canvas.')
+              : 'Workflow generated.');
+            appendToActiveTurn(lineV2);
+            wfChatConversationHistory.push({ role: 'assistant', content: lineV2, mode: mode });
+            setAssistantStatusVisible(false);
+            setFetchLoading(false);
+            _v2FinalizeInput();
+            if (voiceTurn) setBusy(false);
+            return;
+          }
+
           if (mode === 'chat' || mode === 'chat_refine') {
             if (hasWorkflow) {
               wfChatLastWorkflow = data.workflow;
@@ -4710,17 +5041,25 @@ let wfEditorInitInFlight = false;
 
         wfWatchdogVoiceWs.onopen = function () {
           var verbose = !!((typeof window !== 'undefined' && window.WORKFLOW_CHAT_VERBOSE) || false);
-          var hist = wfChatConversationHistory.map(function (h) {
-            return { role: String(h.role || ''), content: String(h.content != null ? h.content : '') };
-          }).filter(function (h) { return h.role && h.content; }).slice(-20);
+          // Snapshot the live canvas so voice has the same context as the
+          // text /v2/generate path. Conversation history is loaded server-side
+          // from the v2 conversation store keyed by session_id (no longer
+          // passed in the WS start message — voice and text share one store).
+          var liveCanvas = null;
+          try {
+            var _exp = (typeof editor !== 'undefined' && editor && typeof editor.export === 'function') ? editor.export() : null;
+            var _home = _exp && _exp.drawflow && _exp.drawflow.Home;
+            var _lc = _home ? extractFromDrawflowHome(_home) : null;
+            if (_lc && _lc.nodes && _lc.nodes.length) liveCanvas = _lc;
+            else if (wfChatLastWorkflow) liveCanvas = wfChatLastWorkflow;
+          } catch (_) {
+            if (wfChatLastWorkflow) liveCanvas = wfChatLastWorkflow;
+          }
           wfWatchdogVoiceWs.send(JSON.stringify({
             type: 'start',
             session_id: wfChatSessionId || null,
             verbose: verbose,
-            enable_intent_router: (typeof window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER === 'boolean') ? window.WORKFLOW_CHAT_ENABLE_INTENT_ROUTER : true,
-            autofill_slots: true,
-            slot_fill_followup: !!wfChatSlotFillPending,
-            conversation_history: hist
+            current_workflow: liveCanvas
           }));
         };
 
@@ -4890,6 +5229,24 @@ let wfEditorInitInFlight = false;
             body.previous_workflow = wfChatLastWorkflow;
             if (wfChatLastPlan != null) body.previous_plan = wfChatLastPlan;
           }
+          // Snapshot the LIVE canvas (not the cached server response) so the
+          // v2 router can answer "what fields do I fill" / "what's missing"
+          // accurately even after the user manually adds, deletes, or edits
+          // nodes. extractFromDrawflowHome converts Drawflow's internal export
+          // shape into our v2 {nodes, edges} format.
+          try {
+            var _exp = editor && typeof editor.export === 'function' ? editor.export() : null;
+            var _home = _exp && _exp.drawflow && _exp.drawflow.Home;
+            var _liveCanvas = _home ? extractFromDrawflowHome(_home) : null;
+            if (_liveCanvas && _liveCanvas.nodes && _liveCanvas.nodes.length) {
+              body.current_workflow = _liveCanvas;
+            } else if (wfChatLastWorkflow) {
+              body.current_workflow = wfChatLastWorkflow;
+            }
+          } catch (_canvasSnapErr) {
+            console.warn('[Workflow chat v2] live canvas snapshot failed:', _canvasSnapErr);
+            if (wfChatLastWorkflow) body.current_workflow = wfChatLastWorkflow;
+          }
           if (wfChatSlotFillPending) {
             body.slot_fill_followup = true;
           }
@@ -4900,7 +5257,7 @@ let wfEditorInitInFlight = false;
           var fetchHeaders = { 'Content-Type': 'application/json' };
           if (authToken) fetchHeaders['Authorization'] = 'Bearer ' + authToken;
 
-          const res = await fetch(base + '/api/v1/watchdog/generate', {
+          const res = await fetch(base + '/api/v1/watchdog/v2/generate', {
             method: 'POST',
             headers: fetchHeaders,
             body: JSON.stringify(body)
@@ -4993,7 +5350,22 @@ let wfEditorInitInFlight = false;
     } else {
       // Add default Start Node for new workflow
       addDefaultStartNode();
+      editorSessionState.isHydrating = false;
+      setSavedBaseline('published');
     }
+
+    const beforeUnloadHandler = function (ev) {
+      if (!editorSessionState.isDirty) return;
+      ev.preventDefault();
+      ev.returnValue = '';
+    };
+    if (!wfBeforeUnloadBound) {
+      window.addEventListener('beforeunload', beforeUnloadHandler);
+      wfBeforeUnloadBound = true;
+    }
+    setBeforeNavigateGuard(async function (targetUrl) {
+      return await confirmLeaveEditor(targetUrl || '');
+    });
 
     // Register page-level cleanup so the router can tear down this editor
     // instance before replacing the page content. Without this, document-level
@@ -5003,6 +5375,13 @@ let wfEditorInitInFlight = false;
       document.removeEventListener('click', _iotClickHandler);
       document.removeEventListener('change', _iotChangeHandler, true);
       document.removeEventListener('change', _showIfChangeHandler);
+      document.removeEventListener('input', scheduleDirtyRecalc, true);
+      document.removeEventListener('change', scheduleDirtyRecalc, true);
+      if (wfBeforeUnloadBound) {
+        window.removeEventListener('beforeunload', beforeUnloadHandler);
+        wfBeforeUnloadBound = false;
+      }
+      setBeforeNavigateGuard(null);
       // Remove the body-level tooltip div created by this editor instance
       const tt = document.getElementById('wf-node-tooltip');
       if (tt) tt.remove();

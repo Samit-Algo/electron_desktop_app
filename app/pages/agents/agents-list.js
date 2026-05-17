@@ -286,7 +286,7 @@ function renderAgents(agents, filterState) {
     var sectionIcon =
       groupLabel.indexOf('Person')     >= 0 ? '👤' :
       groupLabel.indexOf('Weapon')     >= 0 ? '🔫' :
-      groupLabel.indexOf('Restricted') >= 0 ? '🚧' : '🤖';
+      groupLabel.indexOf('Restricted') >= 0 ? '??' : '<span data-feather="zap" class="align-text-bottom"></span>';
 
     html.push(
       '<div class="col-12 agents-group-header mt-2 mb-1">' +
@@ -341,6 +341,7 @@ function renderAgents(agents, filterState) {
   });
 
   grid.innerHTML = html.join('');
+  if (typeof feather !== 'undefined') feather.replace();
   bindCardButtons(grid);
 }
 
@@ -584,3 +585,4 @@ function boot() {
 boot();
 document.addEventListener('DOMContentLoaded', boot);
 window.addEventListener('vision:spa:navigated', boot);
+

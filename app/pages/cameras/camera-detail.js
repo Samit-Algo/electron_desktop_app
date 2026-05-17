@@ -1032,7 +1032,8 @@ import { api } from '../../core/api.js';
                         });
 
                         if (overlayBadge) {
-                            overlayBadge.innerHTML = '<span class="fa-solid fa-robot me-1"></span>' + escapeHtml(agentName || 'Agent') + ' (processed)';
+                            overlayBadge.innerHTML = '<span data-feather="zap" class="me-1"></span>' + escapeHtml(agentName || 'Agent') + ' (processed)';
+                            if (typeof feather !== 'undefined') feather.replace();
                         }
                         if (switchToCameraBtn) {
                             switchToCameraBtn.classList.remove('d-none');
@@ -1310,11 +1311,12 @@ import { api } from '../../core/api.js';
                             Object.entries(sections).forEach(([key, el]) => {
                                 if (!el) return;
                                 const li = document.createElement('li');
-                                li.innerHTML = `<div class="cd-empty"><span class="cd-empty-icon fa-solid fa-robot"></span>No ${key === 'active' ? 'active' : key === 'scheduled' ? 'waiting' : 'inactive'} agents</div>`;
+                                li.innerHTML = `<div class="cd-empty"><span class="cd-empty-icon" data-feather="zap"></span>No ${key === 'active' ? 'active' : key === 'scheduled' ? 'waiting' : 'inactive'} agents</div>`;
                                 el.appendChild(li);
                                 const countEl = document.getElementById(countIds[key]);
                                 if (countEl) countEl.textContent = '0';
                             });
+                            if (typeof feather !== 'undefined') feather.replace();
                             return;
                         }
 
@@ -1335,7 +1337,7 @@ import { api } from '../../core/api.js';
 
                             if (list.length === 0) {
                                 const li = document.createElement('li');
-                                li.innerHTML = `<div class="cd-empty"><span class="cd-empty-icon fa-solid fa-robot"></span>No ${bucketKey === 'active' ? 'active' : bucketKey === 'scheduled' ? 'waiting' : 'inactive'} agents</div>`;
+                                li.innerHTML = `<div class="cd-empty"><span class="cd-empty-icon" data-feather="zap"></span>No ${bucketKey === 'active' ? 'active' : bucketKey === 'scheduled' ? 'waiting' : 'inactive'} agents</div>`;
                                 el.appendChild(li);
                                 return;
                             }
@@ -1362,7 +1364,7 @@ import { api } from '../../core/api.js';
                                 li.innerHTML = `
                                     <div class="cd-agent-card" role="button" data-agent-id="${agentId}">
                                         <div class="cd-agent-icon ${iconMod}">
-                                            <span class="fa-solid fa-robot"></span>
+                                            <span data-feather="zap"></span>
                                         </div>
                                         <div class="cd-agent-info">
                                             <div class="cd-agent-name name">${name}</div>
@@ -1392,6 +1394,7 @@ import { api } from '../../core/api.js';
                                 }
                             });
                         });
+                        if (typeof feather !== 'undefined') feather.replace();
                     }
 
                     function mapWorkflowStatus(status) {
@@ -2214,3 +2217,4 @@ export async function boot() {
     }
 }
             
+

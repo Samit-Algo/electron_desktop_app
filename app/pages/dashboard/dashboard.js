@@ -211,6 +211,15 @@ function createCameraTile(camera, index) {
   tile.setAttribute('gs-h', '4');
   const displayName = camera.name || 'Camera';
 
+  const initialStatus = String(camera.status || '').toLowerCase();
+  const isOfflineLike = initialStatus === 'offline' || initialStatus === 'reconnecting' || initialStatus === 'error';
+  const placeholderHidden = isOfflineLike ? '' : ' is-hidden';
+  const placeholderText = initialStatus === 'offline'
+    ? 'Camera offline'
+    : (initialStatus === 'reconnecting' || initialStatus === 'error')
+      ? 'Reconnecting…'
+      : '';
+
   tile.innerHTML = `
     <div class="grid-stack-item-content">
       <div class="card h-100 camera-tile" data-camera-id="${camera.id}" data-tile-id="${tileId}" style="cursor:pointer;">
@@ -234,14 +243,15 @@ function createCameraTile(camera, index) {
             alt=""
           />
 
-          <!-- Placeholder shown while loading or when camera is offline -->
+          <!-- Placeholder shown only when camera is offline / reconnecting.
+               Uses local .camera-placeholder (no !important) so JS can toggle .is-hidden. -->
           <div
             id="placeholder-${tileId}"
-            class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center gap-2"
+            class="position-absolute top-0 start-0 w-100 h-100 camera-placeholder${placeholderHidden}"
             style="color:#555;"
           >
             <span class="fa-solid fa-video-slash" style="font-size:1.6rem;"></span>
-            <span class="fs-10 text-center px-3" id="placeholder-text-${tileId}">Loading…</span>
+            <span class="fs-10 text-center px-3" id="placeholder-text-${tileId}">${placeholderText}</span>
           </div>
 
           <!-- Dark gradient overlay so badge is always readable over the image -->
@@ -317,7 +327,7 @@ async function refreshCameraPreview(camera) {
         snapshotEl.src = `data:image/jpeg;base64,${preview.frame_base64}`;
         snapshotEl.style.display = '';
       }
-      if (placeholder) placeholder.style.display = 'none';
+      if (placeholder) placeholder.classList.add('is-hidden');
       if (gradientEl)  gradientEl.style.display = '';
 
       // Timestamp badge
@@ -336,13 +346,16 @@ async function refreshCameraPreview(camera) {
               : 'unknown'
       );
     } else {
-      // No frame — show placeholder
+      // No frame — only show placeholder for offline/reconnecting cameras.
+      // A live camera without a frame yet should stay clean (no icon/text).
       if (snapshotEl)  snapshotEl.style.display = 'none';
-      if (placeholder) placeholder.style.display = '';
       if (gradientEl)  gradientEl.style.display = 'none';
       if (tsBadge)     tsBadge.style.display = 'none';
 
-      if (placeholderText) {
+      const isLive = status === 'live';
+      if (placeholder) placeholder.classList.toggle('is-hidden', isLive);
+
+      if (!isLive && placeholderText) {
         placeholderText.textContent =
           (status === 'offline' ? 'Camera offline'
           : status === 'reconnecting' ? 'Reconnecting…'
@@ -351,7 +364,10 @@ async function refreshCameraPreview(camera) {
 
       updateCameraStatus(
         id,
-        status === 'offline' ? 'offline' : status === 'reconnecting' ? 'reconnecting' : 'unknown'
+        status === 'live' ? 'live-preview'
+        : status === 'offline' ? 'offline'
+        : status === 'reconnecting' ? 'reconnecting'
+        : 'unknown'
       );
     }
   } catch (err) {

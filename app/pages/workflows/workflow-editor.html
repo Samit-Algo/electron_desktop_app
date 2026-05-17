@@ -105,7 +105,7 @@
           <div class="wf-section expanded mb-1" data-section="agents">
             <div class="wf-section-header d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer" onclick="toggleSection(this)">
               <div class="d-flex align-items-center gap-2">
-                <i class="fa-solid fa-robot text-muted small" style="width: 20px; text-align: center;"></i>
+                <i data-feather="zap" class="text-muted small" style="width: 20px; text-align: center;"></i>
                 <span class="fw-medium small" style="color: var(--wf-designer-color);">Detection Agents</span>
               </div>
               <i class="fa-solid fa-chevron-right wf-section-arrow text-muted" style="font-size: 10px; transition: transform 0.2s ease;"></i>
@@ -222,7 +222,7 @@
           <div class="wf-ai-chat-inner" id="wf-ai-chat-inner">
             <!-- Header -->
             <div class="wf-ai-chat-header">
-              <div class="wf-ai-assistant-panel__avatar" aria-hidden="true"><i class="fa-solid fa-robot"></i></div>
+              <div class="wf-ai-assistant-panel__avatar" aria-hidden="true"><i data-feather="zap"></i></div>
               <span class="fw-semibold wf-ai-chat-title">Workflow Assistant</span>
               <div class="ms-auto d-flex align-items-center gap-1">
                 <button type="button" id="wf-ai-chat-new-thread" class="wf-ai-chat-icon-btn" title="New thread" aria-label="New conversation thread">
@@ -345,4 +345,24 @@
       </div>
     </div>
 
+    <div class="modal fade" id="wf-unsaved-modal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Unsaved changes</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            You have unsaved workflow changes. What do you want to do before leaving this page?
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" id="wf-unsaved-discard">Discard</button>
+            <button type="button" class="btn btn-warning" id="wf-unsaved-draft">Save Draft</button>
+            <button type="button" class="btn btn-primary" id="wf-unsaved-save">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
 </div>
+
