@@ -269,7 +269,10 @@ async function loadPage(url, { push = true } = {}) {
     viewportEarly.style.removeProperty('flex-direction');
   }
 
-  const res = await fetch(url, { cache: 'no-cache' });
+  // Default caching: let the HTTP cache serve unchanged page fragments instead
+  // of forcing a revalidation round-trip on every navigation. Pages are static
+  // files; a normal reload picks up edits during development.
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to load page: ${url}`);
 
   const html = await res.text();

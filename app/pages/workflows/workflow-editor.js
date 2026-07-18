@@ -252,7 +252,7 @@ let wfEditorInitInFlight = false;
       if (!componentsSidebar || !componentsToggleBtn || !designerRootEl) return;
       const icon = componentsToggleBtn.querySelector('i');
       const collapsed = designerRootEl.classList.contains('wf-components-collapsed');
-      if (icon) icon.className = collapsed ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up';
+      if (icon) icon.className = collapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
       componentsToggleBtn.title = collapsed ? 'Expand Components' : 'Collapse Components';
       componentsToggleBtn.setAttribute('aria-label', componentsToggleBtn.title);
       componentsToggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
@@ -990,7 +990,7 @@ let wfEditorInitInFlight = false;
     async function fetchIoTDeviceList() {
       try {
         const res = await fetch('/api/v1/workflows/iot-devices', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('visionai_token') || ''}` }
         });
         if (!res.ok) return [];
         const json = await res.json();
@@ -4027,6 +4027,7 @@ let wfEditorInitInFlight = false;
       const assistantStatusText = document.getElementById('wf-ai-assistant-status-text');
       const messagesEl = document.getElementById('wf-ai-assistant-messages');
       const clarBadge = document.getElementById('wf-ai-clarification-badge');
+      const agentLog = document.getElementById('wf-ai-agent-log');
       const agentLogBody = document.getElementById('wf-ai-agent-log-body');
       const routerReasonEl = document.getElementById('wf-ai-router-reason');
       function setChatDockOpen(nextOpen) {
@@ -4045,7 +4046,9 @@ let wfEditorInitInFlight = false;
       function setChatWidth(px) {
         if (!chatDockEl) return;
         var n = Math.max(CHAT_WIDTH_MIN, Math.min(CHAT_WIDTH_MAX, px || CHAT_WIDTH_MIN));
-        chatDockEl.style.setProperty('--wf-chat-panel-width', n + 'px');
+        // Set on the shared ancestor (canvas column) so both the chat panel AND
+        // the floating toolbar can read it and stay in sync as the chat resizes.
+        (chatHost || chatDockEl).style.setProperty('--wf-chat-panel-width', n + 'px');
         try { localStorage.setItem(CHAT_WIDTH_KEY, String(n)); } catch (_) {}
       }
       try {
@@ -4152,6 +4155,41 @@ let wfEditorInitInFlight = false;
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
+      /** Premium empty state shown when the thread has no messages yet. */
+      function renderWfChatEmptyState() {
+        if (!messagesEl) return;
+        if (wfChatTurns && wfChatTurns.length) return; // don't clobber a live thread
+        messagesEl.innerHTML =
+          '<div class="wf-ai-empty" role="note">' +
+            '<div class="wf-ai-empty__glow" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></div>' +
+            '<h3 class="wf-ai-empty__title">Build your workflow with AI</h3>' +
+            '<p class="wf-ai-empty__sub">Describe what you want to watch for, and I’ll wire up the cameras, agents and alerts for you.</p>' +
+            '<div class="wf-ai-empty__chips">' +
+              '<button type="button" class="wf-ai-suggestion-chip" data-prompt="Add a camera and detect people in the frame">' +
+                '<i class="fa-solid fa-video"></i><span>Detect people on a camera</span></button>' +
+              '<button type="button" class="wf-ai-suggestion-chip" data-prompt="Detect anyone entering a restricted zone and send an alert">' +
+                '<i class="fa-solid fa-draw-polygon"></i><span>Alert on restricted zone entry</span></button>' +
+              '<button type="button" class="wf-ai-suggestion-chip" data-prompt="Detect fire or smoke and raise an alarm notification">' +
+                '<i class="fa-solid fa-fire"></i><span>Raise alarm on fire detection</span></button>' +
+              '<button type="button" class="wf-ai-suggestion-chip" data-prompt="Count people crossing a line and send a daily report">' +
+                '<i class="fa-solid fa-chart-line"></i><span>Count footfall + daily report</span></button>' +
+            '</div>' +
+          '</div>';
+      }
+
+      // Clicking a suggestion chip pre-fills the composer and focuses it.
+      if (messagesEl) {
+        messagesEl.addEventListener('click', function (e) {
+          var chip = e.target && e.target.closest ? e.target.closest('.wf-ai-suggestion-chip') : null;
+          if (!chip || !ta) return;
+          ta.value = chip.getAttribute('data-prompt') || (chip.textContent || '').trim();
+          setChatDockOpen(true);
+          try { ta.focus(); } catch (_) {}
+          resizeTa();
+          syncChatPrimaryAction();
+        });
+      }
+
       function appendToActiveTurn(text) {
         if (!wfChatTurns.length) return;
         var chunk = String(text || '').trim();
@@ -4250,6 +4288,7 @@ let wfEditorInitInFlight = false;
         } catch (e) {
           agentLogBody.textContent = String(data);
         }
+        if (agentLog) agentLog.hidden = !(agentLogBody.textContent || '').trim();
       }
 
       function setModeUi(mode) {
@@ -4262,6 +4301,7 @@ let wfEditorInitInFlight = false;
         else if (mode === 'chat_refine') { label = 'AI: chat+graph'; title = 'mode: chat_refine'; }
         modeEl.textContent = label;
         modeEl.title = title;
+        modeEl.hidden = !mode;
         modeEl.classList.toggle('text-success', mode === 'create');
         modeEl.classList.toggle('text-info', mode === 'refine' || mode === 'chat_refine');
         modeEl.classList.toggle('text-primary', mode === 'chat');
@@ -4277,11 +4317,12 @@ let wfEditorInitInFlight = false;
         wfChatTurns = [];
         wfChatSelectedTurnIndex = -1;
         setModeUi(null);
-        if (messagesEl) messagesEl.innerHTML = '';
+        renderWfChatEmptyState();
         if (userSnippet) userSnippet.textContent = 'Your message';
         if (userPromptHistoryEl) userPromptHistoryEl.innerHTML = '';
         if (clarBadge) clarBadge.hidden = true;
         if (agentLogBody) agentLogBody.textContent = '';
+        if (agentLog) agentLog.hidden = true;
         if (routerReasonEl) { routerReasonEl.hidden = true; routerReasonEl.textContent = ''; }
         setAssistantStatusVisible(false);
         if (loadingEl) {
@@ -4297,6 +4338,9 @@ let wfEditorInitInFlight = false;
           resetWorkflowChatThread();
         });
       }
+
+      // Show the premium empty state on first load (before any messages exist).
+      renderWfChatEmptyState();
       document.querySelectorAll('.wf-ai-chat-model-option').forEach(function (opt) {
         opt.addEventListener('click', function (e) {
           e.preventDefault();

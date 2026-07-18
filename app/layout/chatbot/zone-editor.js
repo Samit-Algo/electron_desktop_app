@@ -49,10 +49,8 @@ function findAssistantBubble(pendingId) {
 async function fetchCameraSnapshot(cameraId, snapshotUrl = null) {
   if (!api) throw new Error('API service not available. Please refresh the page.');
 
-  const url = snapshotUrl || `/api/v1/cameras/${encodeURIComponent(cameraId)}/snapshot`;
-
   try {
-    const data = await api.getCameraSnapshotFromUrl(url);
+    const data = await api.getCameraPreview(cameraId);
     if (!data?.frame_base64) throw new Error('No image data in response');
 
     let base64String = data.frame_base64;

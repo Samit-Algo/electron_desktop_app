@@ -1,0 +1,238 @@
+<div class="content iot-page">
+  <!-- Page Header -->
+  <div class="row gy-2 mb-3 align-items-center">
+    <div class="col-12 col-md-7">
+      <h2 class="mb-2 text-body-emphasis d-flex align-items-center">
+        <span class="iot-header-badge me-3"><i class="fa-solid fa-microchip"></i></span>
+        IoT Devices
+      </h2>
+      <p class="text-body-tertiary mb-0">Connect sensors, actuators and alarms to your cameras. Added devices become available when you build a workflow.</p>
+    </div>
+    <div class="col-12 col-md-5 text-md-end">
+      <button type="button" class="btn btn-primary" id="iot-add-device-btn">
+        <i class="fa-solid fa-plus me-2"></i>Add Device
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary strip -->
+  <div class="row g-2 mb-3" id="iot-summary-strip">
+    <div class="col-6 col-lg-3">
+      <div class="iot-stat-card">
+        <div class="iot-stat-icon iot-accent-blue"><i class="fa-solid fa-network-wired"></i></div>
+        <div>
+          <div class="iot-stat-value" id="iot-stat-total">0</div>
+          <div class="iot-stat-label">Devices</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="iot-stat-card">
+        <div class="iot-stat-icon iot-accent-green"><i class="fa-solid fa-wifi"></i></div>
+        <div>
+          <div class="iot-stat-value" id="iot-stat-online">0</div>
+          <div class="iot-stat-label">Connected</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="iot-stat-card">
+        <div class="iot-stat-icon iot-accent-amber"><i class="fa-solid fa-gauge-high"></i></div>
+        <div>
+          <div class="iot-stat-value" id="iot-stat-sensors">0</div>
+          <div class="iot-stat-label">Sensors</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="iot-stat-card">
+        <div class="iot-stat-icon iot-accent-red"><i class="fa-solid fa-bell"></i></div>
+        <div>
+          <div class="iot-stat-value" id="iot-stat-actuators">0</div>
+          <div class="iot-stat-label">Actuators</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connected devices -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h4 class="mb-0 text-body-emphasis"><i class="fa-solid fa-plug-circle-check me-2 text-primary"></i>My Devices <span class="iot-count-pill" id="iot-connected-count">0</span></h4>
+  </div>
+
+  <div id="iot-connected-empty" class="iot-empty mb-4">
+    <div class="iot-empty-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+    <h5 class="text-body-emphasis mb-1">No devices connected yet</h5>
+    <p class="text-body-tertiary mb-3">Pick a device type below or use <strong>Add Device</strong> to connect your first sensor or alarm.</p>
+  </div>
+
+  <div id="iot-connected-grid" class="row g-3 mb-4 d-none">
+    <!-- Connected device cards injected by JS -->
+  </div>
+
+  <!-- Available device types -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h4 class="mb-0 text-body-emphasis"><i class="fa-solid fa-layer-group me-2 text-primary"></i>Available Device Types</h4>
+    <span class="text-body-tertiary fs-9">Click a card to add</span>
+  </div>
+  <div id="iot-catalog-grid" class="row g-3">
+    <!-- Catalog cards injected by JS -->
+  </div>
+
+  <!-- Add / Edit Device Modal -->
+  <div class="modal fade" id="iot-device-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content iot-modal">
+        <div class="modal-header border-0 pb-0">
+          <div class="d-flex align-items-center">
+            <span class="iot-icon-tile me-3" id="iot-modal-icon" style="--iot-accent:#3874ff;"><i class="fa-solid fa-microchip"></i></span>
+            <div>
+              <h5 class="modal-title mb-0 text-body-emphasis" id="iot-modal-title">Add Device</h5>
+              <span class="text-body-tertiary fs-9" id="iot-modal-subtitle">Configure connection details</span>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="iot-device-form" novalidate>
+            <input type="hidden" id="iot-field-type" />
+            <input type="hidden" id="iot-field-edit-id" />
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Device Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="iot-field-name" placeholder="e.g. Cold Room Temp Probe" required />
+              </div>
+              <div class="col-12 col-sm-6">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Connection Protocol</label>
+                <select class="form-select" id="iot-field-protocol">
+                  <option value="MQTT">MQTT</option>
+                  <option value="HTTP/REST">HTTP / REST</option>
+                  <option value="WebSocket">WebSocket</option>
+                  <option value="NATS">NATS</option>
+                  <option value="Modbus TCP">Modbus TCP</option>
+                </select>
+              </div>
+              <div class="col-12 col-sm-6">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Unit / Range</label>
+                <input type="text" class="form-control" id="iot-field-unit" placeholder="e.g. °C" />
+              </div>
+              <div class="col-8">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Host / Endpoint</label>
+                <input type="text" class="form-control" id="iot-field-host" placeholder="e.g. 192.168.1.50 or broker.local" />
+              </div>
+              <div class="col-4">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Port</label>
+                <input type="number" class="form-control" id="iot-field-port" placeholder="1883" />
+              </div>
+              <div class="col-12">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Topic / Device ID</label>
+                <input type="text" class="form-control" id="iot-field-identifier" placeholder="e.g. sensors/coldroom/temp" />
+              </div>
+              <div class="col-12">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Location <span class="text-body-tertiary fw-normal">(optional)</span></label>
+                <input type="text" class="form-control" id="iot-field-location" placeholder="e.g. Packing Line 2" />
+              </div>
+            </div>
+            <div class="iot-note mt-3">
+              <i class="fa-solid fa-circle-info me-2"></i>Demo mode — this saves the device locally. Real IoT connection is wired up when you deploy the gateway.
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-phoenix-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="iot-save-device-btn"><i class="fa-solid fa-plug me-2"></i>Connect Device</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Custom Device Type Modal -->
+  <div class="modal fade" id="iot-type-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content iot-modal">
+        <div class="modal-header border-0 pb-0">
+          <div class="d-flex align-items-center">
+            <span class="iot-icon-tile me-3" id="iot-type-preview" style="--iot-accent:#3874ff;"><i class="fa-solid fa-gauge-high"></i></span>
+            <div>
+              <h5 class="modal-title mb-0 text-body-emphasis">New Device Type</h5>
+              <span class="text-body-tertiary fs-9">Define a custom sensor or actuator</span>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="iot-type-form" novalidate>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Type Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="iot-type-name" placeholder="e.g. Pressure Sensor" required />
+              </div>
+              <div class="col-12">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Category</label>
+                <div class="iot-segment" id="iot-type-kind">
+                  <button type="button" class="iot-segment-btn active" data-kind="sensor"><i class="fa-solid fa-gauge-high me-1"></i>Sensor</button>
+                  <button type="button" class="iot-segment-btn" data-kind="actuator"><i class="fa-solid fa-bolt me-1"></i>Actuator</button>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Icon</label>
+                <div class="iot-icon-picker" id="iot-type-icons">
+                  <button type="button" class="iot-pick active" data-icon="fa-gauge-high"><i class="fa-solid fa-gauge-high"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-temperature-half"><i class="fa-solid fa-temperature-half"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-droplet"><i class="fa-solid fa-droplet"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-wind"><i class="fa-solid fa-wind"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-fire"><i class="fa-solid fa-fire"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-snowflake"><i class="fa-solid fa-snowflake"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-bolt"><i class="fa-solid fa-bolt"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-water"><i class="fa-solid fa-water"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-volume-high"><i class="fa-solid fa-volume-high"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-satellite-dish"><i class="fa-solid fa-satellite-dish"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-microchip"><i class="fa-solid fa-microchip"></i></button>
+                  <button type="button" class="iot-pick" data-icon="fa-solar-panel"><i class="fa-solid fa-solar-panel"></i></button>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Accent Colour</label>
+                <div class="iot-color-picker" id="iot-type-colors">
+                  <button type="button" class="iot-swatch active" data-color="#3874ff" style="background:#3874ff"></button>
+                  <button type="button" class="iot-swatch" data-color="#25b003" style="background:#25b003"></button>
+                  <button type="button" class="iot-swatch" data-color="#e5780b" style="background:#e5780b"></button>
+                  <button type="button" class="iot-swatch" data-color="#e5183b" style="background:#e5183b"></button>
+                  <button type="button" class="iot-swatch" data-color="#6f42c1" style="background:#6f42c1"></button>
+                  <button type="button" class="iot-swatch" data-color="#17a2b8" style="background:#17a2b8"></button>
+                  <button type="button" class="iot-swatch" data-color="#e83e8c" style="background:#e83e8c"></button>
+                  <button type="button" class="iot-swatch" data-color="#fd7e14" style="background:#fd7e14"></button>
+                </div>
+              </div>
+              <div class="col-12 col-sm-6">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Default Unit <span class="text-body-tertiary fw-normal">(optional)</span></label>
+                <input type="text" class="form-control" id="iot-type-unit" placeholder="e.g. bar" />
+              </div>
+              <div class="col-12 col-sm-6">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Default Protocol</label>
+                <select class="form-select" id="iot-type-protocol">
+                  <option value="MQTT">MQTT</option>
+                  <option value="HTTP/REST">HTTP / REST</option>
+                  <option value="WebSocket">WebSocket</option>
+                  <option value="NATS">NATS</option>
+                  <option value="Modbus TCP">Modbus TCP</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label fs-9 fw-bold text-body-emphasis">Description <span class="text-body-tertiary fw-normal">(optional)</span></label>
+                <input type="text" class="form-control" id="iot-type-desc" placeholder="Short description of what it measures or does" />
+              </div>
+            </div>
+            <div class="iot-note mt-3">
+              <i class="fa-solid fa-circle-info me-2"></i>Demo mode — the new type is saved locally and added to the catalogue below.
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-phoenix-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="iot-save-type-btn"><i class="fa-solid fa-check me-2"></i>Create Type</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

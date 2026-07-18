@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(py|sql\\)$\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\manoj\\\\Desktop\\\\Vision_backend_app\\\\new_desktop_app\\\\app\" -Filter \"*.css\" -Recurse)",
+      "Bash(awk 'NR>=50 && NR<=364 && $0 !~ /Unknown date/ {print NR\": \"$0}' \"/c/Users/manoj/Desktop/Vision_backend_app/new_desktop_app/app/pages/static-videos/static-videos.js\")",
+      "Read(//tmp/**)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s -m 25 -o /tmp/api_resp.json -w \"HTTP %{http_code}\\\\n\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTRjY2ZhMzIzNGM3MjYzOGZhY2M1OTIiLCJlbWFpbCI6InNhbWl0QGdtYWlsLmNvbSIsImp0aSI6Ijc2MmI2NGQxLWNkZjUtNGNjZi1hY2VjLWFlYWJjNzUwMTQwZiIsImlhdCI6MTc4MDEyODYyNSwiZXhwIjoxNzgwMTMyMjI1fQ.UxGdbU0Tgy3NumAtf1C6jVDOAkHQW59ZmIvbUTBuSII\" http://localhost:8000/api/videos/static)",
+      "Bash(curl -s -m 10 -o /dev/null -w \"base HTTP %{http_code}\\\\n\" http://localhost:8000/)",
+      "Bash(curl -s -m 10 -o /dev/null -w \"docs HTTP %{http_code}\\\\n\" http://localhost:8000/docs)",
+      "Bash(curl -s -m 10 -o /dev/null -w \"%{http_code}\" http://localhost:8000/)",
+      "Bash(curl -s -m 25 -o /tmp/lib.json -w \"HTTP %{http_code}\\\\n\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTRjY2ZhMzIzNGM3MjYzOGZhY2M1OTIiLCJlbWFpbCI6InNhbWl0QGdtYWlsLmNvbSIsImp0aSI6Ijc2MmI2NGQxLWNkZjUtNGNjZi1hY2VjLWFlYWJjNzUwMTQwZiIsImlhdCI6MTc4MDEyODYyNSwiZXhwIjoxNzgwMTMyMjI1fQ.UxGdbU0Tgy3NumAtf1C6jVDOAkHQW59ZmIvbUTBuSII\" http://localhost:8000/api/v1/videos/static/library)",
+      "Bash(python -m json.tool /tmp/lib.json)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); vs=d.get\\('videos'\\) or d if isinstance\\(d,list\\) else d.get\\('videos',[]\\); print\\('type',type\\(d\\).__name__\\); print\\('count',len\\(vs\\)\\); print\\('keys',list\\(vs[0].keys\\(\\)\\)\\); [print\\(v.get\\('filename'\\),'| created_at=',repr\\(v.get\\('created_at'\\)\\),'| updated_at=',repr\\(v.get\\('updated_at'\\)\\),'| last_modified=',repr\\(v.get\\('last_modified'\\)\\)\\) for v in vs]\")",
+      "PowerShell($t=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTRjY2ZhMzIzNGM3MjYzOGZhY2M1OTIiLCJlbWFpbCI6InNhbWl0QGdtYWlsLmNvbSIsImp0aSI6Ijc2MmI2NGQxLWNkZjUtNGNjZi1hY2VjLWFlYWJjNzUwMTQwZiIsImlhdCI6MTc4MDEyODYyNSwiZXhwIjoxNzgwMTMyMjI1fQ.UxGdbU0Tgy3NumAtf1C6jVDOAkHQW59ZmIvbUTBuSII\"; try { $r = Invoke-RestMethod -Uri \"http://localhost:8000/api/v1/videos/static/library\" -Headers @{Authorization=\"Bearer $t\"} -TimeoutSec 25; $r | ConvertTo-Json -Depth 6 } catch { \"ERROR: $\\($_.Exception.Message\\)\"; $_.Exception.Response.StatusCode.value__ })",
+      "Bash(git -C \"C:/Users/manoj/Desktop/Vision_backend_app/new_desktop_app\" diff -- pages/static-video-library.html)",
+      "Bash(git -C \"C:/Users/manoj/Desktop/Vision_backend_app/new_desktop_app\" diff --stat -- pages/static-video-library.html)",
+      "Bash(curl -s -m 25 \"http://localhost:8000/api/v1/videos/static/library\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTRjY2ZhMzIzNGM3MjYzOGZhY2M1OTIiLCJlbWFpbCI6InNhbWl0QGdtYWlsLmNvbSIsImp0aSI6ImQzYjExODE3LWQ4OWItNDdjOS05YmJkLWY2ZWRjMTcxZGIxNyIsImlhdCI6MTc4MDE0NTk4NywiZXhwIjoxNzgwMTQ5NTg3fQ.5nAHNcsMnFT4pBqA_k_2js-xQ3g7MGpb6FNjNNQCcVs\")",
+      "Bash(curl -s -m 25 -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTRjY2ZhMzIzNGM3MjYzOGZhY2M1OTIiLCJlbWFpbCI6InNhbWl0QGdtYWlsLmNvbSIsImp0aSI6ImQzYjExODE3LWQ4OWItNDdjOS05YmJkLWY2ZWRjMTcxZGIxNyIsImlhdCI6MTc4MDE0NTk4NywiZXhwIjoxNzgwMTQ5NTg3fQ.5nAHNcsMnFT4pBqA_k_2js-xQ3g7MGpb6FNjNNQCcVs\" \"http://localhost:8000/api/v1/videos/static/library\")",
+      "Bash(curl -s -m 30 -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTRjY2ZhMzIzNGM3MjYzOGZhY2M1OTIiLCJlbWFpbCI6InNhbWl0QGdtYWlsLmNvbSIsImp0aSI6ImQzYjExODE3LWQ4OWItNDdjOS05YmJkLWY2ZWRjMTcxZGIxNyIsImlhdCI6MTc4MDE0NTk4NywiZXhwIjoxNzgwMTQ5NTg3fQ.5nAHNcsMnFT4pBqA_k_2js-xQ3g7MGpb6FNjNNQCcVs\" \"http://15.207.4.74:8000/api/v1/videos/static/library\")",
+      "PowerShell(\"--- search for backend py ---\")",
+      "PowerShell($p=\"C:\\\\Users\\\\manoj\\\\Desktop\\\\Vision_backend_app\\\\new_desktop_app\\\\pages\\\\static-video-library.html\"; $lines = Get-Content $p; $new = $lines | Where-Object { $_ -notmatch \"mb-2 text-body-tertiary fs-10 text-truncate..Uploaded:. . createdAtText\" }; $new | Set-Content $p -Encoding utf8; \"remaining Uploaded lines:\"; \\(Get-Content $p | Select-String \"Uploaded:\"\\).Line)",
+      "PowerShell($p=\"C:\\\\Users\\\\manoj\\\\Desktop\\\\Vision_backend_app\\\\new_desktop_app\\\\pages\\\\static-video-library.html\"; $lines = [System.Collections.Generic.List[string]]\\(Get-Content $p\\); $lines.RemoveAt\\(142\\); Set-Content $p -Value $lines -Encoding utf8; \"done\")",
+      "Bash(awk 'NR>=130 && NR<=148' pages/static-video-library.html)",
+      "Bash(python3 -c ' *)",
+      "PowerShell($p=\"C:\\\\Users\\\\manoj\\\\Desktop\\\\Vision_backend_app\\\\new_desktop_app\\\\pages\\\\static-video-library.html\"; $bytes=[System.IO.File]::ReadAllBytes\\($p\\); if\\($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF\\){ [System.IO.File]::WriteAllBytes\\($p, $bytes[3..\\($bytes.Length-1\\)]\\); \"BOM removed\" } else { \"no BOM\" })",
+      "PowerShell($p=\"C:\\\\Users\\\\manoj\\\\Desktop\\\\Vision_backend_app\\\\new_desktop_app\\\\app\\\\pages\\\\dashboard\\\\dashboard.js\"; \"lines=\" + \\(Get-Content $p | Measure-Object -Line\\).Lines; \\(Get-Content $p | Select-String -Pattern \"fmtAgo\",\"Updated \",\"ageMs\",\"No snapshot\"\\) | ForEach-Object { \"$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" })",
+      "Bash(node -e ' *)",
+      "Bash(grep -rn \"Camera CAM\\\\|Camera \\\\${\\\\|camera_id\\\\|cameraId\\\\|CAM-\\\\|camera ID\\\\|getAttribute\" \"c:/Users/manoj/Desktop/Vision_backend_app/new_desktop_app/app/utils/events-board-widget.js\")"
+    ]
+  }
+}

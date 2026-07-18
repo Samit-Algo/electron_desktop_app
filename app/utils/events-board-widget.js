@@ -46,6 +46,13 @@
     return 'badge-phoenix-info';
   }
 
+  // Bright, high-contrast title colour per severity (readable over any image).
+  function severityTextColor(sev) {
+    if (sev === 'Critical') return '#ff6b6b';
+    if (sev === 'Warning') return '#ffc35a';
+    return '#5cc8ff';
+  }
+
   function timeAgo(ts) {
     if (!ts) return '';
     const d = new Date(ts);
@@ -80,6 +87,8 @@
       layout: opts.layout || 'grid',
       events: [],
       imageCache: new Map(),
+      cameraNames: {},      // camera_id -> friendly name
+      cameraNamesLoaded: false,
       container: containerEl,
       isMounted: true
     };
@@ -166,25 +175,53 @@
         const sev = ev.severity || inferSeverity(ev.label);
         const badgeCls = severityBadgeClass(sev);
         const ago = timeAgo(ev.event_ts || ev.received_at || ev.timestamp);
-        const cam = escapeHtml(ev.camera_id || ev.cameraId || '');
         const href = buildEventDetailUrl(ev);
         const thumb = ev.thumb_object_url || ev.thumbObjectUrl || ev.thumb_data_url || ev.thumbDataUrl || null;
+        const titleColor = severityTextColor(sev);
+        const camName = escapeHtml(cameraNameFor(ev));
+        const shadow = 'text-shadow:0 1px 4px rgba(0,0,0,.95);';
         return (
           (colClass ? '<div class="' + colClass + '">' : '') +
           '<div class="btn-reveal-trigger position-relative rounded-2 overflow-hidden ' + padding + '"' + (cardStyle ? ' style="' + cardStyle + '"' : ' style="height: ' + height + ';"') + '>' +
           (thumb ? '<img src="' + escapeHtml(thumb) + '" alt="" class="w-100 h-100 position-absolute top-0 start-0" style="object-fit: cover;">' : '<div class="w-100 h-100 position-absolute top-0 start-0 bg-body-secondary"></div>') +
-          '<div class="w-100 h-100 position-absolute top-0 start-0" style="background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%);"></div>' +
+          '<div class="w-100 h-100 position-absolute top-0 start-0" style="background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.8) 100%);"></div>' +
           '<div class="position-relative h-100 d-flex flex-column justify-content-between">' +
-          '<div class="d-flex justify-content-between align-items-center"><span class="badge badge-phoenix fs-10 ' + badgeCls + '" data-bs-theme="light">' + escapeHtml(sev) + '</span></div>' +
-          '<div><h' + (state.compact ? '4' : '3') + ' class="text-white fw-bold line-clamp-2 mb-1">' + escapeHtml(ev.label || 'Event') + '</h' + (state.compact ? '4' : '3') + '>' +
-          '<p class="text-white text-opacity-75 fs-9 mb-0">' + (cam ? 'Camera ' + cam : 'Camera') + '</p>' +
-          '<div class="d-flex align-items-center mt-2"><span class="fa-solid fa-video text-white text-opacity-75 me-2 fs-10"></span>' +
-          '<span class="text-white text-opacity-75 fs-9">' + (cam ? 'Camera ' + cam : 'Camera') + '</span>' +
-          '<span class="text-white text-opacity-50 mx-2">•</span><span class="text-white text-opacity-75 fs-9">' + (ago || '') + '</span></div></div></div>' +
+          // top row: severity badge (left) + camera name (right)
+          '<div class="d-flex justify-content-between align-items-start gap-2">' +
+          '<span class="badge badge-phoenix fs-10 ' + badgeCls + '" data-bs-theme="light">' + escapeHtml(sev) + '</span>' +
+          (camName ? '<span class="badge fs-10 text-truncate" style="max-width:60%;background:rgba(0,0,0,.55);color:#fff;">' + camName + '</span>' : '') +
+          '</div>' +
+          // bottom row: colour-coded title + time on a single line
+          '<div class="d-flex justify-content-between align-items-end gap-2">' +
+          '<span class="fw-bold fs-9 text-truncate" style="color:' + titleColor + ';' + shadow + '">' + escapeHtml(ev.label || 'Event') + '</span>' +
+          '<span class="d-flex align-items-center flex-shrink-0 text-white fs-10" style="' + shadow + '"><span class="fa-solid fa-clock me-1"></span>' + (ago || 'Just now') + '</span>' +
+          '</div>' +
+          '</div>' +
           '<a class="stretched-link" href="' + escapeHtml(href) + '"></a></div>' +
           (colClass ? '</div>' : '')
         );
       }).join('');
+    }
+
+    // Fetch the camera list once and build an id -> friendly-name map.
+    function loadCameraNames() {
+      if (state.cameraNamesLoaded) return Promise.resolve();
+      if (!window.visionAPI || typeof window.visionAPI.listCameras !== 'function') return Promise.resolve();
+      return window.visionAPI.listCameras()
+        .then(function (cams) {
+          var list = Array.isArray(cams) ? cams : (cams && Array.isArray(cams.items) ? cams.items : []);
+          list.forEach(function (c) {
+            if (c && c.id != null) state.cameraNames[c.id.toString()] = c.name || c.id.toString();
+          });
+          state.cameraNamesLoaded = true;
+        })
+        .catch(function () {});
+    }
+
+    function cameraNameFor(ev) {
+      var id = (ev.camera_id || ev.cameraId || '').toString();
+      if (!id) return '';
+      return state.cameraNames[id] || id;
     }
 
     function ensureEventImage(ev) {
@@ -233,6 +270,9 @@
         setTimeout(function () { if (state.isMounted) refresh(); }, 500);
         return Promise.resolve();
       }
+
+      // Load camera names in parallel so cards can show a friendly name.
+      loadCameraNames().then(function () { if (state.isMounted && state.events.length) renderEvents(state.events); });
 
       // API may support camera_id; we also filter client-side as fallback
       var cameraIdParam = state.cameraId || null;

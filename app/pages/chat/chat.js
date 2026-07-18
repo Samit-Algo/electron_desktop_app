@@ -17,6 +17,19 @@ function init() {
   var sendBtn = document.getElementById('chat-send-btn');
   if (!mediaContainer || !messagesEl || !attachInput || !attachBtn || !chatInput || !sendBtn) return;
 
+  // Empty-state suggestion chips: "upload" opens the file picker, others pre-fill the input.
+  messagesEl.addEventListener('click', function (e) {
+    var chip = e.target && e.target.closest ? e.target.closest('.chat-suggestion-chip') : null;
+    if (!chip) return;
+    if (chip.getAttribute('data-action') === 'upload') {
+      attachBtn.click();
+      return;
+    }
+    chatInput.value = chip.getAttribute('data-prompt') || (chip.textContent || '').trim();
+    try { chatInput.focus(); } catch (_) {}
+    autosizeInput();
+  });
+
   function autosizeInput() {
     var cs = window.getComputedStyle(chatInput);
     var lh = parseFloat(cs.lineHeight);
@@ -133,6 +146,8 @@ function init() {
   }
 
   function addChatMessage(text, isUser) {
+    var emptyState = document.getElementById('chat-empty-state');
+    if (emptyState) emptyState.remove();
     var div = document.createElement('div');
     if (isUser) {
       var escaped = text ? String(text).replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';

@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-  <title>AlgoOrange Vision AI</title>
+  <title>AlgoOptic Vision AI</title>
 
   <!-- Favicons -->
   <link rel="apple-touch-icon" sizes="180x180" href="../assets/img/favicons/apple-touch-icon.png">
@@ -20,17 +20,19 @@
   <script src="../vendors/simplebar/simplebar.min.js"></script>
   <script src="../assets/js/config.js"></script>
 
-  <!-- External Fonts -->
+  <!-- External Fonts (loaded non-render-blocking so a slow/offline network can
+       never hang app startup; falls back to the system sans-serif until ready) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800;900&display=swap"
+    rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800;900&display=swap" rel="stylesheet"></noscript>
 
   <!-- Vendor Stylesheets -->
+  <!-- IconScout unicons CDN removed: the 4 icons used (eye/eye-slash + collapse
+       arrows) are rendered via FontAwesome, which is already bundled locally.
+       Leaflet/markercluster CSS removed: no map is used anywhere in the app. -->
   <link href="../vendors/simplebar/simplebar.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.8/css/line.css">
-  <link href="../vendors/leaflet/leaflet.css" rel="stylesheet">
-  <link href="../vendors/leaflet.markercluster/MarkerCluster.css" rel="stylesheet">
-  <link href="../vendors/leaflet.markercluster/MarkerCluster.Default.css" rel="stylesheet">
 
   <!-- Theme Stylesheets -->
   <link href="../assets/css/theme-rtl.min.css" type="text/css" rel="stylesheet" id="style-rtl">
@@ -155,6 +157,18 @@
         padding-bottom: 4rem !important;
       }
     }
+
+    /* Collapsed sidebar top-gap fix.
+       The Phoenix theme's collapsed rule sets the sidebar to position:absolute
+       with padding-top: var(--phoenix-navbar-top-height) (50px) to clear the top
+       navbar — but that assumes the sidebar is positioned from the window top.
+       Here the sidebar's positioning ancestor is `main.main` (position:relative),
+       which already starts BELOW the 50px topbar in grid-row 2, so that padding
+       becomes a double offset and shows as a gap above the first menu item.
+       Zero it out so the collapsed sidebar aligns with the expanded one. */
+    html.navbar-vertical-collapsed .navbar-vertical.navbar-expand-lg {
+      padding-top: 0 !important;
+    }
   </style>
 </head>
 
@@ -174,8 +188,8 @@
           </button>
           <a class="navbar-brand me-1 me-sm-3" href="/app/index.html">
             <div class="d-flex align-items-center">
-              <img src="../assets/img/algo-logo.png" alt="AlgoOrange" width="27" />
-              <h5 class="logo-text ms-2 d-none d-sm-block">AlgoOrange</h5>
+              <img src="../assets/img/algo-logo.png" alt="AlgoOptic" width="27" />
+              <h5 class="logo-text ms-2 d-none d-sm-block">AlgoOptic</h5>
             </div>
           </a>
         </div>
@@ -227,11 +241,11 @@
               style="min-width:2.25rem" role="button"
               data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
               data-bs-auto-close="outside">
-              <span class="d-block" style="height:20px;width:20px;">
+              <span class="d-block position-relative" style="height:20px;width:20px;">
                 <span data-feather="bell" style="height:20px;width:20px;"></span>
+                <span class="position-absolute start-100 translate-middle-x badge rounded-pill bg-danger d-none"
+                  id="vision-notif-badge" style="top:-6px;">0</span>
               </span>
-              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
-                id="vision-notif-badge">0</span>
             </a>
             <div class="dropdown-menu dropdown-menu-end notification-dropdown-menu py-0 shadow border navbar-dropdown-caret"
               id="navbarDropdownNotfication" aria-labelledby="navbarDropdownNotfication">
@@ -387,8 +401,8 @@
           </div>
           <div class="navbar-vertical-footer">
             <button class="btn navbar-vertical-toggle border-0 fw-semibold w-100 white-space-nowrap d-flex align-items-center">
-              <span class="uil uil-left-arrow-to-left fs-8"></span>
-              <span class="uil uil-arrow-from-right fs-8"></span>
+              <span class="uil-left-arrow-to-left fa-solid fa-angles-left fs-8"></span>
+              <span class="uil-arrow-from-right fa-solid fa-angles-right fs-8"></span>
               <span class="navbar-vertical-footer-text ms-2">Collapsed View</span>
             </button>
           </div>
@@ -479,9 +493,7 @@
   <script src="../vendors/list.js/list.min.js"></script>
   <script src="../vendors/feather-icons/feather.min.js"></script>
   <script src="../vendors/dayjs/dayjs.min.js"></script>
-  <script src="../vendors/leaflet/leaflet.js"></script>
-  <script src="../vendors/leaflet.markercluster/leaflet.markercluster.js"></script>
-  <script src="../vendors/leaflet.tilelayer.colorfilter/leaflet-tilelayer-colorfilter.min.js"></script>
+  <!-- Leaflet (map) scripts removed: no map is used anywhere in the app. -->
   <script src="../assets/js/phoenix.js"></script>
   <script>
     // Re-initialise theme-control checkboxes after each SPA navigation,
@@ -500,8 +512,8 @@
       });
     });
   </script>
-  <script src="../vendors/echarts/echarts.min.js"></script>
-  <script src="../assets/js/dashboards/ecommerce-dashboard.js"></script>
+  <!-- ECharts + the ecommerce-dashboard template script removed: unused by the
+       real app (only the unused crm/ecommerce template demos referenced them). -->
 
   <!-- Shared widget scripts (window globals) -->
   <script src="./utils/events-board-widget.js"></script>

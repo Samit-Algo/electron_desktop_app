@@ -129,8 +129,8 @@ function getLoginHTML() {
                 <input class="form-control form-icon-input pe-6" id="login-password" type="password" placeholder="Password" data-password-input="data-password-input" required autocomplete="current-password" />
                 <span class="fas fa-key text-body fs-9 form-icon"></span>
                 <button class="btn px-3 py-0 h-100 position-absolute top-0 end-0 fs-7 text-body-tertiary" type="button" data-password-toggle="data-password-toggle">
-                  <span class="uil uil-eye show"></span>
-                  <span class="uil uil-eye-slash hide"></span>
+                  <span class="fa-solid fa-eye show"></span>
+                  <span class="fa-solid fa-eye-slash hide"></span>
                 </button>
               </div>
             </div>
@@ -187,8 +187,8 @@ function getRegisterHTML() {
                 <div class="position-relative" data-password="data-password">
                   <input class="form-control form-icon-input pe-6" id="register-password" type="password" placeholder="Password" data-password-input="data-password-input" required autocomplete="new-password" minlength="8" />
                   <button class="btn px-3 py-0 h-100 position-absolute top-0 end-0 fs-7 text-body-tertiary" type="button" data-password-toggle="data-password-toggle">
-                    <span class="uil uil-eye show"></span>
-                    <span class="uil uil-eye-slash hide"></span>
+                    <span class="fa-solid fa-eye show"></span>
+                    <span class="fa-solid fa-eye-slash hide"></span>
                   </button>
                 </div>
               </div>
@@ -197,8 +197,8 @@ function getRegisterHTML() {
                 <div class="position-relative" data-password="data-password">
                   <input class="form-control form-icon-input pe-6" id="register-confirm-password" type="password" placeholder="Confirm Password" data-password-input="data-password-input" required autocomplete="new-password" />
                   <button class="btn px-3 py-0 h-100 position-absolute top-0 end-0 fs-7 text-body-tertiary" type="button" data-password-toggle="data-password-toggle">
-                    <span class="uil uil-eye show"></span>
-                    <span class="uil uil-eye-slash hide"></span>
+                    <span class="fa-solid fa-eye show"></span>
+                    <span class="fa-solid fa-eye-slash hide"></span>
                   </button>
                 </div>
               </div>

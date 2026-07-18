@@ -27,8 +27,11 @@
             */
             #vision-cameras-list-grid.vision-cameras-list-grid {
                 display: grid;
-                gap: 1rem;
-                grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+                gap: 1.25rem;
+                /* auto-fill (not auto-fit) keeps cards a fixed compact size instead of
+                   stretching the few existing cards across the whole row. */
+                grid-template-columns: repeat(auto-fill, minmax(15rem, 16rem));
+                justify-content: start;
                 min-width: 0;
                 width: 100%;
             }
@@ -40,14 +43,17 @@
 
             .vision-camera-tile-card {
                 cursor: pointer;
-                transition: box-shadow 0.2s ease, transform 0.15s ease;
+                transition: box-shadow 0.25s ease, transform 0.18s ease, border-color 0.25s ease;
                 min-width: 0;
                 width: 100%;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
             }
 
             .vision-camera-tile-card:hover {
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-                transform: translateY(-1px);
+                box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+                transform: translateY(-4px);
+                border-color: rgba(99, 102, 241, 0.6);
             }
 
             .vision-cameras-list-grid .line-clamp-2 {
@@ -64,13 +70,14 @@
 
             .vision-cameras-skeleton-grid {
                 display: none;
-                gap: 1rem;
-                grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+                gap: 1.25rem;
+                grid-template-columns: repeat(auto-fill, minmax(15rem, 16rem));
+                justify-content: start;
             }
 
             .vision-cameras-skeleton-card {
-                height: 170px;
-                border-radius: 0.75rem;
+                height: 150px;
+                border-radius: 0.85rem;
                 background: linear-gradient(90deg, rgba(148, 163, 184, 0.12) 25%, rgba(148, 163, 184, 0.28) 50%, rgba(148, 163, 184, 0.12) 75%);
                 background-size: 240% 100%;
                 animation: vision-cameras-shimmer 1.3s ease-in-out infinite;

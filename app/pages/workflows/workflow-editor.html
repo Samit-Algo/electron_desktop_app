@@ -1,51 +1,6 @@
 <link rel="stylesheet" href="workflow-editor.css">
 
 <div id="page-content">
-    <!-- Top Bar -->
-    <nav class="navbar navbar-expand-lg py-2 px-4 border-bottom wf-topbar">
-      <div class="container-fluid p-0">
-        <div class="d-flex align-items-center gap-2 wf-topbar-left">
-          <button class="btn btn-outline-secondary d-flex align-items-center justify-content-center wf-topbar-btn wf-topbar-back-btn" id="btn-workflow-back" type="button" title="Back" aria-label="Back">
-            <i class="fa-solid fa-arrow-left"></i>
-          </button>
-          <div class="input-group wf-topbar-name-group">
-            <span class="input-group-text bg-transparent border-secondary text-muted wf-topbar-name-icon">
-              <i class="fa-solid fa-pen small"></i>
-            </span>
-            <input type="text" id="workflow-name-input" class="form-control bg-transparent wf-topbar-name-input" placeholder="Watch Dog Name">
-          </div>
-        </div>
-        <div class="d-flex align-items-center gap-2 wf-topbar-actions">
-          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-run-workflow">
-            <i class="fa-solid fa-play"></i>
-            <span>Run Watch Dog</span>
-          </button>
-          <!-- Stop / Pause / Resume — shown dynamically by JS after Run -->
-          <button class="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-stop-workflow" style="display:none;" title="Stop all agents">
-            <i class="fa-solid fa-stop"></i>
-            <span>Stop</span>
-          </button>
-          <button class="btn btn-outline-warning btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-pause-workflow" style="display:none;" title="Pause all agents">
-            <i class="fa-solid fa-pause"></i>
-            <span>Pause</span>
-          </button>
-          <button class="btn btn-outline-info btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-resume-workflow" style="display:none;" title="Resume paused agents">
-            <i class="fa-solid fa-circle-play"></i>
-            <span>Resume</span>
-          </button>
-          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-export">
-            <i class="fa-solid fa-download"></i>
-            <span>Export</span>
-          </button>
-          <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 wf-topbar-btn wf-topbar-btn--primary" id="btn-save">
-            <i class="fa-solid fa-floppy-disk"></i>
-            <span>Save</span>
-          </button>
-          <input type="file" id="file-import" accept="application/json" class="d-none" />
-        </div>
-      </div>
-    </nav>
-
     <!-- Main Content -->
     <div class="workflow-designer">
       <!-- Sidebar with collapsible sections -->
@@ -56,7 +11,7 @@
             <span class="fw-semibold" style="color: var(--wf-designer-color); font-size: 13px; line-height: 1.2;">Components</span>
           </div>
           <button type="button" id="wf-components-toggle" class="btn btn-sm wf-components-toggle-btn" title="Collapse Components" aria-label="Collapse Components">
-            <i class="fa-solid fa-chevron-up"></i>
+            <i class="fa-solid fa-chevron-down"></i>
           </button>
         </div>
 
@@ -203,15 +158,49 @@
 
       <!-- Canvas with floating toolbar + AI chat dock -->
       <div class="wf-canvas wf-canvas-column position-relative overflow-hidden flex-grow-1" style="background: var(--wf-canvas-bg);">
-        <div class="wf-floating-toolbar position-absolute d-flex">
-          <button type="button" id="btn-exec-log-toggle" class="btn btn-sm wf-toolbar-btn" title="Toggle Execution Log"><i class="fa-solid fa-terminal"></i></button>
-          <div class="wf-toolbar-sep"></div>
-          <button type="button" id="btn-zoom-in" class="btn btn-sm wf-toolbar-btn" title="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-          <button type="button" id="btn-zoom-out" class="btn btn-sm wf-toolbar-btn" title="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-          <button type="button" id="btn-zoom-reset" class="btn btn-sm wf-toolbar-btn" title="Enter Fullscreen"><i class="fa-solid fa-expand"></i></button>
-          <button type="button" id="btn-clear" class="btn btn-sm wf-toolbar-btn" title="Clear Canvas"><i class="fa-solid fa-trash"></i></button>
-          <button type="button" id="btn-new" class="btn btn-sm wf-toolbar-btn" title="New Watch Dog"><i class="fa-solid fa-dog" aria-hidden="true"></i></button>
-          <button type="button" id="btn-import" class="btn btn-sm wf-toolbar-btn" title="Import JSON"><i class="fa-solid fa-file-import"></i></button>
+        <!-- Unified canvas top bar: Back + name (left), canvas tools + Run/Save (right) — one line -->
+        <div class="wf-canvas-topbar">
+          <div class="wf-canvas-topbar-left d-flex align-items-center gap-2">
+            <button class="btn btn-outline-secondary d-flex align-items-center justify-content-center wf-topbar-btn wf-topbar-back-btn" id="btn-workflow-back" type="button" title="Back" aria-label="Back">
+              <i class="fa-solid fa-arrow-left"></i>
+            </button>
+            <div class="input-group wf-topbar-name-group">
+              <span class="input-group-text bg-transparent border-secondary text-muted wf-topbar-name-icon">
+                <i class="fa-solid fa-pen small"></i>
+              </span>
+              <input type="text" id="workflow-name-input" class="form-control bg-transparent wf-topbar-name-input" placeholder="Watch Dog Name">
+            </div>
+          </div>
+          <div class="wf-canvas-topbar-right d-flex align-items-center gap-1">
+            <button type="button" id="btn-exec-log-toggle" class="btn btn-sm wf-toolbar-btn" title="Toggle Execution Log"><i class="fa-solid fa-terminal"></i></button>
+            <button type="button" id="btn-zoom-in" class="btn btn-sm wf-toolbar-btn" title="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+            <button type="button" id="btn-zoom-out" class="btn btn-sm wf-toolbar-btn" title="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+            <button type="button" id="btn-zoom-reset" class="btn btn-sm wf-toolbar-btn" title="Enter Fullscreen"><i class="fa-solid fa-expand"></i></button>
+            <button type="button" id="btn-clear" class="btn btn-sm wf-toolbar-btn" title="Clear Canvas"><i class="fa-solid fa-trash"></i></button>
+            <button type="button" id="btn-new" class="btn btn-sm wf-toolbar-btn" title="New Watch Dog"><i class="fa-solid fa-dog" aria-hidden="true"></i></button>
+            <button type="button" id="btn-import" class="btn btn-sm wf-toolbar-btn" title="Import JSON"><i class="fa-solid fa-file-import"></i></button>
+            <div class="wf-toolbar-sep"></div>
+            <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-run-workflow">
+              <i class="fa-solid fa-play"></i><span>Run Watch Dog</span>
+            </button>
+            <!-- Stop / Pause / Resume — shown dynamically by JS after Run -->
+            <button class="btn btn-outline-danger btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-stop-workflow" style="display:none;" title="Stop all agents">
+              <i class="fa-solid fa-stop"></i><span>Stop</span>
+            </button>
+            <button class="btn btn-outline-warning btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-pause-workflow" style="display:none;" title="Pause all agents">
+              <i class="fa-solid fa-pause"></i><span>Pause</span>
+            </button>
+            <button class="btn btn-outline-info btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-resume-workflow" style="display:none;" title="Resume paused agents">
+              <i class="fa-solid fa-circle-play"></i><span>Resume</span>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 wf-topbar-btn" id="btn-export">
+              <i class="fa-solid fa-download"></i><span>Export</span>
+            </button>
+            <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 wf-topbar-btn wf-topbar-btn--primary" id="btn-save">
+              <i class="fa-solid fa-floppy-disk"></i><span>Save</span>
+            </button>
+            <input type="file" id="file-import" accept="application/json" class="d-none" />
+          </div>
         </div>
         <div id="drawflow"></div>
 
@@ -242,8 +231,8 @@
             <!-- Messages scroll area: user right / AI left -->
             <div id="wf-ai-assistant-messages" class="wf-ai-assistant-messages"></div>
 
-            <!-- Agent log (collapsed by default) -->
-            <details class="wf-ai-agent-log" id="wf-ai-agent-log">
+            <!-- Agent log (collapsed by default, hidden until it has content) -->
+            <details class="wf-ai-agent-log" id="wf-ai-agent-log" hidden>
               <summary>Agent log</summary>
               <pre id="wf-ai-agent-log-body" class="wf-ai-agent-log__body"></pre>
             </details>
@@ -260,7 +249,6 @@
                 <textarea id="wf-ai-chat-input" class="wf-ai-chat-input" rows="1" placeholder="What would you like to change or create?" autocomplete="off"></textarea>
                 <div class="wf-ai-chat-toolbar">
                   <div class="d-flex align-items-center gap-1">
-                    <span id="wf-ai-chat-mode" class="badge rounded-pill border border-secondary text-secondary fw-normal" style="font-size:10px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="">AI: —</span>
                     <div class="dropdown">
                       <button type="button" class="wf-ai-chat-model-btn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" id="wf-ai-chat-model-toggle">
                         <span class="wf-ai-chat-model-label">3.0 Flash</span>

@@ -155,3 +155,70 @@ body.chat-page-no-scroll .viewport-scrolls > .chat-page-content {
   border-left: 3px solid rgba(0,0,0,0.2);
   padding-left: 0.75rem; margin: 0.5rem 0; font-style: italic;
 }
+
+/* ── Page polish ──────────────────────────────────────────────────────────── */
+.chat-page-content h2 { font-size: 1.4rem; }
+.chat-page-main-row .card { border-radius: 14px; }
+.chat-page-main-row .card-header {
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+}
+
+/* Left "Your uploads" empty state (centered, robust to inline display:block) */
+.chat-side-empty {
+  margin: auto;
+  text-align: center;
+  max-width: 240px;
+  padding: 1rem;
+}
+.chat-side-empty__icon {
+  width: 46px; height: 46px; margin: 0 auto 0.7rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 12px; font-size: 1.15rem; color: var(--phoenix-primary);
+  background: rgba(var(--phoenix-primary-rgb), 0.1);
+}
+.chat-side-empty__title { font-size: 0.85rem; font-weight: 600; color: var(--phoenix-body-color); }
+.chat-side-empty__sub { font-size: 0.76rem; color: var(--phoenix-body-color-tertiary); line-height: 1.45; }
+
+/* ── Chat empty state (welcome + suggestion chips) ────────────────────────── */
+.chat-empty {
+  height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 1.5rem; max-width: 480px; margin: 0 auto;
+  animation: chat-empty-in 0.35s ease both;
+}
+@keyframes chat-empty-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.chat-empty__glow {
+  width: 58px; height: 58px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.35rem; margin-bottom: 1rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow: 0 8px 24px rgba(99,102,241,0.4), 0 0 0 8px rgba(99,102,241,0.08);
+}
+.chat-empty__title { font-size: 1.05rem; font-weight: 700; color: var(--phoenix-body-color); margin: 0 0 0.4rem; }
+.chat-empty__sub {
+  font-size: 0.85rem; color: var(--phoenix-body-color-tertiary);
+  line-height: 1.5; margin: 0 0 1.3rem; max-width: 380px;
+}
+.chat-empty__chips { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+.chat-suggestion-chip {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.85rem; border-radius: 999px;
+  border: 1px solid var(--phoenix-border-color); background: var(--phoenix-emphasis-bg);
+  color: var(--phoenix-body-color); font-size: 0.8rem; font-weight: 500; cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.chat-suggestion-chip:hover {
+  border-color: #6366f1; background: rgba(99,102,241,0.08);
+  transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.15);
+}
+.chat-suggestion-chip [class*="fa-"] { color: #6366f1; font-size: 0.8rem; }
+/* Primary upload chip stands out */
+.chat-suggestion-chip[data-action="upload"] {
+  background: #6366f1; border-color: #6366f1; color: #fff;
+}
+.chat-suggestion-chip[data-action="upload"] [class*="fa-"] { color: #fff; }
+.chat-suggestion-chip[data-action="upload"]:hover { background: #4f46e5; border-color: #4f46e5; }

@@ -173,7 +173,7 @@ function createWindow() {
       // FIX: use appPath instead of __dirname so it works when packaged
       preload: path.join(appPath, 'preload.js')
     },
-    // Window and taskbar icon: AlgoOrange logo
+    // Window and taskbar icon: AlgoOptic logo
     icon: path.join(appPath, 'assets', 'img', 'algo-logo.png'),
     show: false
   });

@@ -1,3 +1,69 @@
+/* Compact page heading (consistent across pages) */
+.events-board-page h2 { font-size: 1.4rem; }
+
+/* Event cards */
+.vision-event-card {
+  border-radius: 14px !important;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.vision-event-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+}
+
+/* Filter bar: align the select boxes' heights with the segmented control */
+.events-filter-bar .form-select-sm { min-width: 8.5rem; }
+
+/* Severity segmented control (neutral — no blue) */
+.events-severity-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--phoenix-secondary-bg, #f1f4f9);
+  border: 1px solid var(--phoenix-border-color, #e3e6ed);
+}
+.events-sev-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  padding: 0.34rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--phoenix-secondary-color, #6e7891);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.events-sev-btn:hover:not(.active) {
+  color: var(--phoenix-emphasis-color, #141824);
+}
+.events-sev-btn.active {
+  background: var(--phoenix-emphasis-bg, #fff);
+  color: var(--phoenix-emphasis-color, #141824);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.events-sev-count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--phoenix-secondary-color, #8a94ad);
+}
+.events-sev-btn.active .events-sev-count { color: inherit; }
+/* Severity accent dots on the active state keep the meaning without heavy color */
+.events-sev-btn[data-severity="Critical"].active { color: #dc2626; }
+.events-sev-btn[data-severity="Warning"].active { color: #b45309; }
+.events-sev-btn[data-severity="Info"].active { color: #0284c7; }
+:root[data-bs-theme="dark"] .events-severity-seg {
+  background: var(--phoenix-secondary-bg, #12151f);
+  border-color: var(--phoenix-border-color, #2b2f3d);
+}
+:root[data-bs-theme="dark"] .events-sev-btn[data-severity="Critical"].active { color: #f87171; }
+:root[data-bs-theme="dark"] .events-sev-btn[data-severity="Warning"].active { color: #fbbf24; }
+:root[data-bs-theme="dark"] .events-sev-btn[data-severity="Info"].active { color: #38bdf8; }
+
 #vision-events-board-grid[data-loading="true"] #vision-events-skeleton-grid {
   display: grid;
 }

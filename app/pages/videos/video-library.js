@@ -78,18 +78,18 @@ function renderLibrary(videos) {
 
   videos.forEach(function (video) {
     var col = document.createElement('div');
-    col.className = 'col-12 col-md-6 col-xl-4';
+    col.className = 'col-12 col-md-6 col-xl-4 col-xxl-3';
     col.innerHTML =
       '<div class="card h-100 library-video-card" data-video-id="' + String(video.video_id || '') + '">' +
         '<div class="card-body d-flex flex-column gap-2">' +
           '<video class="library-video-thumb" controls preload="metadata"></video>' +
           '<div class="d-flex align-items-center justify-content-between gap-2">' +
             '<p class="mb-0 fw-semibold fs-9 text-body text-truncate" title="' + String(video.filename || '').replace(/"/g, '&quot;') + '">' + (video.filename || 'Video') + '</p>' +
-            '<span class="badge badge-phoenix badge-phoenix-secondary fs-10">Video</span>' +
+            '<span class="library-badge">VIDEO</span>' +
           '</div>' +
-          '<p class="mb-2 text-body-tertiary fs-10 text-truncate">Uploaded: ' + formatDate(video.created_at) + '</p>' +
+          '<p class="mb-2 text-body-tertiary fs-10 text-truncate"><span class="fa-regular fa-clock me-1"></span>' + formatDate(video.created_at) + '</p>' +
           '<div class="d-flex gap-2 mt-auto">' +
-            '<button type="button" class="btn btn-phoenix-primary btn-sm w-100 library-use-btn">Analyze in Chat</button>' +
+            '<button type="button" class="btn btn-primary btn-sm w-100 library-use-btn"><span class="fa-solid fa-comments me-2"></span>Analyze in Chat</button>' +
           '</div>' +
         '</div>' +
       '</div>';

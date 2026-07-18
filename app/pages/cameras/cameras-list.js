@@ -101,7 +101,7 @@ function loadCameras() {
         const placeholderStyle = hasImage ? 'display:none;' : '';
 
         return `<div class="min-w-0">
-          <div class="btn-reveal-trigger position-relative rounded-2 overflow-hidden vision-camera-tile-card" style="width:100%;height:170px;min-width:0;">
+          <div class="btn-reveal-trigger position-relative rounded-3 overflow-hidden vision-camera-tile-card" style="width:100%;height:150px;min-width:0;">
 
             <!-- Dark fallback background -->
             <div class="w-100 h-100 position-absolute top-0 start-0" style="background:#111;"></div>
@@ -132,10 +132,9 @@ function loadCameras() {
                 <span class="badge badge-phoenix ${statusClass} fs-10" data-bs-theme="light" title="${reason}">${statusDot}${statusLabel}</span>
               </div>
               <div class="min-w-0">
-                <h4 class="text-white fw-bold line-clamp-2 mb-1">${name}</h4>
                 <div class="d-flex align-items-center min-w-0">
                   <span class="fa-solid fa-video text-white text-opacity-75 me-2 fs-10 flex-shrink-0"></span>
-                  <span class="text-white text-opacity-75 fs-9 text-truncate">${idText || '—'}</span>
+                  <span class="text-white fw-bold fs-9 text-truncate" style="text-shadow:0 1px 4px rgba(0,0,0,.95);" title="${idText}">${name}</span>
                 </div>
                 ${reason ? `<div class="text-white text-opacity-75 fs-10 text-truncate mt-1" title="${reason}">${reason}</div>` : ''}
               </div>

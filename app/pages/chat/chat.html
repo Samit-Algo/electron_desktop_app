@@ -14,8 +14,12 @@
           <span class="fa-solid fa-images text-primary me-2 fs-9"></span>
           <span class="fw-semibold fs-9">Your uploads</span>
         </div>
-        <div class="card-body p-2 overflow-auto flex-grow-1 min-h-0" id="chat-media-cards">
-          <p class="text-body-tertiary fs-9 mb-0 text-center py-4" id="chat-media-empty">No uploads yet. Send an image or video in chat to see it here.</p>
+        <div class="card-body p-2 overflow-auto flex-grow-1 min-h-0 d-flex flex-column" id="chat-media-cards">
+          <div class="chat-side-empty" id="chat-media-empty">
+            <div class="chat-side-empty__icon"><span class="fa-solid fa-images"></span></div>
+            <p class="chat-side-empty__title mb-1">No uploads yet</p>
+            <p class="chat-side-empty__sub mb-0">Send an image or video in chat and it will appear here as a card.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -30,7 +34,19 @@
           <span class="fw-semibold fs-9">Algo Vision Analyzer</span>
         </div>
         <div class="card-body p-0 d-flex flex-column flex-grow-1 overflow-hidden">
-          <div class="chat-messages-area flex-grow-1 overflow-auto p-3 scrollbar" id="chat-messages"></div>
+          <div class="chat-messages-area flex-grow-1 overflow-auto p-3 scrollbar" id="chat-messages">
+            <div class="chat-empty" id="chat-empty-state">
+              <div class="chat-empty__glow"><span class="fa-solid fa-wand-magic-sparkles"></span></div>
+              <h3 class="chat-empty__title">Analyze images &amp; video with AI</h3>
+              <p class="chat-empty__sub">Upload a photo or clip and ask about what's in it — objects, people, text, safety hazards and more.</p>
+              <div class="chat-empty__chips">
+                <button type="button" class="chat-suggestion-chip" data-action="upload"><span class="fa-solid fa-arrow-up-from-bracket"></span><span>Upload an image or video</span></button>
+                <button type="button" class="chat-suggestion-chip" data-prompt="Describe everything you see in this image."><span class="fa-solid fa-eye"></span><span>Describe what's in my image</span></button>
+                <button type="button" class="chat-suggestion-chip" data-prompt="Count the people in this video and note anything unusual."><span class="fa-solid fa-people-group"></span><span>Count people in a video</span></button>
+                <button type="button" class="chat-suggestion-chip" data-prompt="Read and transcribe any text visible in this photo."><span class="fa-solid fa-font"></span><span>Read the text in a photo</span></button>
+              </div>
+            </div>
+          </div>
           <div class="card-footer border-top px-3 py-3 chat-page-footer" style="background: transparent;">
             <div class="chatbot-input-container">
               <div class="chat-attached-preview d-none align-items-center gap-2 px-2 py-1 mb-1 rounded" id="chat-attached-preview" aria-live="polite">

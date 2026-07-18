@@ -250,8 +250,12 @@ class ApiClient {
     return this.post('/api/v1/cameras', body);
   }
 
-  async listAgentsByCamera(cameraId, limit = 20, skip = 0) {
-    return this.get(`/api/v1/cameras/${encodeURIComponent(cameraId)}/agents?limit=${limit}&skip=${skip}`);
+  async listAgentsByCamera(cameraId, limit = 100, skip = 0) {
+    const data = await this.get(`/api/v1/cameras/${encodeURIComponent(cameraId)}/agents?limit=${limit}&skip=${skip}`);
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.items)) return data.items;
+    if (data && Array.isArray(data.agents)) return data.agents;
+    return [];
   }
 
   async listWorkflowsByCamera(cameraId) {

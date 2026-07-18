@@ -49,16 +49,16 @@ function navigateTo(href) {
 // ─────────────────────────────────────────────────────────────────────────────
 function _overallBadge(overallStatus) {
   const map = {
-    running:   ['bg-success',   'Running'],
-    scheduled: ['bg-info text-dark', 'Scheduled'],
-    completed: ['bg-secondary', 'Completed'],
-    paused:    ['bg-warning text-dark', 'Paused'],
-    stopping:  ['bg-warning text-dark', 'Stopping'],
-    inactive:  ['bg-secondary', 'Inactive'],
-    unknown:   ['bg-secondary', 'Unknown'],
+    running:   ['running',  'Running'],
+    scheduled: ['info',     'Scheduled'],
+    completed: ['inactive', 'Completed'],
+    paused:    ['paused',   'Paused'],
+    stopping:  ['paused',   'Stopping'],
+    inactive:  ['inactive', 'Inactive'],
+    unknown:   ['inactive', 'Unknown'],
   };
-  const [cls, label] = map[overallStatus] || map.unknown;
-  return `<span class="badge fs-9 ${cls}">${label}</span>`;
+  const [variant, label] = map[overallStatus] || map.unknown;
+  return `<span class="wf-status wf-status--${variant}"><span class="wf-status-dot"></span>${label}</span>`;
 }
 
 function _agentStatusDot(status) {
@@ -106,7 +106,7 @@ function _actionButtons(workflowId, overallStatus, workflowState = 'published') 
     </button>` : '';
 
   const editBtn = `
-    <button class="btn btn-secondary btn-sm px-2" data-action="edit" data-workflow-id="${id}" title="Edit design">
+    <button class="btn btn-outline-secondary btn-sm px-2" data-action="edit" data-workflow-id="${id}" title="Edit design">
       <i class="fas fa-edit me-1"></i>Edit
     </button>`;
 
