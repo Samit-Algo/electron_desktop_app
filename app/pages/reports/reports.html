@@ -1,0 +1,63 @@
+<div class="content reports-page">
+  <!-- Page header -->
+  <div class="row gy-2 mb-3 align-items-center">
+    <div class="col-12 col-md-8">
+      <h2 class="mb-2 text-body-emphasis d-flex align-items-center">
+        <span class="reports-header-badge me-3"><i class="fa-solid fa-chart-column"></i></span>
+        Count Reports
+      </h2>
+      <p class="text-body-tertiary mb-0">Live and completed reports from counting agents (people, boxes, vehicles). Counting agents don't send notifications — their results live here.</p>
+    </div>
+    <div class="col-12 col-md-4 text-md-end">
+      <span class="reports-live-hint" id="reports-refresh-hint"><span class="reports-live-dot"></span> auto-refreshing</span>
+    </div>
+  </div>
+
+  <!-- Cards grid -->
+  <div id="reports-grid-view">
+    <div id="reports-empty" class="reports-empty d-none">
+      <div class="reports-empty-icon"><i class="fa-solid fa-list-ol"></i></div>
+      <h5 class="text-body-emphasis mb-1">No counting reports yet</h5>
+      <p class="text-body-tertiary mb-0">Create a <strong>People Counter</strong> or <strong>Box Counter</strong> agent — its report will appear here while it runs and stay here after it stops.</p>
+    </div>
+    <div id="reports-grid" class="row g-3"><!-- report cards injected --></div>
+  </div>
+
+  <!-- Detail view -->
+  <div id="reports-detail-view" class="d-none">
+    <div class="d-flex align-items-center mb-3 gap-3">
+      <button type="button" class="btn btn-sm btn-phoenix-secondary" id="reports-back-btn">
+        <i class="fa-solid fa-arrow-left me-1"></i> All reports
+      </button>
+      <h4 class="mb-0 text-body-emphasis" id="reports-detail-title">Report</h4>
+      <span id="reports-detail-state"></span>
+    </div>
+
+    <div class="row g-3 mb-3" id="reports-detail-stats"><!-- totals tiles injected --></div>
+
+    <div class="row g-3">
+      <div class="col-12 col-lg-5">
+        <div class="reports-panel">
+          <div class="reports-panel-title"><i class="fa-solid fa-clock me-2"></i>Per-hour breakdown</div>
+          <div class="table-responsive">
+            <table class="table table-sm mb-0 reports-table">
+              <thead><tr><th>Hour</th><th class="text-end">In</th><th class="text-end">Out</th></tr></thead>
+              <tbody id="reports-hourly-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-lg-7">
+        <div class="reports-panel">
+          <div class="reports-panel-title"><i class="fa-solid fa-list me-2"></i>Crossing events <span class="reports-count-pill" id="reports-events-count">0</span></div>
+          <div class="table-responsive reports-events-scroll">
+            <table class="table table-sm mb-0 reports-table">
+              <thead><tr><th>Time</th><th>Event</th><th class="text-end">Track</th><th class="text-end">In</th><th class="text-end">Out</th><th class="text-end">Inside</th></tr></thead>
+              <tbody id="reports-events-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

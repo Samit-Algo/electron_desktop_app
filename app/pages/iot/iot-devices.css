@@ -193,3 +193,9 @@
 @supports not (background: color-mix(in srgb, red, blue)) {
   .iot-icon-tile { background: var(--iot-accent, #3874ff); }
 }
+
+/* Live telemetry reading on device cards */
+.iot-reading { color: var(--phoenix-body-color, #31374a); transition: color .3s ease; }
+.iot-reading-alert { color: #e5183b !important; animation: iot-reading-pulse 1.1s ease-in-out infinite; }
+@keyframes iot-reading-pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+:root[data-bs-theme="dark"] .iot-reading-row { background: rgba(255,255,255,.06) !important; }

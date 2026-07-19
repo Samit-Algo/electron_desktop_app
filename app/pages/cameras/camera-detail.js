@@ -981,12 +981,79 @@ import { api } from '../../core/api.js';
                     }
 
                     /**
+                     * Connected IoT panel: when the selected agent has IoT devices wired in
+                     * its workflow, show them with live (simulated) readings over the video.
+                     * Values come from the backend telemetry simulator — the same source the
+                     * IoT page and workflow editor read — so every view agrees, and actuators
+                     * (siren/relay) flip ON when the agent's event fires.
+                     */
+                    let agentIotTimer = null;
+
+                    const AGENT_IOT_ICONS = {
+                        temperature: 'fa-temperature-half', humidity: 'fa-droplet',
+                        weight: 'fa-weight-hanging', door: 'fa-door-open', gas: 'fa-wind',
+                        motion: 'fa-person-walking', vibration: 'fa-wave-square',
+                        water_flow: 'fa-faucet-drip', siren: 'fa-bell', relay: 'fa-toggle-on',
+                        smart_light: 'fa-lightbulb',
+                    };
+
+                    function stopAgentIotPanel() {
+                        if (agentIotTimer) { clearInterval(agentIotTimer); agentIotTimer = null; }
+                        document.getElementById('agent-iot-panel')?.remove();
+                    }
+
+                    function renderAgentIotPanel(devices) {
+                        const stage = document.querySelector('.visionai-video-stage');
+                        if (!stage) return;
+                        let panel = document.getElementById('agent-iot-panel');
+                        if (!devices || !devices.length) { panel?.remove(); return; }
+                        if (!panel) {
+                            panel = document.createElement('div');
+                            panel.id = 'agent-iot-panel';
+                            panel.className = 'position-absolute bottom-0 end-0 m-3';
+                            panel.style.cssText = 'z-index:6; background:rgba(10,12,20,.78); backdrop-filter:blur(4px);'
+                                + 'border:1px solid rgba(255,255,255,.14); border-radius:10px; padding:8px 10px;'
+                                + 'min-width:180px; max-width:240px; color:#fff; font-size:12px;';
+                            stage.appendChild(panel);
+                        }
+                        const rows = devices.map(d => {
+                            const icon = AGENT_IOT_ICONS[d.type] || 'fa-microchip';
+                            const alerting = d.spiking || d.state === 'high' || d.display === 'ON';
+                            const valueStyle = 'font-variant-numeric:tabular-nums; font-weight:700;'
+                                + (alerting ? 'color:#ff5d6c;' : 'color:#7ee787;');
+                            return '<div class="d-flex align-items-center justify-content-between gap-3 py-1">'
+                                + `<span class="text-truncate" style="opacity:.85;"><i class="fa-solid ${icon} me-2" style="width:14px;"></i>${escapeHtml(d.name)}</span>`
+                                + `<span style="${valueStyle}">${escapeHtml(d.display)}</span>`
+                                + '</div>';
+                        }).join('');
+                        panel.innerHTML = '<div class="d-flex align-items-center gap-2 mb-1" style="opacity:.7; font-size:10px; letter-spacing:.4px; text-transform:uppercase;">'
+                            + '<i class="fa-solid fa-tower-broadcast"></i> Connected IoT</div>' + rows;
+                    }
+
+                    async function refreshAgentIotPanel(agentId) {
+                        // Stage gone (SPA navigation) — self-stop.
+                        if (!document.querySelector('.visionai-video-stage')) { stopAgentIotPanel(); return; }
+                        try {
+                            const res = await api.get(`/api/v1/iot-gateway/agents/${encodeURIComponent(agentId)}/devices`);
+                            renderAgentIotPanel(res.devices || []);
+                        } catch { /* backend unreachable — keep last panel state */ }
+                    }
+
+                    function startAgentIotPanel(agentId) {
+                        stopAgentIotPanel();
+                        if (!agentId) return;
+                        refreshAgentIotPanel(agentId);
+                        agentIotTimer = setInterval(() => refreshAgentIotPanel(agentId), 3000);
+                    }
+
+                    /**
                      * Switch video to agent processed stream. Uses direct JPEG frames (no fMP4) so stream does not break.
                      */
                     async function openOverlayWsForAgent(agentId, agentName) {
                         closeOverlayWs();
                         clearOverlayCanvas();
                         selectedAgentId = agentId || null;
+                        startAgentIotPanel(agentId);
 
                         if (!agentId) return;
                         if (!api || !api.isAuthenticated || !api.isAuthenticated()) return;
@@ -1071,6 +1138,7 @@ import { api } from '../../core/api.js';
                         });
                         closeOverlayWs();
                         clearOverlayCanvas();
+                        stopAgentIotPanel();
                         selectedAgentId = null;
                         if (overlayBadge) overlayBadge.innerHTML = '<span class="fa-solid fa-eye me-1"></span>Live preview';
                         if (switchToCameraBtn) switchToCameraBtn.classList.add('d-none');

@@ -322,9 +322,11 @@ let wfEditorInitInFlight = false;
       object_count_agent: ['notification', 'alarm_notification', 'iot_action', 'report', 'vlm_agent'],
       person_behaviour_agent: ['notification', 'alarm_notification', 'iot_action', 'report', 'vlm_agent'],
       vlm_agent: ['notification', 'alarm_notification', 'iot_action', 'report', 'end'],
-      notification: ['end', 'report'],
-      alarm_notification: ['end', 'report'],
-      iot_action: ['end', 'report'],
+      // Output nodes can chain into each other (e.g. agent → iot_action → notification),
+      // so one detection can both trigger a device AND send an alert in sequence.
+      notification: ['iot_action', 'alarm_notification', 'report', 'end'],
+      alarm_notification: ['notification', 'iot_action', 'report', 'end'],
+      iot_action: ['notification', 'alarm_notification', 'vlm_agent', 'report', 'end'],
       report: ['end', 'notification', 'alarm_notification'],
       end: []
     };
@@ -435,7 +437,7 @@ let wfEditorInitInFlight = false;
         fields: [
           { key: 'agent_name', type: 'text', label: 'Agent Name', default: '' },
           { key: 'rule_id', type: 'select', label: 'Rule Type', options: ['class_count', 'box_count'], default: 'class_count' },
-          { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8n.pt','yolov8m.pt', 'box_detection.pt'], default: 'yolov8m.pt' },
+          { key: 'model_name', type: 'select', label: 'Model', options: ['yolov8n.pt', 'yolov8m.pt', 'yolov8s-world.pt', 'box_detection.pt'], default: 'yolov8m.pt' },
           { key: 'fps', type: 'number', label: 'FPS', default: 5 },
           { key: 'confidence_threshold', type: 'number', label: 'Confidence Threshold', default: 0.5 },
           { key: 'alert_cooldown_seconds', type: 'number', label: 'Alert Cooldown (seconds)', default: 10 },
@@ -706,6 +708,13 @@ let wfEditorInitInFlight = false;
         ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator blue"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Absence Threshold (minutes)</div><div class="lf-input-wrapper"><input type="number" class="lf-node-input w-100 form-control form-control-sm" data-field="absence_threshold_minutes" data-node-id="' + (nodeId || '') + '" value="' + absenceThreshold + '" step="1" min="1" max="1440" /></div></div></div></div>';
       }
 
+      // Open-vocabulary detection prompt for box_count (YOLO-World model).
+      // Default "box"; comma-separate for more (e.g. "box, carton, package").
+      if (ruleId === 'box_count') {
+        const worldPrompt = data.world_prompt || 'box';
+        ruleSpecificHtml += '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1"><div class="lf-field-label mb-1">Detection prompt</div><div class="lf-input-wrapper"><input type="text" class="lf-node-input w-100 form-control form-control-sm" data-field="world_prompt" data-node-id="' + (nodeId || '') + '" value="' + safe(worldPrompt) + '" placeholder="box (comma-separate for more)" /></div><div class="small text-muted" style="font-size:9.5px; margin-top:2px;">What the YOLO-World model should detect and count.</div></div></div></div>';
+      }
+
       let zoneHtml = '';
       if (needsZone) {
         zoneHtml = '<div class="d-flex align-items-start gap-2"><span class="lf-section-indicator cyan"></span><div class="flex-grow-1 min-w-0"><div class="mb-1">' +
@@ -725,7 +734,10 @@ let wfEditorInitInFlight = false;
       const nodeDef = NODE_DEFINITIONS[agentType];
       const modelField = nodeDef && nodeDef.fields ? nodeDef.fields.find(f => f.key === 'model_name') : null;
       const modelOptions = modelField && modelField.options ? modelField.options : ['yolov8n.pt', 'yolov8m.pt'];
-      const defaultModel = modelField && modelField.default ? modelField.default : 'yolov8m.pt';
+      // box_count runs on the open-vocabulary YOLO-World model by default.
+      const defaultModel = ruleId === 'box_count'
+        ? 'yolov8s-world.pt'
+        : (modelField && modelField.default ? modelField.default : 'yolov8m.pt');
       const currentModel = modelName || defaultModel;
 
       // Check if KB data is loaded (model from KB is read-only)
@@ -942,13 +954,20 @@ let wfEditorInitInFlight = false;
                   data-current-value="${safe(d.device_id)}">
             <option value="">Loading devices…</option>
           </select>
-          <div class="lf-field-label mb-1" style="font-size:9px;">Device action</div>
-          <select class="lf-node-input w-100 form-select form-select-sm iot-command-select mb-2" data-field="command" data-row="${i}" data-node-id="${nodeId || ''}">
-            <option value="ON" ${d.command !== 'OFF' ? 'selected' : ''}>ON</option>
-            <option value="OFF" ${d.command === 'OFF' ? 'selected' : ''}>OFF</option>
-          </select>
-          <div class="lf-field-label mb-1" style="font-size:9px;">Auto-reset time (seconds, 0 = none)</div>
-          <input type="number" class="lf-node-input w-100 form-control form-control-sm iot-reset-input" data-field="auto_reset_seconds" data-row="${i}" data-node-id="${nodeId || ''}" placeholder="0" value="${safe(d.auto_reset_seconds ?? 0)}" min="0" />
+          <div class="iot-actuator-fields">
+            <div class="lf-field-label mb-1" style="font-size:9px;">Device action</div>
+            <select class="lf-node-input w-100 form-select form-select-sm iot-command-select mb-2" data-field="command" data-row="${i}" data-node-id="${nodeId || ''}">
+              <option value="ON" ${d.command !== 'OFF' ? 'selected' : ''}>ON</option>
+              <option value="OFF" ${d.command === 'OFF' ? 'selected' : ''}>OFF</option>
+            </select>
+            <div class="lf-field-label mb-1" style="font-size:9px;">Auto-reset time (seconds, 0 = none)</div>
+            <input type="number" class="lf-node-input w-100 form-control form-control-sm iot-reset-input" data-field="auto_reset_seconds" data-row="${i}" data-node-id="${nodeId || ''}" placeholder="0" value="${safe(d.auto_reset_seconds ?? 0)}" min="0" />
+          </div>
+          <div class="iot-sensor-details" style="display:none;"></div>
+          <div class="d-flex align-items-center justify-content-between mt-2 px-1" style="font-size:9.5px;">
+            <span class="text-muted" style="letter-spacing:.4px;"><span style="color:#25b003;">&#9679;</span> LIVE</span>
+            <span class="iot-live-reading" style="font-weight:700; font-size:11px; font-variant-numeric: tabular-nums;">—</span>
+          </div>
         </div>
       `).join('');
 
@@ -987,18 +1006,72 @@ let wfEditorInitInFlight = false;
       `;
     }
 
+    // Device-type metadata (mirrors the IoT page catalog). Drives what each row
+    // shows: actuators get the ON/OFF action + auto-reset controls, sensors get
+    // a read-only details block — commanding a temperature sensor ON makes no sense.
+    const IOT_TYPE_META = {
+      temperature: { kind: 'sensor',   label: 'Temperature Sensor', unit: '°C',          icon: 'fa-temperature-half' },
+      humidity:    { kind: 'sensor',   label: 'Humidity Sensor',    unit: '%RH',         icon: 'fa-droplet' },
+      weight:      { kind: 'sensor',   label: 'Weight / Load Cell', unit: 'kg',          icon: 'fa-weight-hanging' },
+      door:        { kind: 'sensor',   label: 'Door / Reed Switch', unit: 'open/closed', icon: 'fa-door-open' },
+      gas:         { kind: 'sensor',   label: 'Gas / Air Quality',  unit: 'ppm',         icon: 'fa-wind' },
+      motion:      { kind: 'sensor',   label: 'Motion / PIR',       unit: '',            icon: 'fa-person-walking' },
+      vibration:   { kind: 'sensor',   label: 'Vibration Sensor',   unit: 'mm/s',        icon: 'fa-wave-square' },
+      water_flow:  { kind: 'sensor',   label: 'Water Flow Meter',   unit: 'L/min',       icon: 'fa-faucet-drip' },
+      siren:       { kind: 'actuator', label: 'Siren / Alarm',      unit: '',            icon: 'fa-bell' },
+      relay:       { kind: 'actuator', label: 'Smart Relay',        unit: '',            icon: 'fa-toggle-on' },
+      smart_light: { kind: 'actuator', label: 'Signal Light',       unit: '',            icon: 'fa-lightbulb' },
+    };
+    function iotTypeMeta(type) {
+      return IOT_TYPE_META[(type || '').toLowerCase()]
+        || { kind: 'sensor', label: type || 'Device', unit: '', icon: 'fa-microchip' };
+    }
+
+    // device_id -> type, filled from the backend device list; lets each row know
+    // what kind of device is selected without another request.
+    const iotDeviceTypeById = {};
+
     async function fetchIoTDeviceList() {
       try {
-        const res = await fetch('/api/v1/workflows/iot-devices', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('visionai_token') || ''}` }
-        });
-        if (!res.ok) return [];
-        const json = await res.json();
-        return json.devices || [];
+        // Use the api client — a relative fetch() would hit the app origin
+        // (port 3000), not the backend (port 8000), and always return 404,
+        // leaving the device picker permanently on "No devices registered".
+        const json = await api.get('/api/v1/workflows/iot-devices');
+        const devices = (json && json.devices) || [];
+        devices.forEach(d => { iotDeviceTypeById[d.device_id] = d.type || ''; });
+        return devices;
       } catch (e) {
         console.warn('[IoTAction] Could not fetch devices:', e);
         return [];
       }
+    }
+
+    // Switch each row's controls to match the selected device's kind.
+    function updateIoTRowModes(scopeEl) {
+      (scopeEl || document).querySelectorAll('.iot-device-row').forEach(row => {
+        const deviceId = row.querySelector('.iot-device-select')?.value || '';
+        const meta = iotTypeMeta(iotDeviceTypeById[deviceId]);
+        const actuatorFields = row.querySelector('.iot-actuator-fields');
+        const sensorDetails = row.querySelector('.iot-sensor-details');
+        if (!actuatorFields || !sensorDetails) return;
+        const isSensor = Boolean(deviceId) && meta.kind !== 'actuator';
+        actuatorFields.style.display = isSensor ? 'none' : '';
+        sensorDetails.style.display = isSensor ? '' : 'none';
+        if (isSensor) {
+          sensorDetails.innerHTML =
+            `<div style="background: var(--lf-input-bg); border:1px solid var(--wf-canvas-border); border-radius:8px; padding:6px 9px;">`
+            + `<div class="d-flex align-items-center justify-content-between gap-2">`
+            + `<span class="text-truncate" style="font-size:10.5px; font-weight:600;">${meta.label}</span>`
+            + `<span style="font-size:8px; letter-spacing:.5px; padding:2px 7px; border-radius:99px;`
+            + ` background:rgba(56,116,255,.14); color:#3874ff; font-weight:700; flex-shrink:0;">SENSOR</span>`
+            + `</div>`
+            + `<div class="text-muted" style="font-size:9.5px; margin-top:1px;">`
+            + (meta.unit ? `Unit ${meta.unit} · ` : '')
+            + `reacts to agent events`
+            + `</div>`
+            + `</div>`;
+        }
+      });
     }
 
     async function populateIoTDeviceRows(nodeId) {
@@ -1021,6 +1094,55 @@ let wfEditorInitInFlight = false;
           select.appendChild(opt);
         });
       });
+
+      updateIoTRowModes(nodeEl);
+      startIoTReadingsPoll();
+    }
+
+    // ── Live telemetry chips on IoT node rows ────────────────────────────────
+    // Polls the simulated readings API (~3s) and shows each connected device's
+    // current value on its row. Values come from ONE backend simulator, so the
+    // node, the IoT page, and the agent live view all agree.
+    let iotReadingsTimer = null;
+
+    async function refreshIoTNodeReadings() {
+      const rows = document.querySelectorAll('.iot-device-row');
+      if (!rows.length) return;
+      const deviceIds = [...new Set(
+        [...rows].map(r => r.querySelector('.iot-device-select')?.value).filter(Boolean)
+      )];
+      if (!deviceIds.length) return;
+      let readingsById = {};
+      try {
+        // api client, NOT a relative fetch — see fetchIoTDeviceList.
+        const json = await api.get(
+          `/api/v1/iot-gateway/readings?device_ids=${encodeURIComponent(deviceIds.join(','))}`
+        );
+        ((json && json.readings) || []).forEach(r => { readingsById[r.device_id] = r; });
+      } catch { return; /* backend unreachable — keep last shown values */ }
+      rows.forEach(row => {
+        const chip = row.querySelector('.iot-live-reading');
+        if (!chip) return;
+        const reading = readingsById[row.querySelector('.iot-device-select')?.value || ''];
+        if (!reading) { chip.textContent = '—'; chip.style.color = ''; return; }
+        chip.textContent = reading.display;
+        const alerting = reading.spiking || reading.state === 'high' || reading.display === 'ON';
+        chip.style.color = alerting ? '#e5183b' : '';
+      });
+    }
+
+    function startIoTReadingsPoll() {
+      if (iotReadingsTimer) return;
+      refreshIoTNodeReadings();
+      iotReadingsTimer = setInterval(() => {
+        // Editor left the DOM (SPA navigation) — stop polling.
+        if (!document.getElementById('drawflow')) {
+          clearInterval(iotReadingsTimer);
+          iotReadingsTimer = null;
+          return;
+        }
+        refreshIoTNodeReadings();
+      }, 3000);
     }
 
     function addIoTDeviceRow(nodeId) {
@@ -1041,13 +1163,20 @@ let wfEditorInitInFlight = false;
                   data-current-value="">
             <option value="">Loading devices…</option>
           </select>
-          <div class="lf-field-label mb-1" style="font-size:9px;">Device action</div>
-          <select class="lf-node-input w-100 form-select form-select-sm iot-command-select mb-2" data-field="command" data-row="${rowIndex}" data-node-id="${nodeId}">
-            <option value="ON" selected>ON</option>
-            <option value="OFF">OFF</option>
-          </select>
-          <div class="lf-field-label mb-1" style="font-size:9px;">Auto-reset time (seconds, 0 = none)</div>
-          <input type="number" class="lf-node-input w-100 form-control form-control-sm iot-reset-input" data-field="auto_reset_seconds" data-row="${rowIndex}" data-node-id="${nodeId}" placeholder="0" value="0" min="0" />
+          <div class="iot-actuator-fields">
+            <div class="lf-field-label mb-1" style="font-size:9px;">Device action</div>
+            <select class="lf-node-input w-100 form-select form-select-sm iot-command-select mb-2" data-field="command" data-row="${rowIndex}" data-node-id="${nodeId}">
+              <option value="ON" selected>ON</option>
+              <option value="OFF">OFF</option>
+            </select>
+            <div class="lf-field-label mb-1" style="font-size:9px;">Auto-reset time (seconds, 0 = none)</div>
+            <input type="number" class="lf-node-input w-100 form-control form-control-sm iot-reset-input" data-field="auto_reset_seconds" data-row="${rowIndex}" data-node-id="${nodeId}" placeholder="0" value="0" min="0" />
+          </div>
+          <div class="iot-sensor-details" style="display:none;"></div>
+          <div class="d-flex align-items-center justify-content-between mt-2 px-1" style="font-size:9.5px;">
+            <span class="text-muted" style="letter-spacing:.4px;"><span style="color:#25b003;">&#9679;</span> LIVE</span>
+            <span class="iot-live-reading" style="font-weight:700; font-size:11px; font-variant-numeric: tabular-nums;">—</span>
+          </div>
         </div>
       `;
       listEl.insertAdjacentHTML('beforeend', rowHtml);
@@ -1063,9 +1192,11 @@ let wfEditorInitInFlight = false;
           opt.textContent = `${d.name || d.device_id} (${d.type})`;
           newSelect.appendChild(opt);
         });
+        updateIoTRowModes(listEl);
       });
 
       syncIoTDevicesField(nodeId);
+      startIoTReadingsPoll();
     }
 
     function syncIoTDevicesField(nodeId) {
@@ -1108,6 +1239,11 @@ let wfEditorInitInFlight = false;
     function _iotChangeHandler(e) {
       const el = e.target;
       if (el.matches('.iot-device-select, .iot-command-select, .iot-reset-input')) {
+        // Picking a different device may change its kind — swap the row between
+        // actuator controls (ON/OFF + reset) and the sensor details block.
+        if (el.matches('.iot-device-select')) {
+          updateIoTRowModes(el.closest('.iot-device-row')?.parentElement || document);
+        }
         const nId = el.dataset.nodeId;
         if (nId) syncIoTDevicesField(nId);
       }

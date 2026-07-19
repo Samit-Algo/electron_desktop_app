@@ -1,5 +1,6 @@
 'use strict';
 import { toast } from '../../core/toast.js';
+import { api } from '../../core/api.js';
 
 // ── Device catalog (dummy) ───────────────────────────────────────────────────
 const CATALOG = [
@@ -27,6 +28,88 @@ function loadDevices() { try { return JSON.parse(localStorage.getItem(STORAGE_KE
 function saveDevices(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
 function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function uid() { return 'iot_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// ── Backend sync (backend Mongo is the source of truth; localStorage is a cache
+//    so the page still renders offline). Devices registered here appear in the
+//    workflow editor's IoT node dropdown and get simulated telemetry readings. ──
+function ownerUserId() { return (api.user && api.user.id) ? String(api.user.id) : ''; }
+
+async function registerDeviceBackend(device) {
+  await api.post('/api/v1/iot-gateway/devices/register', {
+    device_id: device.id,
+    name: device.name,
+    type: device.type,
+    protocol: device.protocol || 'MQTT',
+    ip: device.host || '',
+    owner_user_id: ownerUserId(),
+    metadata: {
+      unit: device.unit || '', port: device.port || '',
+      identifier: device.identifier || '', location: device.location || '',
+      kind: catalogFor(device.type).kind,
+    },
+  });
+}
+
+async function syncDevicesFromBackend() {
+  // Pull the backend list; heal any local-only devices by registering them.
+  const local = loadDevices();
+  let backend = [];
+  try {
+    const res = await api.get(`/api/v1/iot-gateway/devices?owner_user_id=${encodeURIComponent(ownerUserId())}`);
+    backend = res.devices || [];
+  } catch (e) {
+    console.warn('[IoT] backend device list unavailable, using local cache', e);
+    return local;
+  }
+  const backendIds = new Set(backend.map(d => d.device_id));
+  for (const device of local) {
+    if (!backendIds.has(device.id)) {
+      try { await registerDeviceBackend(device); backend.push({ device_id: device.id }); backendIds.add(device.id); }
+      catch (e) { console.warn('[IoT] migrate register failed', device.id, e); }
+    }
+  }
+  // Merge: backend is authoritative for existence; local keeps display extras.
+  const localById = Object.fromEntries(local.map(d => [d.id, d]));
+  const merged = backend.map(b => localById[b.device_id] || {
+    id: b.device_id, type: b.type || 'relay', name: b.name || b.device_id,
+    protocol: b.protocol || '', host: b.ip || '',
+    port: (b.metadata && b.metadata.port) || '', unit: (b.metadata && b.metadata.unit) || '',
+    identifier: (b.metadata && b.metadata.identifier) || '',
+    location: (b.metadata && b.metadata.location) || '',
+  });
+  saveDevices(merged);
+  return merged;
+}
+
+// ── Live readings (poll the simulator every 3 s; one source of truth) ────────
+let readingsTimer = null;
+
+async function refreshReadings() {
+  const ids = loadDevices().map(d => d.id);
+  if (!ids.length) return;
+  let readings = [];
+  try {
+    const res = await api.get(`/api/v1/iot-gateway/readings?device_ids=${encodeURIComponent(ids.join(','))}`);
+    readings = res.readings || [];
+  } catch { return; }
+  for (const reading of readings) {
+    const el = document.querySelector(`[data-iot-reading="${CSS.escape(reading.device_id)}"]`);
+    if (!el) continue;
+    el.textContent = reading.display;
+    el.classList.toggle('iot-reading-alert',
+      reading.spiking || reading.state === 'high' || reading.display === 'ON');
+  }
+}
+
+function startReadingsPoll() {
+  stopReadingsPoll();
+  refreshReadings();
+  readingsTimer = setInterval(refreshReadings, 3000);
+}
+
+function stopReadingsPoll() {
+  if (readingsTimer) { clearInterval(readingsTimer); readingsTimer = null; }
+}
 
 // ── Rendering ────────────────────────────────────────────────────────────────
 function renderCatalog() {
@@ -92,6 +175,12 @@ function renderConnected() {
           <div class="d-flex align-items-center justify-content-between mb-2">
             <span class="iot-status"><span class="dot"></span> Connected</span>
             <span class="iot-device-meta"><i class="fa-solid fa-diagram-project me-1"></i>${escapeHtml(d.protocol || '')}</span>
+          </div>
+          <div class="iot-reading-row d-flex align-items-center justify-content-between mb-2"
+               style="background:rgba(0,0,0,.04); border-radius:8px; padding:6px 10px;">
+            <span class="iot-device-meta"><i class="fa-solid fa-gauge-high me-1"></i>Reading</span>
+            <span class="iot-reading fw-bold" data-iot-reading="${escapeHtml(d.id)}"
+                  style="font-variant-numeric: tabular-nums;">—</span>
           </div>
           <div class="iot-device-endpoint" title="${escapeHtml(endpoint)}"><i class="fa-solid fa-link me-1"></i>${escapeHtml(endpoint)}</div>
           ${d.location ? `<div class="iot-device-meta mt-2"><i class="fa-solid fa-location-dot me-1"></i>${escapeHtml(d.location)}</div>` : ''}
@@ -167,13 +256,21 @@ function saveDevice() {
   renderConnected();
   const modal = getModal('iot-device-modal');
   if (modal) modal.hide();
-  try { toast.success(`${device.name} connected`); } catch { /* ignore */ }
+  // Register in the backend so the workflow dropdown sees it and readings flow.
+  registerDeviceBackend(device)
+    .then(() => { refreshReadings(); try { toast.success(`${device.name} connected`); } catch { /* ignore */ } })
+    .catch((e) => {
+      console.warn('[IoT] backend register failed', e);
+      try { toast.warning(`${device.name} saved locally (backend offline)`); } catch { /* ignore */ }
+    });
 }
 
 function removeDevice(id) {
   const list = loadDevices().filter(d => d.id !== id);
   saveDevices(list);
   renderConnected();
+  api.delete(`/api/v1/iot-gateway/devices/${encodeURIComponent(id)}`)
+    .catch((e) => console.warn('[IoT] backend remove failed', e));
   try { toast.info('Device removed'); } catch { /* ignore */ }
 }
 
@@ -268,8 +365,9 @@ function wire() {
     if (rmEl) { removeDevice(rmEl.getAttribute('data-iot-remove')); return; }
   });
 
-  // Clean up modals/backdrop on SPA navigation away
+  // Clean up modals/backdrop + readings poller on SPA navigation away
   window.__visionaiPageCleanup = function () {
+    stopReadingsPoll();
     Object.values(modalInstances).forEach(m => { try { m?.hide(); m?.dispose(); } catch { /* ignore */ } });
     Object.keys(modalInstances).forEach(k => delete modalInstances[k]);
     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
@@ -281,8 +379,15 @@ function wire() {
 
 export async function boot() {
   renderCatalog();
-  renderConnected();
+  renderConnected();          // instant paint from local cache
   wire();
+  try {
+    await syncDevicesFromBackend();   // backend is source of truth; heals local-only devices
+    renderConnected();
+  } catch (e) {
+    console.warn('[IoT] backend sync failed', e);
+  }
+  startReadingsPoll();
 }
 
 if (document.readyState === 'loading') {
